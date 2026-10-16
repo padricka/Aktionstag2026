@@ -76,7 +76,7 @@ function absenden() {
   flex: 1;
   min-height: 0;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -93,12 +93,7 @@ function absenden() {
   margin-bottom: 6px;
 }
 
-.title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0;
-}
+.title { font-size: 16px; font-weight: 700; color: var(--fg); margin: 0; }
 
 .role {
   font-size: 11px;
@@ -109,11 +104,7 @@ function absenden() {
   letter-spacing: 0.15em;
 }
 
-.hint {
-  font-size: 13px;
-  color: var(--fg-3);
-  margin: 0 0 24px 0;
-}
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
 .codes {
   flex: 1;
@@ -121,7 +112,7 @@ function absenden() {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 16px;
+  gap: 14px;
   padding: 8px 0;
 }
 
@@ -130,7 +121,7 @@ function absenden() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 14px;
   padding: 20px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
@@ -138,7 +129,7 @@ function absenden() {
 
 .code-value {
   font-family: var(--mono);
-  font-size: 72px;
+  font-size: 56px;
   font-weight: 700;
   color: var(--fg);
   letter-spacing: 0.05em;
@@ -153,25 +144,26 @@ function absenden() {
 }
 
 .foot {
-  padding-top: 24px;
+  padding-top: 20px;
   margin-top: 20px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
+/* Schmaler als vorher: 480px statt 720px */
 .input-big {
   width: 100%;
-  max-width: 720px;
-  padding: 16px;
+  max-width: 480px;
+  padding: 14px;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
-  font-size: 26px;
+  font-size: 22px;
   text-align: center;
   letter-spacing: 0.3em;
   font-weight: 700;
@@ -183,7 +175,7 @@ function absenden() {
 .input-big.ok  { border-color: var(--green-border); color: var(--green); }
 
 .btn-action {
-  padding: 14px 64px;
+  padding: 14px 56px;
   background: var(--green);
   color: #050a08;
   border: none;

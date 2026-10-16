@@ -5,14 +5,13 @@
       <h3 class="section-title">// MASTER_AUTHENTICATION</h3>
       <p class="section-subtitle">Game ID zur Überwachung eingeben:</p>
 
-        <button
-          class="btn-connect"
-          :disabled="!gameId.trim()"
-          @click="handleJoin"
-        >
-          Verbinden
-        </button>
-      </div>
+      <button
+        class="btn-connect"
+        :disabled="!gameId.trim()"
+        @click="handleJoin"
+      >
+        Verbinden
+      </button>
     </div>
 
     <template v-else>
@@ -65,10 +64,7 @@ import { useGameSocket } from '../composables/useGameSocket.js'
 import Task1Master from './tasks/task1/Task1Master.vue'
 import Task2Master from './tasks/task2/Task2Master.vue'
 import Task3Master from './tasks/task3/Task3Master.vue'
-<<<<<<< HEAD
-=======
 import GameOver from './GameOver.vue'
->>>>>>> 72774e0 (Fertigstellung, Redesign und Testanpassung)
 
 defineProps({ currentTab: { type: String, default: 'init' } })
 
@@ -141,7 +137,7 @@ function handleJoin() {
 </script>
 
 <style scoped>
-.master {
+.master-container {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -149,64 +145,32 @@ function handleJoin() {
   overflow: hidden;
 }
 
-/* Verbinden */
-.connect {
+.auth-section {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
 }
 
-.connect-card {
-  width: 100%;
-  max-width: 380px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.connect-title {
+.section-title {
   font-family: var(--mono);
   font-size: 18px;
   font-weight: 700;
   color: var(--fg);
-  margin: 0;
-  letter-spacing: 0.05em;
+  margin: 0 0 8px 0;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field-label {
+.section-subtitle {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   color: var(--fg-3);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  margin: 0 0 20px 0;
 }
-
-.input {
-  width: 100%;
-  padding: 12px 14px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-  font-size: 14px;
-  outline: none;
-}
-
-.input:focus { border-color: var(--green-border); }
 
 .btn-connect {
-  padding: 14px;
+  padding: 14px 48px;
   background: var(--green);
   color: #050a08;
   border: none;
@@ -218,13 +182,8 @@ function handleJoin() {
 }
 
 .btn-connect:hover:not(:disabled) { background: #4dff8f; }
+.btn-connect:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.btn-connect:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Bar */
 .master-bar {
   flex-shrink: 0;
   display: flex;
@@ -247,7 +206,6 @@ function handleJoin() {
   letter-spacing: 0.15em;
 }
 
-/* Tabs */
 .tabs {
   flex-shrink: 0;
   display: flex;
@@ -278,7 +236,6 @@ function handleJoin() {
   border-bottom-color: var(--green);
 }
 
-/* Main */
 .master-main {
   flex: 1;
   min-height: 0;
@@ -292,7 +249,6 @@ function handleJoin() {
   min-height: 100%;
 }
 
-/* Manual */
 .manual {
   max-width: 640px;
   display: flex;

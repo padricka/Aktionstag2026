@@ -8,7 +8,6 @@
     <p class="hint">Frage den Master nach der Reihenfolge der Ventil- und Farb-Kombinationen.</p>
 
     <div class="body">
-      <!-- Fortschritt -->
       <aside class="progress">
         <span class="panel-label">Fortschritt</span>
         <div class="pips">
@@ -22,7 +21,6 @@
         <span class="count">{{ step }} / {{ sequenceLen }}</span>
       </aside>
 
-      <!-- Eingabe ODER Ergebnis -->
       <section class="panel">
         <template v-if="!p1Done">
           <span class="panel-label">Nächster Schritt</span>
@@ -67,7 +65,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 
 const props = defineProps({
   valves:       { type: Array,  default: () => ['V-31', 'V-32', 'V-33'] },
@@ -77,6 +75,7 @@ const props = defineProps({
   lastFragment: { type: String, default: null },
   p1Done:       { type: Boolean, default: false },
   serverError:  { type: String, default: '' },
+  inputResultNonce: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['solved'])
@@ -84,17 +83,38 @@ const emit = defineEmits(['solved'])
 const selectedValve = ref('')
 const selectedColor = ref('')
 const busy = ref(false)
+let busyTimer = null
 
+function releaseBusy() {
+  busy.value = false
+  if (busyTimer) { clearTimeout(busyTimer); busyTimer = null }
+}
+
+// Server hat geantwortet (correct / wrong / ignored) → Button sofort freigeben
+watch(() => props.inputResultNonce, () => {
+  releaseBusy()
+})
+
+// Neuer Schritt kommt → Auswahl zurücksetzen
 watch(() => props.step, () => {
   selectedValve.value = ''
   selectedColor.value = ''
-  busy.value = false
+  releaseBusy()
 })
+
+// P1 fertig → Busy weg
+watch(() => props.p1Done, () => releaseBusy())
+
+onUnmounted(() => { if (busyTimer) clearTimeout(busyTimer) })
 
 function submitStep() {
   if (!selectedValve.value || !selectedColor.value || busy.value) return
   busy.value = true
   emit('solved', { valve: selectedValve.value, color: selectedColor.value })
+
+  // Fallback falls Server gar nicht antwortet
+  if (busyTimer) clearTimeout(busyTimer)
+  busyTimer = setTimeout(() => { busy.value = false }, 2000)
 }
 </script>
 
@@ -103,7 +123,7 @@ function submitStep() {
   flex: 1;
   min-height: 0;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -120,12 +140,7 @@ function submitStep() {
   margin-bottom: 6px;
 }
 
-.title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0;
-}
+.title { font-size: 16px; font-weight: 700; color: var(--fg); margin: 0; }
 
 .role {
   font-size: 11px;
@@ -136,25 +151,21 @@ function submitStep() {
   letter-spacing: 0.15em;
 }
 
-.hint {
-  font-size: 13px;
-  color: var(--fg-3);
-  margin: 0 0 24px 0;
-}
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
 .body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 24px;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
 }
 
 .progress {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 28px;
+  gap: 16px;
+  padding: 24px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
   justify-content: center;
@@ -168,31 +179,21 @@ function submitStep() {
   font-weight: 600;
 }
 
-.pips {
-  display: flex;
-  gap: 12px;
-}
+.pips { display: flex; gap: 10px; }
 
 .pip {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   border: 2px solid var(--border-3);
 }
 
-.pip.done {
-  background: var(--green);
-  border-color: var(--green);
-}
-
-.pip.current {
-  border-color: var(--green);
-  box-shadow: 0 0 0 5px var(--green-bg);
-}
+.pip.done { background: var(--green); border-color: var(--green); }
+.pip.current { border-color: var(--green); box-shadow: 0 0 0 5px var(--green-bg); }
 
 .count {
   font-family: var(--mono);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--fg);
   letter-spacing: 0.1em;
@@ -202,7 +203,7 @@ function submitStep() {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 28px;
+  padding: 24px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
   justify-content: center;
@@ -211,14 +212,11 @@ function submitStep() {
 .inputs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 16px;
+  max-width: 560px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.field { display: flex; flex-direction: column; gap: 6px; }
 
 .field-label {
   font-size: 11px;
@@ -229,12 +227,12 @@ function submitStep() {
 }
 
 .select {
-  padding: 18px;
+  padding: 14px;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   outline: none;
   letter-spacing: 0.05em;
@@ -247,14 +245,16 @@ function submitStep() {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 20px;
+  padding: 24px;
   background: var(--green-bg);
   border: 1px solid var(--green-border);
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 .result-value {
   font-family: var(--mono);
-  font-size: 56px;
+  font-size: 48px;
   font-weight: 700;
   color: var(--green);
   margin: 0;
@@ -262,12 +262,7 @@ function submitStep() {
   line-height: 1;
 }
 
-.result-hint {
-  font-size: 12px;
-  color: var(--fg-3);
-  margin: 0;
-  letter-spacing: 0.05em;
-}
+.result-hint { font-size: 12px; color: var(--fg-3); margin: 0; }
 
 .foot {
   padding-top: 20px;
@@ -281,7 +276,7 @@ function submitStep() {
 }
 
 .btn-action {
-  padding: 14px 64px;
+  padding: 14px 56px;
   background: var(--green);
   color: #050a08;
   border: none;
@@ -296,9 +291,5 @@ function submitStep() {
 .btn-action:hover:not(:disabled) { background: #4dff8f; }
 .btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.msg-err {
-  font-size: 12px;
-  color: var(--red);
-  margin: 0;
-}
+.msg-err { font-size: 12px; color: var(--red); margin: 0; }
 </style>

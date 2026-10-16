@@ -62,6 +62,11 @@ const sichtbareTeile = computed(() => {
 
 watch(() => props.p2Done, (v) => { if (!v) enteredPassword.value = '' })
 
+// Nach falscher Eingabe: Server-Fehler → Feld leeren, Retry erlauben
+watch(() => props.serverError, (e) => {
+  if (e) enteredPassword.value = ''
+})
+
 function verifyPassword() {
   if (!enteredPassword.value.trim() || props.p2Done) return
   emit('solved', { password: enteredPassword.value.trim() })
@@ -73,7 +78,7 @@ function verifyPassword() {
   flex: 1;
   min-height: 0;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -90,12 +95,7 @@ function verifyPassword() {
   margin-bottom: 6px;
 }
 
-.title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0;
-}
+.title { font-size: 16px; font-weight: 700; color: var(--fg); margin: 0; }
 
 .role {
   font-size: 11px;
@@ -106,18 +106,14 @@ function verifyPassword() {
   letter-spacing: 0.15em;
 }
 
-.hint {
-  font-size: 13px;
-  color: var(--fg-3);
-  margin: 0 0 24px 0;
-}
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 20px 0; }
 
 .frags {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 18px;
   padding: 8px 0;
 }
 
@@ -126,16 +122,13 @@ function verifyPassword() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 32px 24px;
+  gap: 14px;
+  padding: 28px 20px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
 }
 
-.frag.missing {
-  border-style: dashed;
-  opacity: 0.55;
-}
+.frag.missing { border-style: dashed; opacity: 0.55; }
 
 .frag-idx {
   font-size: 12px;
@@ -147,7 +140,7 @@ function verifyPassword() {
 
 .frag-value {
   font-family: var(--mono);
-  font-size: 52px;
+  font-size: 44px;
   font-weight: 700;
   color: var(--fg);
   letter-spacing: 0.1em;
@@ -155,7 +148,7 @@ function verifyPassword() {
 }
 
 .frag.missing .frag-value {
-  font-size: 32px;
+  font-size: 28px;
   color: var(--fg-3);
   font-weight: 400;
 }
@@ -167,30 +160,29 @@ function verifyPassword() {
   text-transform: uppercase;
 }
 
-.frag.missing .frag-state {
-  color: var(--fg-3);
-}
+.frag.missing .frag-state { color: var(--fg-3); }
 
 .foot {
-  padding-top: 24px;
+  padding-top: 20px;
   margin-top: 20px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
+/* Schmaler als vorher: 480px statt 720px */
 .input-pw {
   width: 100%;
-  max-width: 720px;
-  padding: 16px;
+  max-width: 480px;
+  padding: 14px;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
-  font-size: 22px;
+  font-size: 20px;
   text-align: center;
   letter-spacing: 0.25em;
   font-weight: 700;
@@ -200,7 +192,7 @@ function verifyPassword() {
 .input-pw:focus { border-color: var(--green-border); }
 
 .btn-action {
-  padding: 14px 64px;
+  padding: 14px 56px;
   background: var(--green);
   color: #050a08;
   border: none;

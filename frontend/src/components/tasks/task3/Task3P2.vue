@@ -1,34 +1,36 @@
 <template>
   <div class="task">
     <header class="head">
-      <span class="title">Binär umwandeln</span>
+      <h2 class="title">Binär-Code umwandeln</h2>
       <span class="role">P2</span>
     </header>
 
-    <p class="hint dim">Binär in Dezimal, mit Leerzeichen trennen</p>
+    <p class="hint">Wandle die Binärzahlen in Dezimal um, mit Leerzeichen getrennt.</p>
 
     <div class="codes">
-      <div v-for="(b, i) in binaryCodes" :key="i" class="code">{{ b }}</div>
+      <div v-for="(b, i) in binaryCodes" :key="i" class="code">
+        <span class="code-value">{{ b }}</span>
+        <span class="code-label">Code {{ i + 1 }}</span>
+      </div>
     </div>
 
     <div class="foot">
       <input
         v-model="eingabe"
-        class="input big"
+        class="input-big"
         :class="inputClass"
         placeholder="Z.B. 65 66"
         :disabled="isSolved"
         @keyup.enter="absenden"
       />
       <button
-        class="btn btn-primary"
+        class="btn-action"
         :disabled="!eingabe.trim() || isSolved"
         @click="absenden"
       >
-        {{ isSolved ? 'OK' : 'Prüfen' }}
+        {{ isSolved ? 'Akzeptiert' : 'Antwort prüfen' }}
       </button>
-
-      <p v-if="ergebnis === 'wrong'" class="msg err">Falsch</p>
+      <p v-if="ergebnis === 'wrong'" class="msg-err">Falsche Antwort</p>
     </div>
   </div>
 </template>
@@ -73,87 +75,118 @@ function absenden() {
 .task {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   background: var(--bg-1);
   border: 1px solid var(--border);
-  padding: 18px;
-  max-width: 560px;
-  margin: 0 auto;
-  width: 100%;
+  padding: 28px 36px;
+  overflow: hidden;
 }
 
 .head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  justify-content: space-between;
+  margin-bottom: 6px;
 }
 
-.title { font-size: 14px; font-weight: 600; }
+.title { font-size: 16px; font-weight: 700; color: var(--fg); margin: 0; }
 
 .role {
   font-size: 11px;
+  font-weight: 600;
   color: var(--green);
-  padding: 2px 7px;
+  padding: 4px 12px;
   border: 1px solid var(--green-border);
+  letter-spacing: 0.15em;
 }
 
-.hint { font-size: 12px; margin: 0 0 20px 0; }
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
 .codes {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  min-height: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 14px;
+  padding: 8px 0;
 }
 
 .code {
-  min-width: 90px;
-  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
-  text-align: center;
-  font-size: 15px;
-  font-weight: 600;
+}
+
+.code-value {
+  font-family: var(--mono);
+  font-size: 34px;
+  font-weight: 700;
   color: var(--fg);
   letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.code-label {
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .foot {
-  flex-shrink: 0;
-  padding-top: 14px;
+  padding-top: 20px;
+  margin-top: 20px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.big {
-  padding: 12px;
-  font-size: 16px;
+.input-big {
+  width: 100%;
+  max-width: 480px;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+  font-size: 22px;
   text-align: center;
-  letter-spacing: 0.12em;
-  font-weight: 600;
+  letter-spacing: 0.3em;
+  font-weight: 700;
+  outline: none;
 }
 
-.big.err { border-color: var(--red); color: var(--red); }
-.big.ok  { border-color: var(--green-border); color: var(--green); }
+.input-big:focus { border-color: var(--green-border); }
+.input-big.err { border-color: var(--red); color: var(--red); }
+.input-big.ok  { border-color: var(--green-border); color: var(--green); }
 
-.foot .btn {
-  padding: 11px;
-  font-size: 13px;
-  font-weight: 600;
+.btn-action {
+  padding: 14px 56px;
+  background: var(--green);
+  color: #050a08;
+  border: none;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  cursor: pointer;
 }
 
-.msg {
-  font-size: 12px;
-  text-align: center;
-  margin: 0;
-}
+.btn-action:hover:not(:disabled) { background: #4dff8f; }
+.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.msg.err { color: var(--red); }
+.msg-err { font-size: 12px; color: var(--red); margin: 0; }
 </style>

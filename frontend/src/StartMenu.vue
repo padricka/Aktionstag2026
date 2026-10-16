@@ -27,13 +27,13 @@
 
           <div class="actions">
             <button
-              class="btn btn-primary btn-start"
+              class="btn btn-primary"
               :disabled="!name.trim()"
               @click="starten('player')"
             >
               Als Spieler
             </button>
-            <button class="btn btn-host" @click="starten('host')">
+            <button class="btn-host" @click="starten('host')">
               Als Host
             </button>
           </div>
@@ -41,7 +41,7 @@
       </div>
 
       <div class="bottom">
-        <span class="dim version">v1.0</span>
+        <span class="version">v1.0</span>
       </div>
     </div>
   </div>
@@ -92,7 +92,7 @@ function openSettings() {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: var(--space-5) 60px;
+  padding: 40px 60px;
   background: linear-gradient(
     180deg,
     rgba(10, 15, 12, 0.75) 0%,
@@ -130,7 +130,7 @@ function openSettings() {
 
 .title {
   font-family: var(--mono);
-  font-size: 96px;
+  font-size: 72px;
   font-weight: 700;
   color: #fff;
   margin: 0;
@@ -140,20 +140,102 @@ function openSettings() {
 
 .sub {
   font-family: var(--sans);
-  font-size: 22px;
+  font-size: 20px;
   color: var(--green);
-  margin: 0 0 var(--space-4) 0;
+  margin: 0 0 28px 0;
   letter-spacing: 0.02em;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 16px;
   width: 100%;
-  max-width: 1500px;
-  height: auto;
-  display: block;
-  opacity: 0.95;
+  max-width: 420px;
+}
+
+/* ---- HIER WAR DER FEHLENDE BLOCK ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+  font-size: 15px;
+  outline: none;
+}
+
+.input:focus { border-color: var(--green-border); }
+
+.actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+}
+
+.btn-primary {
+  padding: 14px;
+  background: var(--green);
+  color: #050a08;
+  border: none;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover:not(:disabled) { background: #4dff8f; }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-host {
+  padding: 14px;
+  background: transparent;
+  color: var(--fg-2);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+}
+
+.btn-host:hover {
+  color: var(--green);
+  border-color: var(--green-border);
+}
+
+.bottom {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.version {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 800px) {
+  .title { font-size: 48px; }
+  .sub { font-size: 16px; }
+  .overlay { padding: 24px; }
 }
 </style>

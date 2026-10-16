@@ -141,6 +141,7 @@
           :p2-done="task2P2Done"
           :ascii-codes="task3Ascii"
           :binary-codes="task3Binary"
+          :input-result-nonce="inputResultNonce"
           :server-error="lastError"
           @solved="onTaskSolved"
           @task-failed="onTaskFailed"
@@ -199,6 +200,7 @@ const starting = ref(false)
 const startError = ref('')
 
 const restarting = ref(false)
+const inputResultNonce = ref(0)   // ← wird bei jedem Server-input_result inkrementiert
 
 const allRoles = ALL_ROLES
 
@@ -287,7 +289,6 @@ const handleServerMessage = (msg) => {
     const newPlayers = payload.players ?? []
     const stillInLobby = newPlayers.some(p => p.name === (props.playerName || 'Agent'))
 
-    // Lobby wurde zurückgesetzt (Spieler nicht mehr drin) → zurück zu Phase 1
     if (connected.value && myRole.value && !stillInLobby && newPlayers.length === 0) {
       myRole.value = null
       connected.value = false
@@ -334,6 +335,8 @@ const handleServerMessage = (msg) => {
   }
 
   if (event === 'input_result') {
+    // Nonce hochziehen → Task-Komponenten geben "busy" frei
+    inputResultNonce.value++
     if (payload.result === 'wrong') {
       lastError.value = 'Falsche Eingabe'
       if (typeof payload.health === 'number') hp.value = payload.health
@@ -408,10 +411,8 @@ function handleRestart() {
   if (restarting.value) return
   restarting.value = true
 
-  // Reset-Befehl an aktuellen Socket senden
   sendEvent('reset_game', {})
 
-  // Nach kurzer Pause neu verbinden (frische Lobby + Registrierung)
   setTimeout(() => {
     disconnect()
 
@@ -425,8 +426,8 @@ function handleRestart() {
     hp.value = MAX_HP
     timeLeft.value = 300
     lastError.value = ''
+    inputResultNonce.value = 0
 
-    // Neu verbinden und registrieren
     connect(`${WS_BASE}${gameId.value}/`, handleServerMessage, () => {
       sendEvent('player_register', { player_name: props.playerName || 'Agent' })
       restarting.value = false
@@ -509,11 +510,7 @@ function onTaskSolved(data) {
   letter-spacing: 0.05em;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.field { display: flex; flex-direction: column; gap: 6px; }
 
 .field-label {
   font-family: var(--mono);
@@ -765,7 +762,6 @@ function onTaskSolved(data) {
   letter-spacing: 0.1em;
 }
 
-/* Start-Button + Fehler */
 .start-btn {
   margin-top: 16px;
   padding: 16px 64px;
@@ -796,7 +792,6 @@ function onTaskSolved(data) {
   letter-spacing: 0.05em;
 }
 
-/* Phase 4: Task */
 .task-main {
   flex: 1;
   min-height: 0;
