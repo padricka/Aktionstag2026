@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import StartMenu from './StartMenu.vue'
 import HostScreen from './components/HostScreen.vue'
 import PlayerScreen from './components/PlayerScreen.vue'
@@ -45,6 +45,57 @@ const gestartet = ref(false)
 const role = ref(null)
 const playerName = ref('')
 const showStartMenuSettings = ref(false)
+
+// Init Theme on Load (in case settings screen isn't opened first)
+onMounted(() => {
+  const saved = localStorage.getItem('drv_game_settings')
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved)
+      if (parsed.theme) {
+        document.documentElement.classList.remove('theme-light', 'theme-girl', 'theme-dark')
+        document.documentElement.classList.add(`theme-${parsed.theme}`)
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // Sparkle Mouse Trail Logic
+  window.addEventListener('mousemove', handleMouseMove)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', handleMouseMove)
+})
+
+let lastSparkleTime = 0
+function handleMouseMove(e) {
+  // Only apply sparkle effect in Girl Mode
+  if (!document.documentElement.classList.contains('theme-girl')) return
+
+  const now = Date.now()
+  // Limit creation rate to ~20 sparkles per second (50ms interval)
+  if (now - lastSparkleTime < 50) return
+  lastSparkleTime = now
+
+  const sparkle = document.createElement('div')
+  sparkle.className = 'sparkle'
+  sparkle.style.left = `${e.clientX}px`
+  sparkle.style.top = `${e.clientY}px`
+
+  // Randomize scale/rotation slightly for better effect
+  const scale = 0.5 + Math.random() * 1.0
+  const rotation = Math.random() * 360
+  sparkle.style.transform = `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`
+
+  document.body.appendChild(sparkle)
+
+  // Remove the element after animation completes (600ms)
+  setTimeout(() => {
+    if (document.body.contains(sparkle)) {
+      document.body.removeChild(sparkle)
+    }
+  }, 600)
+}
 
 function onStart(daten) {
   gestartet.value = true

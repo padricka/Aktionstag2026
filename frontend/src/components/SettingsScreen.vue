@@ -10,6 +10,35 @@
 
       <div class="setting">
         <div class="setting-info">
+          <span class="setting-name">Thema</span>
+        </div>
+        <div class="theme-actions">
+          <button
+            class="btn"
+            :class="{ active: settings.theme === 'dark' }"
+            @click="settings.theme = 'dark'; applyTheme()"
+          >
+            Dark Mode
+          </button>
+          <button
+            class="btn"
+            :class="{ active: settings.theme === 'light' }"
+            @click="settings.theme = 'light'; applyTheme()"
+          >
+            Light Mode
+          </button>
+          <button
+            class="btn"
+            :class="{ active: settings.theme === 'girl' }"
+            @click="settings.theme = 'girl'; applyTheme()"
+          >
+            Girl Mode
+          </button>
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="setting-info">
           <span class="setting-name">Helligkeit</span>
           <span class="setting-value mono">{{ settings.brightness }} %</span>
         </div>
@@ -110,7 +139,8 @@ const DEFAULT_SETTINGS = {
   masterVolume: 80,
   musicEnabled: true,
   musicVolume: 60,
-  sfxEnabled: true
+  sfxEnabled: true,
+  theme: 'dark'
 }
 
 const settings = reactive({ ...DEFAULT_SETTINGS })
@@ -121,15 +151,28 @@ onMounted(() => {
     try { Object.assign(settings, JSON.parse(saved)) } catch (e) { /* ignore */ }
   }
   applyBrightness()
+  applyTheme()
 })
 
 function applyBrightness() {
   document.documentElement.style.filter = `brightness(${settings.brightness}%)`
 }
 
+function applyTheme() {
+  document.documentElement.classList.remove('theme-light', 'theme-girl', 'theme-dark')
+  if (settings.theme === 'light') {
+    document.documentElement.classList.add('theme-light')
+  } else if (settings.theme === 'girl') {
+    document.documentElement.classList.add('theme-girl')
+  } else {
+    document.documentElement.classList.add('theme-dark')
+  }
+}
+
 function saveAndClose() {
   localStorage.setItem('drv_game_settings', JSON.stringify(settings))
   applyBrightness()
+  applyTheme()
   emit('save')
 }
 
@@ -137,6 +180,7 @@ function resetToDefaults() {
   Object.assign(settings, DEFAULT_SETTINGS)
   localStorage.setItem('drv_game_settings', JSON.stringify(DEFAULT_SETTINGS))
   applyBrightness()
+  applyTheme()
 }
 </script>
 
@@ -232,6 +276,12 @@ function resetToDefaults() {
   border-color: var(--green-border);
   color: var(--green);
   background: var(--green-bg);
+}
+
+.theme-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .settings-actions {
