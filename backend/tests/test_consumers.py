@@ -34,6 +34,11 @@ from backend.GameConsumer import GameConsumer
 WEBSOCKET_TEST_PFAD = "/ws/game/"
 
 
+# TRIAGE (siehe TRIAGE.md): Fundament-Tests 5-7 im alten Protokoll ({"action": "ping"} ->
+# {"type": "pong"}) und ohne Route (url_route fehlt). Ersetzt durch test_gameConsumer.py,
+# das connect, ping/pong und kaputtes JSON im JSON-Vertrag (event + payload) abdeckt.
+pytestmark = pytest.mark.skip(reason="veraltet: altes Protokoll action/type, ersetzt durch test_gameConsumer.py (TRIAGE.md)")
+
 # @pytest.mark.asyncio ist optional, wenn in pytest.ini steht: asyncio_mode = auto
 # Wir lassen den Marker dran als Fallback (falls die ini-Datei fehlt/anders heißt).
 @pytest.mark.asyncio

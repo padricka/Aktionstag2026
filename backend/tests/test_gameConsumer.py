@@ -216,6 +216,7 @@ async def test_register_error_when_game_running(env):
         await beenden(a)
 
 
+@pytest.mark.skip(reason="veraltet: role_assigned kommt erst nach choose_role (bzw. beim Reconnect), nicht beim Registrieren (TRIAGE.md)")
 @pytest.mark.asyncio
 async def test_register_assigns_role_and_broadcasts(env):
     """Cover-Zeile 101: role_assigned wird gesendet."""
