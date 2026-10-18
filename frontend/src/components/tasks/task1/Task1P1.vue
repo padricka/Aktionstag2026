@@ -14,6 +14,8 @@
         class="symbol"
         :class="{ active: auswahl === s }"
         :disabled="abgesendet"
+        :aria-label="`Symbol: ${s}`"
+        :aria-pressed="auswahl === s"
         @click="auswahl = s"
       >
         <SymbolIcon :name="s" :farbe="auswahl === s ? '#050a08' : '#ffffff'" :size="120" />

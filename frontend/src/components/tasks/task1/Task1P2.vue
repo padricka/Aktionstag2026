@@ -25,6 +25,7 @@
         :key="s"
         class="key"
         :disabled="geloest || eingabe.length >= codeLength"
+        :aria-label="`Symbol: ${s}`"
         @click="tippen(s)"
       >
         <SymbolIcon :name="s" :size="64" />
