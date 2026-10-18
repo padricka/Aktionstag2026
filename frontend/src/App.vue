@@ -1,19 +1,9 @@
 <template>
   <div class="app">
 
-    <!-- OVERLAY / MODAL SETTINGS -->
-    <div v-if="showStartMenuSettings" class="settings-overlay">
-      <div class="settings-modal-wrapper">
-        <button class="close-btn" @click="showStartMenuSettings = false">
-          [ X ] CLOSE_SETTINGS
-        </button>
-        <SettingsScreen @save="showStartMenuSettings = false" />
-      </div>
-    </div>
-
     <!-- Startmenü -->
     <StartMenu
-      v-else-if="!gestartet"
+      v-if="!gestartet"
       @spiel-starten="onStart"
       @open-settings="showStartMenuSettings = true"
     />
@@ -30,6 +20,16 @@
       :player-name="playerName"
       @exit="zurueck"
     />
+
+    <!-- Einstellungen über dem Startmenü (nicht v-else — sonst verschwindet der Menüpunkt) -->
+    <div v-if="showStartMenuSettings" class="settings-overlay">
+      <div class="settings-modal-wrapper">
+        <button class="close-btn" @click="showStartMenuSettings = false">
+          Schließen
+        </button>
+        <SettingsScreen @save="showStartMenuSettings = false" />
+      </div>
+    </div>
 
   </div>
 </template>

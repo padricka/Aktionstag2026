@@ -6,7 +6,9 @@
 
     <div class="overlay">
       <div class="top">
-        <button class="settings-link" @click="openSettings">Einstellungen</button>
+        <button type="button" class="settings-link" @click="openSettings">
+          Einstellungen
+        </button>
       </div>
 
       <div class="content">
@@ -107,18 +109,24 @@ function openSettings() {
 }
 
 .settings-link {
-  background: none;
-  border: none;
-  color: var(--fg-3);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
+  background: rgba(5, 10, 8, 0.75);
+  border: 1px solid var(--green-border);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  padding: 6px 4px;
-  letter-spacing: 0.05em;
-  transition: color 0.15s;
+  padding: 10px 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.settings-link:hover { color: var(--green); }
+.settings-link:hover {
+  background: var(--green-bg);
+  border-color: var(--green);
+  color: #fff;
+}
 
 .content {
   display: flex;
