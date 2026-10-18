@@ -8,9 +8,14 @@ from .playableObject import TASK_TYPES, Outcome
 
 HEALTH_BONUS = 15
 MISTAKE_DAMAGE = 60
-TOTAL_TASKS = 3
+TOTAL_TASKS = 4
 
-ROTATION = ["alarm", "fire_protocol", "data_rescue"]
+# Drei Rätsel, dann das Finale (GAME_DESIGN.md).
+ROTATION = ["alarm", "fire_protocol", "data_rescue", "reboot"]
+
+# Welche Ziffer des Neustart-Codes eine gelöste Aufgabe aufdeckt.
+REWARD_SLOT = {"alarm": 0, "fire_protocol": 1, "data_rescue": 2}
+REBOOT_CODE_LEN = 3
 
 # Score-Multiplikator je nach Aufgabe.
 # Score pro gelöster Aufgabe = Restzeit in Sekunden × Multiplikator
@@ -18,6 +23,7 @@ TASK_MULTIPLIER = {
     "alarm": 1,
     "fire_protocol": 2,
     "data_rescue": 3,
+    "reboot": 4,
 }
 
 
@@ -54,6 +60,29 @@ class DataCenter:
         return int(val) if val else 0
 
     @property
+    def reboot_code(self) -> list[int]:
+        raw = self.redis.r.hget(self._key, "reboot_code")
+        return json.loads(raw) if raw else []
+
+    def _reboot_digits(self, state: dict) -> list[int | None]:
+        """Neustart-Code für den Beamer: nur die bereits aufgedeckten Ziffern."""
+        code = json.loads(state["reboot_code"]) if state.get("reboot_code") else []
+        revealed = json.loads(state["reboot_revealed"]) if state.get("reboot_revealed") else []
+        return [
+            code[i] if i in revealed and i < len(code) else None
+            for i in range(REBOOT_CODE_LEN)
+        ]
+
+    def _reveal_digit(self, kind: str) -> None:
+        slot = REWARD_SLOT.get(kind)
+        if slot is None:
+            return
+        raw = self.redis.r.hget(self._key, "reboot_revealed")
+        revealed = json.loads(raw) if raw else []
+        if slot not in revealed:
+            self.redis.r.hset(self._key, "reboot_revealed", json.dumps(sorted(revealed + [slot])))
+
+    @property
     def time_left(self) -> int:
         val = self.redis.r.hget(self._key, "time_left")
         return int(val) if val else 0
@@ -68,6 +97,7 @@ class DataCenter:
             "survived_seconds": int(time.time()) - started,
             "tasks": [self._public(task)] if task else [],
             "score": int(state.get("score", 0)),
+            "reboot_digits": self._reboot_digits(state),
         }
 
     def start(self):
@@ -78,6 +108,8 @@ class DataCenter:
             "started_at": int(time.time()),
             "score": 0,
             "solved_count": 0,
+            "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
+            "reboot_revealed": json.dumps([]),
         })
         self.redis.r.hdel(self._key, "task")
         self.new_task(kind="alarm")
@@ -134,7 +166,10 @@ class DataCenter:
                 kind = ROTATION[0]
 
         task_cls = TASK_TYPES[kind]
-        state = task_cls.create(players_data)
+        if kind == "reboot":
+            state = task_cls.create(players_data, digits=self.reboot_code)
+        else:
+            state = task_cls.create(players_data)
         task = {
             "task_id": f"task-{counter:03d}",
             "kind": kind,
@@ -191,6 +226,7 @@ class DataCenter:
                 # Score = Restzeit × Multiplikator der gerade gelösten Aufgabe
                 gain = self._score_for_solve(task.get("kind", ""))
                 self.redis.r.hincrby(self._key, "score", gain)
+                self._reveal_digit(task.get("kind", ""))
 
                 solved = self.redis.r.hincrby(self._key, "solved_count", 1)
                 if solved >= TOTAL_TASKS:
