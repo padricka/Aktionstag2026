@@ -40,7 +40,10 @@ vi.mock('../src/composables/useGameSocket', async () => {
 //    </main></template></div> um Zeile 207) -> die Datei laesst sich nicht kompilieren.
 // 2) Der Test sendet die Nachricht im alten Format { type: 'new_task', message }.
 //    Der JSON-Vertrag kennt event + payload (game_tick mit tasks).
-// Zu tun: Template-Fehler beheben, Test auf den Vertrag umstellen, dann skip entfernen.
+// 3) ClientScreen.vue wird nirgends importiert: App.vue nutzt PlayerScreen.vue (fast gleiche
+//    Logik). Vermutlich abgeloester, toter Code -> der Fehler betrifft das laufende Spiel nicht.
+// Entscheidung offen: (a) ClientScreen.vue + diesen Test loeschen, oder (b) den Test auf
+// PlayerScreen.vue umstellen (Vertragsformat event + payload) und skip entfernen.
 describe.skip('ClientScreen.vue (mit Fake-WebSocket)', () => {
   beforeEach(() => {
     resetGameSocketMock()
