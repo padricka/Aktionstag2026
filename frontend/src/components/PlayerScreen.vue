@@ -143,6 +143,7 @@
           :binary-codes="task3Binary"
           :input-result-nonce="inputResultNonce"
           :server-error="lastError"
+          :time-left="timeLeft"
           @solved="onTaskSolved"
           @task-failed="onTaskFailed"
           @failed="onTaskFailed"
