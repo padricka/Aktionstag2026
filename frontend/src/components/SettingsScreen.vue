@@ -155,7 +155,13 @@ const settings = reactive({ ...DEFAULT_SETTINGS })
 onMounted(() => {
   const saved = localStorage.getItem('drv_game_settings')
   if (saved) {
-    try { Object.assign(settings, { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }) } catch (e) { /* ignore */ }
+    try {
+      Object.assign(settings, { ...DEFAULT_SETTINGS, ...JSON.parse(saved) })
+      if ((settings.theme === 'girl' || settings.theme === 'light') && settings.scanlinesEnabled) {
+        settings.scanlinesEnabled = false
+        localStorage.setItem('drv_game_settings', JSON.stringify({ ...settings }))
+      }
+    } catch (e) { /* ignore */ }
   }
   applyAll()
 })
@@ -182,6 +188,11 @@ function applyAll() {
 
 function setTheme(theme) {
   settings.theme = theme
+  // Girl/Light + dichte Scanlines = unlesbar — beim Wechsel aus
+  if ((theme === 'girl' || theme === 'light') && settings.scanlinesEnabled) {
+    settings.scanlinesEnabled = false
+    applyScanlines()
+  }
   applyTheme()
 }
 

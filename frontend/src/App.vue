@@ -55,12 +55,19 @@ function applySavedVisuals() {
   try {
     const parsed = JSON.parse(saved)
     const theme = parsed.theme || 'dark'
+    // Alte Saves: Girl/Light + Scanlines war unlesbar — einmalig aus
+    let scanlines = !!parsed.scanlinesEnabled
+    if ((theme === 'girl' || theme === 'light') && scanlines) {
+      scanlines = false
+      parsed.scanlinesEnabled = false
+      localStorage.setItem('drv_game_settings', JSON.stringify(parsed))
+    }
     document.documentElement.classList.remove('theme-light', 'theme-girl', 'theme-dark')
     document.documentElement.classList.add(`theme-${theme}`)
     if (typeof parsed.brightness === 'number') {
       document.documentElement.style.filter = `brightness(${parsed.brightness}%)`
     }
-    document.documentElement.classList.toggle('scanlines', !!parsed.scanlinesEnabled)
+    document.documentElement.classList.toggle('scanlines', scanlines)
   } catch (e) {
     document.documentElement.classList.add('theme-dark')
   }
@@ -72,18 +79,17 @@ function handleMouseMove(e) {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
   const now = Date.now()
-  if (now - lastSparkleTime < 50) return
+  if (now - lastSparkleTime < 90) return
   lastSparkleTime = now
 
   const sparkle = document.createElement('div')
   sparkle.className = 'sparkle'
   sparkle.style.left = `${e.clientX}px`
   sparkle.style.top = `${e.clientY}px`
-  const scale = 0.5 + Math.random()
-  const rotation = Math.random() * 360
-  sparkle.style.transform = `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`
+  const scale = 0.4 + Math.random() * 0.6
+  sparkle.style.transform = `translate(-50%, -50%) scale(${scale})`
   document.body.appendChild(sparkle)
-  setTimeout(() => sparkle.remove(), 600)
+  setTimeout(() => sparkle.remove(), 550)
 }
 
 onMounted(() => {

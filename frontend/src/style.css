@@ -98,34 +98,35 @@
 }
 
 .theme-girl {
-  --bg: #ffe6f0;
-  --bg-1: #fff0f5;
-  --bg-2: #ffccd9;
-  --bg-3: #ffb3c6;
+  /* Soft pink — readable, no CRT look baked into the palette */
+  --bg: #fff5f8;
+  --bg-1: #ffffff;
+  --bg-2: #ffe8f0;
+  --bg-3: #ffd6e4;
 
-  --border: #ff99b3;
-  --border-2: #ff80a0;
-  --border-3: #ff668c;
+  --border: #f5b8cc;
+  --border-2: #eba0b8;
+  --border-3: #e0789c;
 
-  --fg: #800020;
-  --fg-2: #b30047;
-  --fg-3: #ff4d88;
-  --fg-4: #ff99bb;
+  --fg: #5c1430;
+  --fg-2: #8a2a4e;
+  --fg-3: #c45a80;
+  --fg-4: #d9a0b4;
 
-  --green: #ff66b3;
-  --green-2: #ff80bf;
-  --green-bg: rgba(255, 102, 179, 0.20);
-  --green-border: rgba(255, 102, 179, 0.5);
+  --green: #e85a9a;
+  --green-2: #f078b0;
+  --green-bg: rgba(232, 90, 154, 0.12);
+  --green-border: rgba(232, 90, 154, 0.45);
 
-  --amber: #ff99e6;
-  --amber-2: #ffb3ec;
-  --amber-bg: rgba(255, 153, 230, 0.20);
-  --amber-border: rgba(255, 153, 230, 0.5);
+  --amber: #d978b8;
+  --amber-2: #e898cc;
+  --amber-bg: rgba(217, 120, 184, 0.14);
+  --amber-border: rgba(217, 120, 184, 0.45);
 
-  --red: #ff3333;
-  --red-2: #ff6666;
-  --red-bg: rgba(255, 51, 51, 0.20);
-  --red-border: rgba(255, 51, 51, 0.5);
+  --red: #d63050;
+  --red-2: #e85a72;
+  --red-bg: rgba(214, 48, 80, 0.12);
+  --red-border: rgba(214, 48, 80, 0.45);
 
   color-scheme: light;
 }
@@ -290,19 +291,33 @@ html, body {
   }
 }
 
-/* CRT-Scanlines (Einstellungen) */
+/* CRT-Scanlines (Einstellungen) — subtle, readable */
 html.scanlines::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 999998;
+  opacity: 0.35;
   background: repeating-linear-gradient(
     to bottom,
     transparent 0,
-    transparent 2px,
-    rgba(0, 0, 0, 0.18) 2px,
-    rgba(0, 0, 0, 0.18) 4px
+    transparent 3px,
+    rgba(0, 0, 0, 0.06) 3px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+}
+
+/* Light / Girl: even softer so pink stays usable */
+html.theme-light.scanlines::before,
+html.theme-girl.scanlines::before {
+  opacity: 0.22;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 4px,
+    rgba(80, 20, 40, 0.04) 4px,
+    rgba(80, 20, 40, 0.04) 5px
   );
 }
 
@@ -310,14 +325,13 @@ html.scanlines::before {
 .sparkle {
   position: fixed;
   pointer-events: none;
-  width: 12px;
-  height: 12px;
-  background: radial-gradient(circle, #fff, #ff66b3);
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(232, 90, 154, 0.7));
   border-radius: 50%;
-  box-shadow: 0 0 8px #ff66b3, 0 0 16px #ff99e6;
-  animation: sparkle-fade 0.6s ease-out forwards;
+  box-shadow: 0 0 6px rgba(232, 90, 154, 0.55);
+  animation: sparkle-fade 0.55s ease-out forwards;
   z-index: 999999;
-  mix-blend-mode: screen;
   transform: translate(-50%, -50%);
 }
 
