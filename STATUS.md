@@ -8,7 +8,7 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 | Bereich | Stand | Quelle |
 |---|---|---|
 | Backend-Tests | **137** grün · 23 übersprungen · **4 rot (Absicht, sync_button)** | lokal nach Cleanup |
-| Frontend-Tests | **43** grün (App, StartMenu, HostScreen, PlayerScreen, Settings, GameOver, Task1P2, useGameSocket) | lokal nach `test/frontend-more-specs` |
+| Frontend-Tests | **55** grün (+ F1 Alarm: Task1Master/P1/P2 Escape-Views, Rollen-Anzeigenamen) | nach `feat/f1-alarm-views` |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
