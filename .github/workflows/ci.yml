@@ -1,0 +1,93 @@
+# Schlankes CI (Phase 1): läuft die Tests und ZEIGT den Stand — blockiert aber nichts.
+#
+# Warum nicht-blockierend? Solange die Test-Triage (STATUS.md) nicht durch ist,
+# sind noch ~44 Backend-Tests rot. Ein hartes "muss grün" würde jeden Fix aufhalten.
+# Rot bleibt trotzdem sichtbar: Zusammenfassung im Job + gelbe Warnung im PR.
+#
+# Verschärfen, sobald die Triage durch ist: In den beiden Test-Schritten
+# `continue-on-error: true` entfernen — dann wird Rot zum echten Merge-Blocker.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Abhängigkeiten installieren
+        # pytest-cov explizit: pytest.ini verlangt --cov. Ist harmlos doppelt,
+        # sobald es in requirements.txt steht.
+        run: pip install -r requirements.txt pytest-cov
+
+      - name: pytest
+        id: tests
+        continue-on-error: true
+        run: python -m pytest -q --no-cov 2>&1 | tee pytest.log
+
+      - name: Zusammenfassung
+        if: always()
+        run: |
+          RESULT=$(grep -E "(passed|failed|error)" pytest.log | tail -1 || true)
+          echo "### Backend (pytest)" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${RESULT:-keine Ergebniszeile gefunden}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.tests.outcome }}" = "failure" ]; then
+            echo "::warning title=Backend-Tests rot (nicht blockierend)::${RESULT}"
+          fi
+
+  frontend:
+    name: Frontend (vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: vitest
+        id: tests
+        continue-on-error: true
+        run: npx vitest run 2>&1 | tee vitest.log
+
+      - name: Zusammenfassung
+        if: always()
+        run: |
+          RESULT=$(grep -E "Tests " vitest.log | tail -1 | sed 's/\x1b\[[0-9;]*m//g' || true)
+          echo "### Frontend (vitest)" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${RESULT:-keine Ergebniszeile gefunden}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.tests.outcome }}" = "failure" ]; then
+            echo "::warning title=Frontend-Tests rot (nicht blockierend)::${RESULT}"
+          fi
