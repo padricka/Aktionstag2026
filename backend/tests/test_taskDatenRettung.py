@@ -218,3 +218,47 @@ def test_wrong_attempts_do_not_block_rescue(dc):
 
     assert res["result"] == "correct"
     assert dc.current_task()["task_id"] != task_id
+
+# ------------------------------------------------ Escape-Room-Views (B4, GAME_DESIGN.md §5)
+from backend.playableObject import DataRescueTask  # noqa: E402
+
+A_BIS_M = {chr(c): c for c in range(ord("A"), ord("M") + 1)}
+N_BIS_Z = {chr(c): c for c in range(ord("N"), ord("Z") + 1)}
+
+
+def test_master_hat_die_halbe_ascii_tabelle_und_die_oberen_stellenwerte(dc):
+    master = _view(dc, ROLE_M)
+    assert master["type"] == "ascii_binary_tables"
+    assert master["ascii_half"] == A_BIS_M
+    assert master["place_values"] == [128, 64, 32, 16]
+
+
+def test_vorderseite_hat_die_andere_tabellenhaelfte(dc):
+    p1 = _view(dc, ROLE_P1)
+    assert p1["type"] == "ascii_puzzle"
+    assert p1["ascii_half"] == N_BIS_Z
+
+
+def test_rueckseite_hat_die_unteren_stellenwerte(dc):
+    p2 = _view(dc, ROLE_P2)
+    assert p2["type"] == "binary_puzzle"
+    assert p2["place_values"] == [8, 4, 2, 1]
+
+
+def test_rueckseite_sieht_keine_dezimalwerte(dc):
+    st = _state(dc)
+    blob = json.dumps(_view(dc, ROLE_P2))
+    for v in st["p2_values"]:
+        assert str(v) not in blob
+
+
+def test_jedes_wort_braucht_beide_tabellenhaelften():
+    # Escape Room: die Vorderseite kann das Wort nie allein entschlüsseln.
+    for wort in DataRescueTask.WORDS:
+        assert set(wort) & set(A_BIS_M), wort
+        assert set(wort) & set(N_BIS_Z), wort
+
+
+def test_jeder_binaerwert_braucht_die_oberen_stellenwerte():
+    # Alle Werte liegen über 15, also reichen 8-4-2-1 allein nie aus.
+    assert min(DataRescueTask.LETTER_CODES) > 15

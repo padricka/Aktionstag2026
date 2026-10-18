@@ -308,22 +308,36 @@ class DataRescueTask(PlayableObject):
             "p2_unlocked": False,
         }
 
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3):
+    #   Leitstand   hat die ASCII-Tabelle A–M und die oberen Bit-Stellenwerte
+    #   Vorderseite hat die ASCII-Codes des Worts und die Tabelle N–Z
+    #   Rückseite   hat die Binärzahlen und die unteren Bit-Stellenwerte
+    # -> beide brauchen den Leitstand, um ihren Knopf freizuschalten.
+    ASCII_HALF_MASTER = {chr(c): c for c in range(ord("A"), ord("M") + 1)}
+    ASCII_HALF_P1 = {chr(c): c for c in range(ord("N"), ord("Z") + 1)}
+    PLACE_VALUES_MASTER = [128, 64, 32, 16]
+    PLACE_VALUES_P2 = [8, 4, 2, 1]
+
     @classmethod
     def views(cls, state):
         return {
             ROLE_M: {
-                "type": "task3_master",
+                "type": "ascii_binary_tables",
+                "ascii_half": cls.ASCII_HALF_MASTER,
+                "place_values": cls.PLACE_VALUES_MASTER,
                 "p1_status": "FREIGESCHALTET" if state["p1_unlocked"] else "GESPERRT",
                 "p2_status": "FREIGESCHALTET" if state["p2_unlocked"] else "GESPERRT",
             },
             ROLE_P1: {
-                "type": "task3_p1",
+                "type": "ascii_puzzle",
                 "ascii_codes": state["p1_codes"],
+                "ascii_half": cls.ASCII_HALF_P1,
                 "button_unlocked": state["p1_unlocked"],
             },
             ROLE_P2: {
-                "type": "task3_p2",
+                "type": "binary_puzzle",
                 "binary_codes": state["p2_binary"],
+                "place_values": cls.PLACE_VALUES_P2,
                 "button_unlocked": state["p2_unlocked"],
             },
         }
