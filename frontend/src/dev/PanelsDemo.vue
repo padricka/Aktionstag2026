@@ -18,6 +18,24 @@
     </section>
 
     <section>
+      <h2>Steuerpult · Aufgabe 2 Vorderseite</h2>
+      <p v-if="deskState !== 'done'" class="hint">
+        Erwartet in dieser Vorschau: <b>{{ SEQUENZ[deskStep] }}</b>
+        (Schritt {{ deskStep + 1 }} von {{ SEQUENZ.length }}) — falsch auslösen zeigt den Fehlerfall.
+      </p>
+      <p v-else class="hint">Alle {{ SEQUENZ.length }} Schritte geflutet — „Zurücksetzen" startet neu.</p>
+      <ControlDesk
+        :valves="VALVES"
+        :colors="COLORS"
+        :step="deskStep"
+        :sequence-len="SEQUENZ.length"
+        :state="deskState"
+        @submit="pruefeSchritt"
+      />
+      <div class="actions"><button @click="deskZuruecksetzen">Zurücksetzen</button></div>
+    </section>
+
+    <section>
       <h2>Sync-Knopf · Aufgabe 3 Vorder- und Rückseite</h2>
       <p class="hint">
         Klappe öffnen, dann drücken. Der Partner drückt in dieser Vorschau nach 1,6 s mit —
@@ -27,7 +45,7 @@
       <div class="actions">
         <button @click="syncFrei = !syncFrei">{{ syncFrei ? 'Verplomben' : 'Freischalten' }}</button>
         <button @click="partnerVerpasst">Partner verpasst</button>
-        <button @click="zuruecksetzen">Zurücksetzen</button>
+        <button @click="syncZuruecksetzen">Zurücksetzen</button>
       </div>
     </section>
   </main>
@@ -36,6 +54,7 @@
 <script setup>
 import { onBeforeUnmount, ref } from 'vue'
 import WirePanel from '../components/WirePanel.vue'
+import ControlDesk from '../components/ControlDesk.vue'
 import SyncButton from '../components/SyncButton.vue'
 
 const WIRES = ['raute', 'dreieck', 'quadrat', 'kreis']
@@ -50,6 +69,34 @@ function pruefeKabel({ index }) {
     wireState.value = index === RICHTIG ? 'defused' : 'error'
     if (index !== RICHTIG) setTimeout(() => (wireState.value = 'armed'), 1200)
   }, 900)
+}
+
+// --- Steuerpult: simuliert Backend (Prüfung + Fortschritt) ---
+const VALVES = ['V-31', 'V-32', 'V-33']
+const COLORS = ['ORANGE', 'RED', 'GREEN']
+const SEQUENZ = ['V-32:RED', 'V-31:ORANGE', 'V-33:GREEN']
+const deskStep = ref(0)
+const deskState = ref('idle')
+let deskTimer = null
+
+function pruefeSchritt(wert) {
+  deskState.value = 'checking'
+  clearTimeout(deskTimer)
+  deskTimer = setTimeout(() => {
+    if (wert !== SEQUENZ[deskStep.value]) {
+      deskState.value = 'error'
+      deskTimer = setTimeout(() => (deskState.value = 'idle'), 1300)
+      return
+    }
+    deskStep.value += 1
+    deskState.value = deskStep.value >= SEQUENZ.length ? 'done' : 'idle'
+  }, 700)
+}
+
+function deskZuruecksetzen() {
+  clearTimeout(deskTimer)
+  deskStep.value = 0
+  deskState.value = 'idle'
 }
 
 // --- Sync-Knopf: simuliert Backend + Partner ---
@@ -69,12 +116,15 @@ function partnerVerpasst() {
   syncTimer = setTimeout(() => (syncState.value = 'idle'), 1400)
 }
 
-function zuruecksetzen() {
+function syncZuruecksetzen() {
   clearTimeout(syncTimer)
   syncState.value = 'idle'
 }
 
-onBeforeUnmount(() => clearTimeout(syncTimer))
+onBeforeUnmount(() => {
+  clearTimeout(deskTimer)
+  clearTimeout(syncTimer)
+})
 </script>
 
 <style>
