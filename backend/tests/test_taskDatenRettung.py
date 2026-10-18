@@ -12,7 +12,7 @@ import pytest
 import fakeredis
 from unittest.mock import patch
 
-from backend.dataCenter import DataCenter
+from backend.dataCenter import DataCenter, TASK_MULTIPLIER
 from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
 
 GAME = "t3_session"
@@ -157,6 +157,7 @@ def test_both_buttons_within_window_solve(dc):
     st = _state(dc)
     task_id = dc.current_task()["task_id"]
     dc.redis.r.hset(dc.redis._k_state(GAME), "health", 100)
+    dc.redis.r.hset(dc.redis._k_state(GAME), "time_left", 100)
 
     _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
     _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
@@ -167,7 +168,7 @@ def test_both_buttons_within_window_solve(dc):
     assert res["result"] == "correct"
     assert dc.health == 115
     assert dc.current_task()["task_id"] != task_id
-    assert dc.score == 50
+    assert dc.score == 100 * TASK_MULTIPLIER["data_rescue"]
 
 
 def test_same_player_pressing_twice_does_not_solve(dc):

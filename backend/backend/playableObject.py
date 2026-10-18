@@ -315,8 +315,6 @@ class DataRescueTask(PlayableObject):
             if value != state["p1_word"]:
                 return StepResult(Outcome.WRONG, state)
             state["p1_unlocked"] = True
-            if state["p2_unlocked"]:
-                return StepResult(Outcome.SOLVED, state)
             return StepResult(Outcome.PROGRESS, state)
 
         if data.target == "binary_answer" and role == ROLE_P2:
@@ -325,8 +323,26 @@ class DataRescueTask(PlayableObject):
             if versuch != ziel:
                 return StepResult(Outcome.WRONG, state)
             state["p2_unlocked"] = True
-            if state["p1_unlocked"]:
-                return StepResult(Outcome.SOLVED, state)
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "sync_button":
+            if role == ROLE_M:
+                return StepResult(Outcome.IGNORED, state)
+            if not (state.get("p1_unlocked") and state.get("p2_unlocked")):
+                return StepResult(Outcome.IGNORED, state)
+
+            if role == ROLE_P1:
+                state["sync_p1_time"] = now
+            elif role == ROLE_P2:
+                state["sync_p2_time"] = now
+
+            t1 = state.get("sync_p1_time")
+            t2 = state.get("sync_p2_time")
+
+            if t1 is not None and t2 is not None:
+                if abs(t1 - t2) <= 3:
+                    return StepResult(Outcome.SOLVED, state)
+
             return StepResult(Outcome.PROGRESS, state)
 
         return StepResult(Outcome.IGNORED, state)
