@@ -16,12 +16,27 @@
       <WirePanel :wires="WIRES" :state="wireState" :seconds="sekunden" @cut="pruefeKabel" />
       <div class="actions"><button @click="wireState = 'armed'; sekunden = 95">Zurücksetzen</button></div>
     </section>
+
+    <section>
+      <h2>Sync-Knopf · Aufgabe 3 Vorder- und Rückseite</h2>
+      <p class="hint">
+        Klappe öffnen, dann drücken. Der Partner drückt in dieser Vorschau nach 1,6 s mit —
+        „Partner verpasst" zeigt den Fehlerfall (Ring rot, danach wieder bereit).
+      </p>
+      <SyncButton :unlocked="syncFrei" :state="syncState" @press="drueckeSync" />
+      <div class="actions">
+        <button @click="syncFrei = !syncFrei">{{ syncFrei ? 'Verplomben' : 'Freischalten' }}</button>
+        <button @click="partnerVerpasst">Partner verpasst</button>
+        <button @click="zuruecksetzen">Zurücksetzen</button>
+      </div>
+    </section>
   </main>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import WirePanel from '../components/WirePanel.vue'
+import SyncButton from '../components/SyncButton.vue'
 
 const WIRES = ['raute', 'dreieck', 'quadrat', 'kreis']
 const RICHTIG = 2
@@ -36,6 +51,30 @@ function pruefeKabel({ index }) {
     if (index !== RICHTIG) setTimeout(() => (wireState.value = 'armed'), 1200)
   }, 900)
 }
+
+// --- Sync-Knopf: simuliert Backend + Partner ---
+const syncFrei = ref(true)
+const syncState = ref('idle')
+let syncTimer = null
+
+function drueckeSync() {
+  syncState.value = 'waiting'
+  clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => (syncState.value = 'synced'), 1600)
+}
+
+function partnerVerpasst() {
+  clearTimeout(syncTimer)
+  syncState.value = 'error'
+  syncTimer = setTimeout(() => (syncState.value = 'idle'), 1400)
+}
+
+function zuruecksetzen() {
+  clearTimeout(syncTimer)
+  syncState.value = 'idle'
+}
+
+onBeforeUnmount(() => clearTimeout(syncTimer))
 </script>
 
 <style>
