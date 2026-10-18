@@ -19,6 +19,9 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 
 ## Nächste Aufgaben (Reihenfolge)
 
+> **Neu:** Der Escape-Room-Umbau aus `GAME_DESIGN.md` (Pakete B1–B4, F1) läuft parallel zu den Punkten unten. Die Paketaufteilung dort regelt, wer welche Datei anfasst.
+
+
 1. **I1 Happy Path einmal real durchspielen** (`docker compose up --build -d`, Beamer + Master + 2 Spieler im Browser). Ergebnis als Liste „was geht / was nicht" festhalten.
 2. **F1 Frontend am Vertrag ausrichten.** Senden nutzt schon `{event, payload}`. Offen: ob eingehende Nachrichten überall über `event` (nicht `type`) ausgewertet werden. Danach Tests mitziehen.
 3. ~~**`ClientScreen.vue` entscheiden**~~ — erledigt: gelöscht (ungenutzt, kaputt). Master bleibt als Rolle in `PlayerScreen`.
@@ -28,7 +31,7 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 
 ## Offene Entscheidungen (nicht technisch)
 
-- **Master-Rolle:** Master = Mitspieler mit Manual in `PlayerScreen` + `Task*Master` (so gewollt laut README). Eigenes `MasterScreen.vue` war tote Parallel-UI und wurde entfernt.
+- ~~**Master-Rolle**~~ — **entschieden (2026-10-18):** Escape Room mit drei gleichberechtigten Technikern (Leitstand, Vorderseite, Rückseite), kein Handbuch, keiner kennt die Lösung. Spezifikation und Arbeitspakete: **`GAME_DESIGN.md`**. Rollen-IDs (`MASTER`, `FI-SI`, `FI-AE`) bleiben technisch unverändert.
 - **Theme-Switcher** (ehemals PR #1) geschlossen — nach Happy Path neu aufsetzen.
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
