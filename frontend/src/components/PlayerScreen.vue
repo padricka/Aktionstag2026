@@ -335,8 +335,7 @@ const handleServerMessage = (msg) => {
   }
 
   if (event === 'input_result') {
-    // Nonce hochziehen → Task-Komponenten geben "busy" frei
-    inputResultNonce.value++
+    // Fehler zuerst setzen, dann Nonce — Tasks können beides auswerten
     if (payload.result === 'wrong') {
       lastError.value = 'Falsche Eingabe'
       if (typeof payload.health === 'number') hp.value = payload.health
@@ -344,6 +343,7 @@ const handleServerMessage = (msg) => {
     } else {
       lastError.value = ''
     }
+    inputResultNonce.value++
   }
 
   if (event === 'game_over') {
