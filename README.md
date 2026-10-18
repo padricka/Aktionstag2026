@@ -132,18 +132,20 @@ python -m pytest
 
 Voraussetzung: `docker compose up --build -d` ist durchgelaufen (siehe oben).
 
-1. `http://localhost:8000/create-game/` aufrufen und die `game_id` kopieren.
-2. `http://localhost:5173/` als **Host-Bildschirm** öffnen.
-3. Auf den Spieler-Laptops `http://localhost:5173/` öffnen, die `game_id` und einen Namen eingeben. Die Rolle (Master, Spieler 1, Spieler 2) wird beim Beitritt zugewiesen.
-4. Die Spieler erscheinen in der Lobby. Weitere Beitritte über die maximale Spielerzahl hinaus werden abgelehnt.
-5. Spiel starten: `http://localhost:8000/force-start/?game_id=<game_id>`
-6. Die Health sinkt jede Sekunde um 1, die Spielzeit beträgt 300 Sekunden.
-7. Aufgaben lösen: richtig gibt +15 HP (max. 300) und eine neue Aufgabe, falsch kostet 60 HP.
-8. Bei 0 HP oder abgelaufener Zeit erscheint Game Over bei allen.
+1. `http://localhost:5173/` als **Host (Beamer)** öffnen → „Als Host“. Der Host **erzeugt die Sitzungs-ID** und zeigt sie groß an.
+2. Auf den Spieler-Laptops `http://localhost:5173/` → „Als Spieler“, **genau diese ID** und einen Namen eingeben, dann Rolle wählen (Master / Spieler 1 / Spieler 2).
+3. Am Beamer müssen die drei Slots gefüllt sein (gleiche ID!). Weitere Beitritte über die maximale Spielerzahl hinaus werden abgelehnt.
+4. Spiel starten: `http://localhost:8000/force-start/?game_id=<ID-vom-Beamer>`
+5. Host wechselt auf Live-Ansicht (Zeit + Server-HP). Health sinkt jede Sekunde um 1, Spielzeit 300 Sekunden.
+6. Aufgaben lösen: richtig gibt +15 HP (max. 300) und eine neue Aufgabe, falsch kostet 60 HP.
+7. Bei 0 HP oder abgelaufener Zeit erscheint Game Over bei allen.
+
+> Falls die ID schon über `create-game/` erzeugt wurde: Host mit  
+> `http://localhost:5173/?game_id=<id>` öffnen (sonst erzeugt der Host eine **neue** Sitzung).
 
 | Was | Wert |
 |---|---|
 | Frontend | `http://localhost:5173/` |
-| `game_id` erzeugen | `http://localhost:8000/create-game/` |
-| Start (vorläufig) | `http://localhost:8000/force-start/?game_id=<game_id>` |
+| Host mit fester ID | `http://localhost:5173/?game_id=<id>` |
+| Start (vorläufig) | `http://localhost:8000/force-start/?game_id=<id>` |
 | Stoppen | `docker compose down` |

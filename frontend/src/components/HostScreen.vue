@@ -20,7 +20,14 @@
       <!-- LOBBY -->
       <section v-if="status !== 'running'" class="lobby">
         <h1 class="lobby-title">Bereit für den Start</h1>
-        <p class="lobby-sub">{{ wsHost }} · ID eingeben</p>
+
+        <div v-if="gameId" class="id-block">
+          <span class="host-label">Sitzungs-ID — Spieler müssen genau diese eingeben</span>
+          <div class="id-value">{{ gameId.toUpperCase() }}</div>
+          <p class="lobby-sub">{{ wsHost }}</p>
+        </div>
+        <p v-else-if="bootError" class="lobby-error">{{ bootError }}</p>
+        <p v-else class="lobby-sub">Sitzung wird erstellt …</p>
 
         <div class="slots">
           <div
@@ -44,8 +51,8 @@
 
         <p class="lobby-note">
           {{ readyToStart
-              ? 'Alle Rollen besetzt — Spieler können starten.'
-              : 'Warte auf Spieler und Rollenwahl …' }}
+              ? 'Alle Rollen besetzt — Spiel kann gestartet werden.'
+              : 'Warte auf Spieler (gleiche ID) und Rollenwahl …' }}
         </p>
       </section>
 
@@ -79,6 +86,7 @@ import GameOver from './GameOver.vue'
 defineEmits(['exit'])
 
 const gameId = ref('')
+const bootError = ref('')
 const status = ref('waiting')
 const playerList = ref([])
 const readyToStart = ref(false)
@@ -160,18 +168,31 @@ function handleMessage(msg) {
 
 const { sendEvent, connect } = useGameSocket({ onMessage: handleMessage })
 
+async function resolveGameId() {
+  // Optional: ?game_id=xxxx — gleiche Sitzung wie create-game / force-start
+  const fromQuery = new URLSearchParams(location.search).get('game_id')?.trim()
+  if (fromQuery) return fromQuery.toLowerCase()
+
+  const res = await fetch(`${API_BASE}/create-game/`)
+  const data = await res.json()
+  if (!res.ok || !data.game_id) throw new Error('create-game failed')
+  return String(data.game_id).toLowerCase()
+}
+
+function connectAsHost(id) {
+  gameId.value = id
+  const url = `${protocol}://${location.hostname}:8000/ws/game/${id}/`
+  connect(url, handleMessage, () => sendEvent('host_register', {}))
+}
+
 onMounted(async () => {
   try {
-    const res = await fetch(`${API_BASE}/create-game/`)
-    const data = await res.json()
-    if (!res.ok || !data.game_id) throw new Error('create-game failed')
-    gameId.value = data.game_id
+    const id = await resolveGameId()
+    connectAsHost(id)
   } catch (err) {
     console.error(err)
-    return
+    bootError.value = 'Sitzung konnte nicht erstellt werden. Backend erreichbar?'
   }
-  const url = `${protocol}://${location.hostname}:8000/ws/game/${gameId.value}/`
-  connect(url, handleMessage, () => sendEvent('host_register', {}))
 })
 </script>
 
@@ -240,11 +261,29 @@ onMounted(async () => {
 
 .lobby-title {
   font-family: var(--mono);
-  font-size: 52px;
+  font-size: 40px;
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0;
   color: var(--fg);
+}
+
+.id-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.id-value {
+  font-family: var(--mono);
+  font-size: 96px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  line-height: 1;
+  color: var(--green);
+  text-transform: uppercase;
 }
 
 .lobby-sub {
@@ -253,6 +292,13 @@ onMounted(async () => {
   color: var(--fg-2);
   margin: 0;
   letter-spacing: 0.05em;
+}
+
+.lobby-error {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--red);
+  margin: 0;
 }
 
 .slots {
@@ -376,7 +422,8 @@ onMounted(async () => {
 
 @media (max-width: 900px) {
   .host { padding: 20px; }
-  .lobby-title { font-size: 32px; }
+  .lobby-title { font-size: 28px; }
+  .id-value { font-size: 56px; letter-spacing: 0.12em; }
   .time-value { font-size: 120px; }
   .slots { grid-template-columns: 1fr; }
 }
