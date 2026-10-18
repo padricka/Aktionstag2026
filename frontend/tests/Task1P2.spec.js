@@ -1,55 +1,54 @@
 /**
- * Task1P2 — Code eingeben; bei falschem Server-Feedback wieder freigeben.
+ * Task1P2 — Rückseite, view.type code_stickers: nur Anzeige, keine Eingabe.
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Task1P2 from '../src/components/tasks/task1/Task1P2.vue'
 
 const stubs = {
-  SymbolIcon: { name: 'SymbolIcon', template: '<span class="sym" />', props: ['name', 'size'] },
+  SymbolIcon: {
+    name: 'SymbolIcon',
+    template: '<span class="sym" :data-name="name" :data-farbe="farbe" />',
+    props: ['name', 'size', 'farbe'],
+  },
 }
 
-describe('Task1P2.vue', () => {
-  it('sammelt Symbole und emittiert solved erst bei Ausführen', async () => {
+const stickers = [
+  { symbol: 'stern', color: 'ROT' },
+  { symbol: 'kreuz', color: 'GELB' },
+  { symbol: 'dreieck-runter', color: 'BLAU' },
+  { symbol: 'dreieck-runter-voll', color: 'GRÜN' },
+]
+
+describe('Task1P2.vue (code_stickers)', () => {
+  it('zeigt 4 farbige Aufkleber aus view.stickers', () => {
     const wrapper = mount(Task1P2, {
-      props: { codeLength: 4 },
+      props: { view: { type: 'code_stickers', stickers } },
       global: { stubs },
     })
 
-    const keys = wrapper.findAll('.key')
-    expect(keys.length).toBeGreaterThanOrEqual(4)
-
-    for (let i = 0; i < 4; i++) {
-      await keys[i].trigger('click')
-    }
-
-    expect(wrapper.find('.btn-action').attributes('disabled')).toBeUndefined()
-    await wrapper.find('.btn-action').trigger('click')
-
-    const solved = wrapper.emitted('solved')
-    expect(solved).toHaveLength(1)
-    expect(solved[0][0].player).toBe('P2')
-    expect(solved[0][0].code).toHaveLength(4)
-    expect(wrapper.find('.btn-action').text()).toContain('Prüfen')
+    const cards = wrapper.findAll('.sticker')
+    expect(cards).toHaveLength(4)
+    expect(wrapper.findAll('.sym')).toHaveLength(4)
+    expect(wrapper.find('.sym').attributes('data-name')).toBe('stern')
   })
 
-  it('gibt UI nach serverError + Nonce wieder frei', async () => {
+  it('hat keine Code-Eingabe / kein Ausführen', () => {
     const wrapper = mount(Task1P2, {
-      props: { codeLength: 2, serverError: '', inputResultNonce: 0 },
+      props: { view: { type: 'code_stickers', stickers } },
       global: { stubs },
     })
 
-    const keys = wrapper.findAll('.key')
-    await keys[0].trigger('click')
-    await keys[1].trigger('click')
-    await wrapper.find('.btn-action').trigger('click')
-    expect(wrapper.find('.btn-action').text()).toContain('Prüfen')
+    expect(wrapper.find('.key').exists()).toBe(false)
+    expect(wrapper.find('.btn-action').exists()).toBe(false)
+    expect(wrapper.emitted('solved')).toBeUndefined()
+  })
 
-    await wrapper.setProps({ serverError: 'Falsche Eingabe', inputResultNonce: 1 })
-
-    expect(wrapper.find('.btn-action').text()).toBe('Ausführen')
-    expect(wrapper.find('.msg-err').text()).toContain('Falsche Eingabe')
-    // Eingabe geleert → Ausführen wieder disabled
-    expect(wrapper.find('.btn-action').attributes('disabled')).toBeDefined()
+  it('Rolle heißt Rückseite', () => {
+    const wrapper = mount(Task1P2, {
+      props: { view: { type: 'code_stickers', stickers } },
+      global: { stubs },
+    })
+    expect(wrapper.find('.role').text()).toBe('Rückseite')
   })
 })

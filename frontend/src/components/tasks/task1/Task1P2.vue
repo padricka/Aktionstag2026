@@ -1,110 +1,55 @@
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">Shutdown-Code eingeben</h2>
-      <span class="role">P2</span>
+      <h2 class="title">Code-Aufkleber</h2>
+      <span class="role">Rückseite</span>
     </header>
 
-    <p class="hint">Frage den Master nach der Reihenfolge der Symbole.</p>
+    <p class="hint">
+      Beschreibe dem Leitstand die farbigen Aufkleber — du tippst nichts ein.
+    </p>
 
-    <div class="slots">
+    <div v-if="!stickers.length" class="empty">Warte auf Aufkleber …</div>
+
+    <div v-else class="stickers">
       <div
-        v-for="i in codeLength"
-        :key="i"
-        class="slot"
-        :class="{ filled: eingabe[i - 1] }"
+        v-for="(s, i) in stickers"
+        :key="`${s.symbol}-${s.color}-${i}`"
+        class="sticker"
+        :style="{ borderColor: colorHex(s.color), background: colorBg(s.color) }"
       >
-        <SymbolIcon v-if="eingabe[i - 1]" :name="eingabe[i - 1]" :size="80" />
-        <span v-else class="slot-num">{{ i }}</span>
+        <span class="sticker-color">{{ s.color }}</span>
+        <SymbolIcon :name="s.symbol" :farbe="colorHex(s.color)" :size="96" />
       </div>
-    </div>
-
-    <div class="keys">
-      <button
-        v-for="s in tastaturSymbole"
-        :key="s"
-        class="key"
-        :disabled="busy || eingabe.length >= codeLength"
-        :aria-label="`Symbol: ${s}`"
-        @click="tippen(s)"
-      >
-        <SymbolIcon :name="s" :size="64" />
-      </button>
-    </div>
-
-    <div class="foot">
-      <div class="actions">
-        <button class="btn-side" :disabled="busy || !eingabe.length" @click="loeschen">
-          Löschen
-        </button>
-        <button
-          class="btn-action"
-          :disabled="eingabe.length < codeLength || busy"
-          @click="ausfuehren"
-        >
-          {{ busy ? 'Prüfen …' : 'Ausführen' }}
-        </button>
-      </div>
-      <p v-if="fehler || serverError" class="msg-err">{{ fehler || serverError }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
-import { CODE_SYMBOLE } from '../graphic-symbols/Symbole.js'
 
 const props = defineProps({
-  codeLength: { type: Number, default: 4 },
-  symbole:    { type: Array,  default: () => CODE_SYMBOLE },
-  serverError: { type: String, default: '' },
-  inputResultNonce: { type: Number, default: 0 },
-})
-const emit = defineEmits(['solved', 'failed'])
-
-const eingabe = ref([])
-const busy = ref(false)
-const fehler = ref('')
-
-const tastaturSymbole = computed(() => {
-  if (props.symbole && props.symbole.length >= 12) return props.symbole
-  return CODE_SYMBOLE
+  view: { type: Object, default: null },
 })
 
-function freigebenNachFehler() {
-  busy.value = false
-  fehler.value = props.serverError || 'Falsche Eingabe'
-  eingabe.value = []
+const COLOR_MAP = {
+  ROT: '#ff3a4d',
+  GELB: '#ffb830',
+  GRÜN: '#00cc66',
+  GRUEN: '#00cc66',
+  BLAU: '#3aa0ff',
 }
 
-// Server meldet falsch → Eingabe wieder freigeben (vorher blieb UI auf „Akzeptiert“)
-watch(() => props.serverError, (e) => {
-  if (e && busy.value) freigebenNachFehler()
-})
+const stickers = computed(() => props.view?.stickers || [])
 
-watch(() => props.inputResultNonce, () => {
-  if (busy.value && props.serverError) freigebenNachFehler()
-})
-
-function tippen(s) {
-  if (busy.value || eingabe.value.length >= props.codeLength) return
-  fehler.value = ''
-  eingabe.value.push(s)
+function colorHex(name) {
+  return COLOR_MAP[String(name || '').toUpperCase()] || '#ffffff'
 }
 
-function loeschen() {
-  if (busy.value || !eingabe.value.length) return
-  eingabe.value.pop()
-  fehler.value = ''
-}
-
-function ausfuehren() {
-  if (busy.value || eingabe.value.length < props.codeLength) return
-  busy.value = true
-  fehler.value = ''
-  // Nicht vorab als gelöst markieren — erst Server-Antwort (bei richtig wechselt der Task)
-  emit('solved', { player: 'P2', code: [...eingabe.value] })
+function colorBg(name) {
+  const hex = colorHex(name)
+  return `${hex}22`
 }
 </script>
 
@@ -148,123 +93,43 @@ function ausfuehren() {
 .hint {
   font-size: 13px;
   color: var(--fg-3);
-  margin: 0 0 20px 0;
+  margin: 0 0 24px 0;
 }
 
-.slots {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  padding-bottom: 20px;
-  flex-shrink: 0;
-}
-
-.slot {
-  width: 110px;
-  height: 110px;
-  background: var(--bg-2);
-  border: 2px dashed var(--border-2);
+.empty {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-}
-
-.slot.filled {
-  border-style: solid;
-  border-color: var(--green-border);
-}
-
-.slot-num {
-  font-family: var(--mono);
-  font-size: 18px;
   color: var(--fg-3);
-  letter-spacing: 0.1em;
 }
 
-.keys {
+.stickers {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 12px;
-  padding: 4px 0;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
   min-height: 0;
+  align-content: center;
 }
 
-.key {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-  cursor: pointer;
-  min-height: 100px;
-  padding: 8px;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.key:hover:not(:disabled) {
-  border-color: var(--green-border);
-  background: var(--bg-1);
-}
-
-.key:active:not(:disabled) {
-  background: var(--green-bg);
-}
-
-.key:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.foot {
-  padding-top: 20px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border);
+.sticker {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  justify-content: center;
+  gap: 16px;
+  min-height: 260px;
+  padding: 24px;
+  border: 3px solid;
+  background: var(--bg-2);
 }
 
-.actions {
-  display: grid;
-  grid-template-columns: 180px 360px;
-  gap: 10px;
-}
-
-.btn-side {
-  padding: 14px;
-  background: transparent;
-  color: var(--fg-2);
-  border: 1px solid var(--border-2);
+.sticker-color {
   font-family: var(--mono);
   font-size: 13px;
-  cursor: pointer;
-  letter-spacing: 0.1em;
-}
-
-.btn-side:hover:not(:disabled) { color: var(--fg); border-color: var(--border-3); }
-.btn-side:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.btn-action {
-  padding: 14px;
-  background: var(--green);
-  color: #050a08;
-  border: none;
-  font-family: var(--mono);
-  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.15em;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.btn-action:hover:not(:disabled) { background: #4dff8f; }
-.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.msg-err {
-  font-size: 12px;
-  color: var(--red);
-  margin: 0;
+  color: var(--fg);
 }
 </style>

@@ -55,7 +55,7 @@
 
       <main class="lobby-main">
         <h1 class="lobby-title">Rolle wählen</h1>
-        <p class="lobby-sub">Jede Rolle einmal. Master hat die Anleitungen.</p>
+        <p class="lobby-sub">Jede Rolle einmal. Zusammen knacken — niemand hat die ganze Lösung.</p>
 
         <div class="role-cards">
           <button
@@ -232,8 +232,8 @@ const task2SequenceLen = computed(() => task.value?.view?.sequence_len || 3)
 const task2Step       = computed(() => task.value?.view?.step || 0)
 const task2LastFragment = computed(() => task.value?.view?.last_fragment || null)
 const task2Fragments  = computed(() => task.value?.view?.fragments || [])
-const task2P1Done     = computed(() => task.value?.view?.p1_done || false)
-const task2P2Done     = computed(() => task.value?.view?.p2_done || false)
+const task2P1Done     = computed(() => task.value?.view?.p_done || task.value?.view?.p1_done || false)
+const task2P2Done     = computed(() => task.value?.view?.p_done || task.value?.view?.p2_done || false)
 const task3Ascii      = computed(() => task.value?.view?.ascii_codes || [])
 const task3Binary     = computed(() => task.value?.view?.binary_codes || [])
 
@@ -247,16 +247,16 @@ const zeit = computed(() => {
 })
 
 function roleLabel(r) {
-  if (r === 'MASTER') return 'Master'
-  if (r === 'FI-SI')  return 'Spieler 1'
-  if (r === 'FI-AE')  return 'Spieler 2'
+  if (r === 'MASTER') return 'Leitstand'
+  if (r === 'FI-SI')  return 'Vorderseite'
+  if (r === 'FI-AE')  return 'Rückseite'
   return r
 }
 
 function roleHint(r) {
-  if (r === 'MASTER') return 'Anleitungen · dirigiert'
-  if (r === 'FI-SI')  return 'Konsole Vorderseite'
-  if (r === 'FI-AE')  return 'Konsole Rückseite'
+  if (r === 'MASTER') return 'Kontrollraum · Monitore'
+  if (r === 'FI-SI')  return 'Vor dem Rack'
+  if (r === 'FI-AE')  return 'Hinter dem Rack'
   return ''
 }
 
@@ -268,15 +268,22 @@ watch(currentTask, () => { lastError.value = '' })
 
 function taskNumberFromView(viewType) {
   switch (viewType) {
+    case 'alarm_leds':
     case 'alarm_source':
     case 'main_switches':
+    case 'code_stickers':
     case 'shutdown_terminal': return 1
+    case 'fire_log':
     case 'fire_protocol':
     case 'valve_panel':
     case 'password_input':    return 2
+    case 'ascii_binary_tables':
+    case 'ascii_puzzle':
+    case 'binary_puzzle':
     case 'task3_master':
     case 'task3_p1':
     case 'task3_p2':          return 3
+    case 'reboot':            return 4
     default:                  return null
   }
 }
@@ -443,16 +450,17 @@ function onTaskSolved(data) {
   let payloadData = {}
 
   if (!myRole.value) return
-  if (myRole.value === 'MASTER') return
 
   if (currentTask.value === 1) {
-    if (normalizedRole.value === 'P1') {
-      payloadData = { action_type: 'button_press', target: 'main_switch', value: data?.value || '' }
-    } else {
+    // Escape Alarm: Leitstand tippt shutdown_cmd, Vorderseite main_switch, Rückseite nur Anzeige
+    if (myRole.value === 'MASTER' || data?.target === 'shutdown_cmd') {
       const codeStr = Array.isArray(data?.code) ? data.code.join(',') : (data?.code || data?.value || '')
       payloadData = { action_type: 'text_input', target: 'shutdown_cmd', value: codeStr }
+    } else if (normalizedRole.value === 'P1') {
+      payloadData = { action_type: 'button_press', target: 'main_switch', value: data?.value || '' }
     }
   } else if (currentTask.value === 2) {
+    if (myRole.value === 'MASTER') return
     if (normalizedRole.value === 'P1') {
       payloadData = { action_type: 'button_press', target: 'valve_action',
                       value: `${data?.valve || ''}:${data?.color || ''}` }
@@ -460,6 +468,7 @@ function onTaskSolved(data) {
       payloadData = { action_type: 'text_input', target: 'release_pw', value: data?.password || '' }
     }
   } else if (currentTask.value === 3) {
+    if (myRole.value === 'MASTER') return
     if (normalizedRole.value === 'P1') {
       payloadData = { action_type: 'text_input', target: 'ascii_answer', value: data?.answer || '' }
     } else {

@@ -13,7 +13,17 @@ import {
 
 vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
 
-const taskStub = { name: 'TaskStub', template: '<div class="task-stub"></div>' }
+const taskStub = {
+  name: 'TaskStub',
+  template: `
+    <div class="task-stub">
+      <button
+        class="task-stub-solved"
+        @click="$emit('solved', { target: 'shutdown_cmd', code: ['stern', 'kreuz', 'plus', 'herz'] })"
+      >solved</button>
+    </div>
+  `,
+}
 
 const stubs = {
   Task1P1: taskStub,
@@ -78,7 +88,7 @@ describe('PlayerScreen.vue', () => {
     })
     await joinAs(wrapper)
 
-    const masterCard = wrapper.findAll('.role-card').find((b) => b.text().includes('Master'))
+    const masterCard = wrapper.findAll('.role-card').find((b) => b.text().includes('Leitstand'))
     await masterCard.trigger('click')
 
     expect(getSentEvents().at(-1)).toEqual({
@@ -101,7 +111,58 @@ describe('PlayerScreen.vue', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.phase-wait').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Spieler 1')
+    expect(wrapper.text()).toContain('Vorderseite')
+  })
+
+  it('zeigt Anzeigenamen Leitstand / Vorderseite / Rückseite (IDs unverändert)', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+
+    const text = wrapper.find('.phase-lobby').text()
+    expect(text).toContain('Leitstand')
+    expect(text).toContain('Vorderseite')
+    expect(text).toContain('Rückseite')
+    expect(text).not.toContain('Spieler 1')
+  })
+
+  it('sendet shutdown_cmd von MASTER (Leitstand) bei Task 1', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({
+      event: 'game_tick',
+      payload: {
+        health: 280,
+        time_left: 290,
+        tasks: [{
+          view: {
+            type: 'alarm_leds',
+            slots: 4,
+            burning_slot: 2,
+            color_order: ['ROT', 'GELB', 'GRÜN', 'BLAU'],
+            p_done: false,
+          },
+        }],
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('.task-stub-solved').trigger('click')
+
+    expect(getSentEvents().at(-1)).toEqual({
+      event: 'player_input',
+      payload: {
+        action_type: 'text_input',
+        target: 'shutdown_cmd',
+        value: 'stern,kreuz,plus,herz',
+      },
+    })
   })
 
   it('deaktiviert belegte Rollen aus lobby_update', async () => {
@@ -122,7 +183,7 @@ describe('PlayerScreen.vue', () => {
     })
     await wrapper.vm.$nextTick()
 
-    const masterCard = wrapper.findAll('.role-card').find((b) => b.text().includes('Master'))
+    const masterCard = wrapper.findAll('.role-card').find((b) => b.text().includes('Leitstand'))
     expect(masterCard.attributes('disabled')).toBeDefined()
     expect(masterCard.classes()).toContain('taken')
   })

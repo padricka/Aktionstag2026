@@ -1,58 +1,72 @@
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">Defekte Komponente abschalten</h2>
-      <span class="role">P1</span>
+      <h2 class="title">Hauptschalter</h2>
+      <span class="role">Vorderseite</span>
     </header>
 
-    <p class="hint">Frage den Master nach dem Symbol der defekten Komponente.</p>
+    <p class="hint">
+      Frage den Leitstand, welcher Steckplatz blinkt — und betätige den Schalter an dieser Position.
+    </p>
 
     <div class="symbols">
       <button
-        v-for="s in symbole"
-        :key="s"
+        v-for="(s, idx) in switches"
+        :key="`${s}-${idx}`"
         class="symbol"
         :class="{ active: auswahl === s }"
-        :disabled="abgesendet"
-        :aria-label="`Symbol: ${s}`"
+        :disabled="erledigt"
+        :aria-label="`Steckplatz ${idx + 1}: ${s}`"
         :aria-pressed="auswahl === s"
         @click="auswahl = s"
       >
-        <SymbolIcon :name="s" :farbe="auswahl === s ? '#050a08' : '#ffffff'" :size="120" />
+        <span class="slot-pos">{{ idx + 1 }}</span>
+        <SymbolIcon :name="s" :farbe="auswahl === s ? '#050a08' : '#ffffff'" :size="100" />
       </button>
     </div>
 
     <div class="foot">
       <button
         class="btn-action"
-        :disabled="!auswahl || abgesendet"
+        :disabled="!auswahl || erledigt"
         @click="bestaetigen"
       >
-        {{ abgesendet ? 'Gesendet' : 'Hauptschalter betätigen' }}
+        {{ erledigt ? 'Erledigt' : 'Hauptschalter betätigen' }}
       </button>
-      <p v-if="serverError" class="msg-err">{{ serverError }}</p>
+      <p v-if="serverError && !erledigt" class="msg-err">{{ serverError }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
 
 const props = defineProps({
-  symbole:     { type: Array,  default: () => ['raute', 'dreieck', 'quadrat', 'kreis'] },
-  serverError: { type: String, default: '' }
+  symbole: { type: Array, default: () => ['raute', 'dreieck', 'quadrat', 'kreis'] },
+  view: { type: Object, default: null },
+  serverError: { type: String, default: '' },
 })
 const emit = defineEmits(['solved', 'failed'])
 
-const auswahl    = ref(null)
-const abgesendet = ref(false)
+const auswahl = ref(null)
+const lokalGesendet = ref(false)
 
-watch(() => props.serverError, (e) => { if (e) abgesendet.value = false })
+const switches = computed(() => props.view?.switches || props.symbole)
+const pDone = computed(() => !!props.view?.p_done)
+const erledigt = computed(() => pDone.value || lokalGesendet.value)
+
+watch(() => props.serverError, (e) => {
+  if (e && !pDone.value) lokalGesendet.value = false
+})
+
+watch(pDone, (done) => {
+  if (done) lokalGesendet.value = true
+})
 
 function bestaetigen() {
-  if (!auswahl.value) return
-  abgesendet.value = true
+  if (!auswahl.value || erledigt.value) return
+  lokalGesendet.value = true
   emit('solved', { player: 'P1', value: auswahl.value })
 }
 </script>
@@ -110,6 +124,7 @@ function bestaetigen() {
 }
 
 .symbol {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -121,6 +136,16 @@ function bestaetigen() {
   transition: border-color 0.15s, background 0.15s;
 }
 
+.slot-pos {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-3);
+  letter-spacing: 0.1em;
+}
+
 .symbol:hover:not(:disabled) {
   border-color: var(--green-border);
   background: var(--bg-1);
@@ -130,6 +155,8 @@ function bestaetigen() {
   background: var(--green);
   border-color: var(--green);
 }
+
+.symbol.active .slot-pos { color: #050a08; }
 
 .symbol:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -154,10 +181,8 @@ function bestaetigen() {
   font-weight: 700;
   letter-spacing: 0.15em;
   cursor: pointer;
-  transition: background 0.15s;
 }
 
-.btn-action:hover:not(:disabled) { background: #4dff8f; }
 .btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .msg-err {

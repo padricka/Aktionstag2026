@@ -120,9 +120,9 @@ const zeit = computed(() => {
 const wsHost = computed(() => `${location.hostname}:5173`)
 
 function roleLabel(r) {
-  if (r === 'MASTER') return 'Master'
-  if (r === 'FI-SI')  return 'P1'
-  if (r === 'FI-AE')  return 'P2'
+  if (r === 'MASTER') return 'Leitstand'
+  if (r === 'FI-SI')  return 'Vorderseite'
+  if (r === 'FI-AE')  return 'Rückseite'
   return r
 }
 

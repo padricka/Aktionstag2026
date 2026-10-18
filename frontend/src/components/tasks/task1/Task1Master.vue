@@ -2,74 +2,151 @@
   <div class="task">
     <header class="head">
       <h2 class="title">Alarm verifizieren</h2>
-      <span class="role">Master</span>
+      <span class="role">Leitstand</span>
     </header>
 
-    <p class="hint">Sage P1 das Symbol der defekten Komponente. Sage P2 die Reihenfolge der Code-Symbole.</p>
+    <p class="hint">
+      Welcher Steckplatz blinkt? Sag der Vorderseite die Position.
+      Ordne die Aufkleber der Rückseite nach der Wartungsnotiz und tippe den Shutdown-Code.
+    </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
     <div v-else class="body">
-
-      <!-- Komponenten mit Symbolen -->
       <section class="panel">
-        <span class="panel-label">Komponenten</span>
-
-        <div class="comp-list">
+        <span class="panel-label">LED-Leiste</span>
+        <div class="led-row" :aria-label="`${slotCount} Steckplätze`">
           <div
-            v-for="k in komponenten"
-            :key="k.id"
-            class="comp"
-            :class="{ broken: k.id === defektId }"
-          >
-            <div class="comp-icon">
-              <SymbolIcon
-                :name="k.symbol"
-                :farbe="k.id === defektId ? '#ff3a4d' : '#d6ffe3'"
-                :size="56"
-              />
-            </div>
-            <span class="comp-name">{{ k.label }}</span>
-            <span class="comp-state">{{ k.id === defektId ? 'DEFEKT' : 'OK' }}</span>
-          </div>
+            v-for="i in slotCount"
+            :key="i"
+            class="led"
+            :class="{ burning: i === burningSlot }"
+          />
         </div>
       </section>
 
-      <!-- Freigabe-Code -->
       <section class="panel">
-        <span class="panel-label">Freigabe-Code für P2</span>
-
-        <div class="code-row">
-          <div v-for="(s, i) in code" :key="i" class="code-cell">
-            <SymbolIcon :name="s" :size="80" :farbe="'#d6ffe3'" />
-            <span class="code-pos">{{ i + 1 }}</span>
-          </div>
-        </div>
-
-        <p class="code-hint">P2 gibt diese 4 Symbole in dieser Reihenfolge ein.</p>
+        <span class="panel-label">Wartungsnotiz</span>
+        <p class="color-order">
+          {{ colorOrderText }}
+        </p>
       </section>
 
+      <section class="panel terminal">
+        <span class="panel-label">Shutdown-Terminal</span>
+
+        <div v-if="pDone" class="done-badge">Code akzeptiert</div>
+
+        <template v-else>
+          <div class="slots">
+            <div
+              v-for="i in 4"
+              :key="i"
+              class="slot"
+              :class="{ filled: eingabe[i - 1] }"
+            >
+              <SymbolIcon v-if="eingabe[i - 1]" :name="eingabe[i - 1]" :size="64" />
+              <span v-else class="slot-num">{{ i }}</span>
+            </div>
+          </div>
+
+          <div class="keys">
+            <button
+              v-for="s in tastatur"
+              :key="s"
+              class="key"
+              :disabled="busy || eingabe.length >= 4"
+              :aria-label="`Symbol: ${s}`"
+              @click="tippen(s)"
+            >
+              <SymbolIcon :name="s" :size="48" />
+            </button>
+          </div>
+
+          <div class="actions">
+            <button class="btn-side" :disabled="busy || !eingabe.length" @click="loeschen">
+              Löschen
+            </button>
+            <button
+              class="btn-action"
+              :disabled="eingabe.length < 4 || busy"
+              @click="ausfuehren"
+            >
+              {{ busy ? 'Prüfen …' : 'Ausführen' }}
+            </button>
+          </div>
+          <p v-if="fehler || serverError" class="msg-err">{{ fehler || serverError }}</p>
+        </template>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
+import { CODE_SYMBOLE } from '../graphic-symbols/Symbole.js'
 
 const props = defineProps({
-  view: { type: Object, default: null }
+  view: { type: Object, default: null },
+  serverError: { type: String, default: '' },
+  inputResultNonce: { type: Number, default: 0 },
+})
+const emit = defineEmits(['solved', 'failed'])
+
+const eingabe = ref([])
+const busy = ref(false)
+const fehler = ref('')
+
+const slotCount = computed(() => props.view?.slots || 4)
+const burningSlot = computed(() => props.view?.burning_slot || null)
+const colorOrder = computed(() => props.view?.color_order || [])
+const pDone = computed(() => !!props.view?.p_done)
+const colorOrderText = computed(() => colorOrder.value.join(' → '))
+const tastatur = computed(() => CODE_SYMBOLE)
+
+function freigebenNachFehler() {
+  busy.value = false
+  fehler.value = props.serverError || 'Falsche Eingabe'
+  eingabe.value = []
+}
+
+watch(() => props.serverError, (e) => {
+  if (e && busy.value) freigebenNachFehler()
 })
 
-const komponenten = [
-  { id: 'K1', label: 'NETZWERK-SWITCH 2', symbol: 'raute' },
-  { id: 'K2', label: 'HAUPT-STROM B-04',  symbol: 'dreieck' },
-  { id: 'K3', label: 'LÜFTUNG SYSTEM A',  symbol: 'quadrat' },
-  { id: 'K4', label: 'FIREWALL-MODUL',    symbol: 'kreis' },
-]
+watch(() => props.inputResultNonce, () => {
+  if (busy.value && props.serverError) freigebenNachFehler()
+})
 
-const defektId = computed(() => props.view?.component || null)
-const code     = computed(() => props.view?.code || [])
+watch(pDone, (done) => {
+  if (done) {
+    busy.value = false
+    fehler.value = ''
+  }
+})
+
+function tippen(s) {
+  if (pDone.value || busy.value || eingabe.value.length >= 4) return
+  fehler.value = ''
+  eingabe.value.push(s)
+}
+
+function loeschen() {
+  if (pDone.value || busy.value || !eingabe.value.length) return
+  eingabe.value.pop()
+  fehler.value = ''
+}
+
+function ausfuehren() {
+  if (pDone.value || busy.value || eingabe.value.length < 4) return
+  busy.value = true
+  fehler.value = ''
+  emit('solved', {
+    target: 'shutdown_cmd',
+    code: [...eingabe.value],
+  })
+}
 </script>
 
 <style scoped>
@@ -112,7 +189,7 @@ const code     = computed(() => props.view?.code || [])
 .hint {
   font-size: 13px;
   color: var(--fg-3);
-  margin: 0 0 24px 0;
+  margin: 0 0 20px 0;
 }
 
 .empty {
@@ -121,7 +198,6 @@ const code     = computed(() => props.view?.code || [])
   align-items: center;
   justify-content: center;
   color: var(--fg-3);
-  font-size: 14px;
 }
 
 .body {
@@ -129,16 +205,21 @@ const code     = computed(() => props.view?.code || [])
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-rows: auto 1fr;
+  gap: 20px;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
+  gap: 14px;
+  padding: 20px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
+}
+
+.panel.terminal {
+  grid-column: 1 / -1;
 }
 
 .panel-label {
@@ -149,90 +230,144 @@ const code     = computed(() => props.view?.code || [])
   font-weight: 600;
 }
 
-/* Komponenten-Liste */
-.comp-list {
+.led-row {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex: 1;
-}
-
-.comp {
-  display: grid;
-  grid-template-columns: 72px 1fr auto;
-  align-items: center;
   gap: 16px;
-  padding: 12px 20px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-}
-
-.comp.broken {
-  border-color: var(--red);
-  background: rgba(255, 58, 77, 0.08);
-}
-
-.comp-icon {
-  display: flex;
-  align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
-}
-
-.comp-name {
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--fg);
-}
-
-.comp-state {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--fg-3);
-  letter-spacing: 0.15em;
-  font-weight: 600;
-}
-
-.comp.broken .comp-state {
-  color: var(--red);
-}
-
-/* Code */
-.code-row {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
   padding: 12px 0;
 }
 
-.code-cell {
+.led {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  border: 2px solid var(--border-3);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+.led.burning {
+  background: var(--red);
+  border-color: var(--red);
+  animation: led-blink 0.9s ease-in-out infinite;
+  box-shadow: 0 0 16px rgba(255, 58, 77, 0.55);
+}
+
+@keyframes led-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.color-order {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-align: center;
+}
+
+.done-badge {
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: 24px;
+  border: 1px solid var(--green-border);
+  background: var(--green-bg);
+}
+
+.slots {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.slot {
+  width: 88px;
+  height: 88px;
+  background: var(--bg-1);
+  border: 2px dashed var(--border-2);
+  display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.slot.filled {
+  border-style: solid;
+  border-color: var(--green-border);
+}
+
+.slot-num {
+  font-family: var(--mono);
+  color: var(--fg-3);
+}
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
-  width: 110px;
-  height: 130px;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
   background: var(--bg-1);
   border: 1px solid var(--border-2);
+  cursor: pointer;
 }
 
-.code-pos {
+.key:hover:not(:disabled) {
+  border-color: var(--green-border);
+}
+
+.key:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.actions {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.btn-side {
+  padding: 12px;
+  background: transparent;
+  color: var(--fg-2);
+  border: 1px solid var(--border-2);
   font-family: var(--mono);
-  font-size: 11px;
-  color: var(--fg-3);
-  letter-spacing: 0.2em;
-  font-weight: 600;
+  cursor: pointer;
 }
 
-.code-hint {
+.btn-side:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn-action {
+  padding: 12px;
+  background: var(--green);
+  color: var(--bg);
+  border: none;
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.msg-err {
   font-size: 12px;
-  color: var(--fg-3);
+  color: var(--red);
   text-align: center;
   margin: 0;
-  letter-spacing: 0.05em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .led.burning { animation: none; }
 }
 </style>
