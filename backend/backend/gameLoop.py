@@ -66,6 +66,7 @@ class GameLoop:
                         "health": snap["health"],
                         "time_left": snap["time_left"],
                         "tasks": snap["tasks"],
+                        "reboot_digits": snap.get("reboot_digits", [None, None, None]),
                     },
                 })
 

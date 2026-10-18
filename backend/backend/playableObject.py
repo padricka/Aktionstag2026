@@ -336,8 +336,6 @@ class DataRescueTask(PlayableObject):
             if value != state["p1_word"]:
                 return StepResult(Outcome.WRONG, state)
             state["p1_unlocked"] = True
-            if state["p2_unlocked"]:
-                return StepResult(Outcome.SOLVED, state)
             return StepResult(Outcome.PROGRESS, state)
 
         if data.target == "binary_answer" and role == ROLE_P2:
@@ -346,14 +344,70 @@ class DataRescueTask(PlayableObject):
             if versuch != ziel:
                 return StepResult(Outcome.WRONG, state)
             state["p2_unlocked"] = True
-            if state["p1_unlocked"]:
-                return StepResult(Outcome.SOLVED, state)
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "sync_button":
+            if role == ROLE_M:
+                return StepResult(Outcome.IGNORED, state)
+            if not (state.get("p1_unlocked") and state.get("p2_unlocked")):
+                return StepResult(Outcome.IGNORED, state)
+
+            if role == ROLE_P1:
+                state["sync_p1_time"] = now
+            elif role == ROLE_P2:
+                state["sync_p2_time"] = now
+
+            t1 = state.get("sync_p1_time")
+            t2 = state.get("sync_p2_time")
+
+            if t1 is not None and t2 is not None:
+                if abs(t1 - t2) <= 3:
+                    return StepResult(Outcome.SOLVED, state)
+
             return StepResult(Outcome.PROGRESS, state)
 
         return StepResult(Outcome.IGNORED, state)
 
 
+# --------------------------------------------------------------------------- Reboot
+class RebootTask(PlayableObject):
+    kind = "reboot"
+    instruction = "Server neu starten!"
+
+    # Finale (GAME_DESIGN.md): Jede Rolle kennt EINE Ziffer des Neustart-Codes,
+    # die Reihenfolge ist die der Aufgaben. Nur der Leitstand hat das Terminal.
+    #   Ziffer 1 (Alarm)          -> Rückseite
+    #   Ziffer 2 (Löschprotokoll) -> Leitstand
+    #   Ziffer 3 (Datenrettung)   -> Vorderseite
+    DIGIT_FOR_ROLE = {ROLE_P2: 0, ROLE_M: 1, ROLE_P1: 2}
+
+    @classmethod
+    def create(cls, players, digits=None):
+        return {"digits": list(digits or [])}
+
+    @classmethod
+    def views(cls, state):
+        digits = state.get("digits") or []
+        return {
+            role: {
+                "type": "reboot",
+                "digit": digits[idx] if idx < len(digits) else None,
+                "terminal": role == ROLE_M,
+            }
+            for role, idx in cls.DIGIT_FOR_ROLE.items()
+        }
+
+    @classmethod
+    def handle_input(cls, state, player_name, role, data, now):
+        if data.target != "reboot_code" or role != ROLE_M or not state.get("digits"):
+            return StepResult(Outcome.IGNORED, state)
+        versuch = "".join(str(data.value).split())
+        if versuch != "".join(str(d) for d in state["digits"]):
+            return StepResult(Outcome.WRONG, state)
+        return StepResult(Outcome.SOLVED, state)
+
+
 TASK_TYPES = {
     cls.kind: cls
-    for cls in (ButtonTask, AlarmTask, FireProtocolTask, DataRescueTask)
+    for cls in (ButtonTask, AlarmTask, FireProtocolTask, DataRescueTask, RebootTask)
 }

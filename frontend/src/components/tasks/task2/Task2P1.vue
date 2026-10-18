@@ -1,40 +1,48 @@
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">Ventil-Sequenz ausführen</h2>
-      <span class="role">P1</span>
+      <h2 class="title">Ventilpanel</h2>
+      <span class="role">Vorderseite</span>
     </header>
 
-    <p class="hint">Frage den Master nach der Reihenfolge der Ventil- und Farb-Kombinationen.</p>
+    <p class="hint">
+      Alle drei haben je einen Schritt — flutet in der Reihenfolge Schritt 1 → 2 → 3.
+    </p>
 
     <div class="body">
-      <aside class="progress">
+      <aside class="side">
         <span class="panel-label">Fortschritt</span>
         <div class="pips">
           <span
             v-for="i in sequenceLen"
             :key="i"
             class="pip"
-            :class="{ done: (i - 1) < step, current: (i - 1) === step && !p1Done }"
-          ></span>
+            :class="{ done: (i - 1) < step, current: (i - 1) === step && !pDone }"
+          />
         </div>
         <span class="count">{{ step }} / {{ sequenceLen }}</span>
+
+        <span class="panel-label">Dein Notizzettel</span>
+        <div class="clue">
+          <span>Schritt {{ clue.step }}</span>
+          <strong>{{ clue.valve }} · {{ clue.color }}</strong>
+        </div>
       </aside>
 
       <section class="panel">
-        <template v-if="!p1Done">
+        <template v-if="!pDone">
           <span class="panel-label">Nächster Schritt</span>
           <div class="inputs">
             <label class="field">
               <span class="field-label">Ventil</span>
-              <select v-model="selectedValve" class="select" :disabled="busy">
+              <select v-model="selectedValve" class="select valve" :disabled="busy">
                 <option disabled value="">– wählen –</option>
                 <option v-for="v in valves" :key="v" :value="v">{{ v }}</option>
               </select>
             </label>
             <label class="field">
               <span class="field-label">Farbe</span>
-              <select v-model="selectedColor" class="select" :disabled="busy">
+              <select v-model="selectedColor" class="select color" :disabled="busy">
                 <option disabled value="">– wählen –</option>
                 <option v-for="c in colors" :key="c" :value="c">{{ c }}</option>
               </select>
@@ -43,38 +51,41 @@
         </template>
 
         <div v-else class="result">
-          <span class="panel-label">Letzter Passwort-Teil</span>
-          <p class="result-value">{{ lastFragment || '–' }}</p>
-          <p class="result-hint">An Master weitergeben</p>
+          <span class="panel-label">Letztes Passwort-Fragment</span>
+          <span class="fragment-dots">{{ dotsLabel(lastFragment?.dots) }}</span>
+          <p class="fragment-text">{{ lastFragment?.text || '–' }}</p>
+          <p class="result-hint">Der Rückseite mitteilen (Punkte = Reihenfolge).</p>
         </div>
       </section>
     </div>
 
     <div class="foot">
       <button
-        v-if="!p1Done"
+        v-if="!pDone"
         class="btn-action"
         :disabled="!selectedValve || !selectedColor || busy"
         @click="submitStep"
       >
         {{ busy ? 'Sende …' : `Schritt ${step + 1} ausführen` }}
       </button>
-      <p v-if="serverError" class="msg-err">{{ serverError }}</p>
+      <p v-if="serverError && !pDone" class="msg-err">{{ serverError }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 
 const props = defineProps({
-  valves:       { type: Array,  default: () => ['V-31', 'V-32', 'V-33'] },
-  colors:       { type: Array,  default: () => ['ORANGE', 'RED', 'GREEN'] },
-  sequenceLen:  { type: Number, default: 3 },
-  step:         { type: Number, default: 0 },
-  lastFragment: { type: String, default: null },
-  p1Done:       { type: Boolean, default: false },
-  serverError:  { type: String, default: '' },
+  view: { type: Object, default: null },
+  // Legacy-Props (PlayerScreen) — view hat Vorrang
+  valves: { type: Array, default: () => ['V-31', 'V-32', 'V-33'] },
+  colors: { type: Array, default: () => ['ORANGE', 'RED', 'GREEN'] },
+  sequenceLen: { type: Number, default: 3 },
+  step: { type: Number, default: 0 },
+  lastFragment: { type: [Object, String], default: null },
+  p1Done: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
   inputResultNonce: { type: Number, default: 0 },
 })
 
@@ -85,34 +96,42 @@ const selectedColor = ref('')
 const busy = ref(false)
 let busyTimer = null
 
+const valves = computed(() => props.view?.valves || props.valves)
+const colors = computed(() => props.view?.colors || props.colors)
+const sequenceLen = computed(() => props.view?.sequence_len ?? props.sequenceLen)
+const step = computed(() => props.view?.step ?? props.step)
+const clue = computed(() => props.view?.clue || { step: '–', valve: '–', color: '–' })
+const pDone = computed(() => !!(props.view?.p_done ?? props.p1Done))
+const lastFragment = computed(() => {
+  const lf = props.view?.last_fragment ?? props.lastFragment
+  if (!lf) return null
+  if (typeof lf === 'string') return { dots: 0, text: lf }
+  return lf
+})
+
+function dotsLabel(n) {
+  const count = Math.max(0, Number(n) || 0)
+  return '●'.repeat(count) || '–'
+}
+
 function releaseBusy() {
   busy.value = false
   if (busyTimer) { clearTimeout(busyTimer); busyTimer = null }
 }
 
-// Server hat geantwortet (correct / wrong / ignored) → Button sofort freigeben
-watch(() => props.inputResultNonce, () => {
-  releaseBusy()
-})
-
-// Neuer Schritt kommt → Auswahl zurücksetzen
-watch(() => props.step, () => {
+watch(() => props.inputResultNonce, () => releaseBusy())
+watch(step, () => {
   selectedValve.value = ''
   selectedColor.value = ''
   releaseBusy()
 })
-
-// P1 fertig → Busy weg
-watch(() => props.p1Done, () => releaseBusy())
-
+watch(pDone, () => releaseBusy())
 onUnmounted(() => { if (busyTimer) clearTimeout(busyTimer) })
 
 function submitStep() {
-  if (!selectedValve.value || !selectedColor.value || busy.value) return
+  if (!selectedValve.value || !selectedColor.value || busy.value || pDone.value) return
   busy.value = true
   emit('solved', { valve: selectedValve.value, color: selectedColor.value })
-
-  // Fallback falls Server gar nicht antwortet
   if (busyTimer) clearTimeout(busyTimer)
   busyTimer = setTimeout(() => { busy.value = false }, 2000)
 }
@@ -161,15 +180,16 @@ function submitStep() {
   gap: 20px;
 }
 
-.progress {
+.side, .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   padding: 24px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
-  justify-content: center;
 }
+
+.panel { justify-content: center; }
 
 .panel-label {
   font-size: 11px;
@@ -199,14 +219,22 @@ function submitStep() {
   letter-spacing: 0.1em;
 }
 
-.panel {
+.clue {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px;
-  background: var(--bg-2);
+  gap: 6px;
+  padding: 14px;
+  background: var(--bg-1);
   border: 1px solid var(--border-2);
-  justify-content: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--fg-2);
+}
+
+.clue strong {
+  font-size: 18px;
+  color: var(--fg);
+  letter-spacing: 0.06em;
 }
 
 .inputs {
@@ -235,7 +263,6 @@ function submitStep() {
   font-size: 16px;
   cursor: pointer;
   outline: none;
-  letter-spacing: 0.05em;
 }
 
 .select:focus { border-color: var(--green-border); }
@@ -252,14 +279,19 @@ function submitStep() {
   margin: 0 auto;
 }
 
-.result-value {
+.fragment-dots {
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  color: var(--amber, #ffb830);
+}
+
+.fragment-text {
   font-family: var(--mono);
-  font-size: 48px;
+  font-size: 40px;
   font-weight: 700;
   color: var(--green);
   margin: 0;
-  letter-spacing: 0.15em;
-  line-height: 1;
+  letter-spacing: 0.12em;
 }
 
 .result-hint { font-size: 12px; color: var(--fg-3); margin: 0; }
@@ -272,7 +304,6 @@ function submitStep() {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
 }
 
 .btn-action {
@@ -285,10 +316,8 @@ function submitStep() {
   font-weight: 700;
   letter-spacing: 0.15em;
   cursor: pointer;
-  transition: background 0.15s;
 }
 
-.btn-action:hover:not(:disabled) { background: #4dff8f; }
 .btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .msg-err { font-size: 12px; color: var(--red); margin: 0; }

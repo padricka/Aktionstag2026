@@ -34,6 +34,20 @@
       />
       <div class="actions"><button @click="deskZuruecksetzen">Zurücksetzen</button></div>
     </section>
+
+    <section>
+      <h2>Sync-Knopf · Aufgabe 3 Vorder- und Rückseite</h2>
+      <p class="hint">
+        Klappe öffnen, dann drücken. Der Partner drückt in dieser Vorschau nach 1,6 s mit —
+        „Partner verpasst" zeigt den Fehlerfall (Ring rot, danach wieder bereit).
+      </p>
+      <SyncButton :unlocked="syncFrei" :state="syncState" @press="drueckeSync" />
+      <div class="actions">
+        <button @click="syncFrei = !syncFrei">{{ syncFrei ? 'Verplomben' : 'Freischalten' }}</button>
+        <button @click="partnerVerpasst">Partner verpasst</button>
+        <button @click="syncZuruecksetzen">Zurücksetzen</button>
+      </div>
+    </section>
   </main>
 </template>
 
@@ -41,6 +55,7 @@
 import { onBeforeUnmount, ref } from 'vue'
 import WirePanel from '../components/WirePanel.vue'
 import ControlDesk from '../components/ControlDesk.vue'
+import SyncButton from '../components/SyncButton.vue'
 
 const WIRES = ['raute', 'dreieck', 'quadrat', 'kreis']
 const RICHTIG = 2
@@ -84,7 +99,32 @@ function deskZuruecksetzen() {
   deskState.value = 'idle'
 }
 
-onBeforeUnmount(() => clearTimeout(deskTimer))
+// --- Sync-Knopf: simuliert Backend + Partner ---
+const syncFrei = ref(true)
+const syncState = ref('idle')
+let syncTimer = null
+
+function drueckeSync() {
+  syncState.value = 'waiting'
+  clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => (syncState.value = 'synced'), 1600)
+}
+
+function partnerVerpasst() {
+  clearTimeout(syncTimer)
+  syncState.value = 'error'
+  syncTimer = setTimeout(() => (syncState.value = 'idle'), 1400)
+}
+
+function syncZuruecksetzen() {
+  clearTimeout(syncTimer)
+  syncState.value = 'idle'
+}
+
+onBeforeUnmount(() => {
+  clearTimeout(deskTimer)
+  clearTimeout(syncTimer)
+})
 </script>
 
 <style>
