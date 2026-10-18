@@ -19,7 +19,7 @@ async def test_channel_consumer_full_flow():
     response1 = await communicator.receive_from()
     assert response1 == "Hello World!"
     
-    response2 = await communicator.receive_bytes_from()
+    response2 = await communicator.receive_from()
     assert response2 == b"Hello World"
 
     # 3. disconnect() testen

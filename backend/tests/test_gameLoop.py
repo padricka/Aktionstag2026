@@ -49,7 +49,7 @@ def redis_mock():
 
 def snap(health=300, time_left=300, survived=0):
     return {"health": health, "time_left": time_left,
-            "survived_seconds": survived, "tasks": []}
+            "survived_seconds": survived, "tasks": [], "score": 0}
 
 
 def fake_dc(status="running", ticks=()):
