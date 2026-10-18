@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import StartMenu from './StartMenu.vue'
 import HostScreen from './components/HostScreen.vue'
 import PlayerScreen from './components/PlayerScreen.vue'
@@ -45,6 +45,55 @@ const gestartet = ref(false)
 const role = ref(null)
 const playerName = ref('')
 const showStartMenuSettings = ref(false)
+
+function applySavedVisuals() {
+  const saved = localStorage.getItem('drv_game_settings')
+  if (!saved) {
+    document.documentElement.classList.add('theme-dark')
+    return
+  }
+  try {
+    const parsed = JSON.parse(saved)
+    const theme = parsed.theme || 'dark'
+    document.documentElement.classList.remove('theme-light', 'theme-girl', 'theme-dark')
+    document.documentElement.classList.add(`theme-${theme}`)
+    if (typeof parsed.brightness === 'number') {
+      document.documentElement.style.filter = `brightness(${parsed.brightness}%)`
+    }
+    document.documentElement.classList.toggle('scanlines', !!parsed.scanlinesEnabled)
+  } catch (e) {
+    document.documentElement.classList.add('theme-dark')
+  }
+}
+
+let lastSparkleTime = 0
+function handleMouseMove(e) {
+  if (!document.documentElement.classList.contains('theme-girl')) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  const now = Date.now()
+  if (now - lastSparkleTime < 50) return
+  lastSparkleTime = now
+
+  const sparkle = document.createElement('div')
+  sparkle.className = 'sparkle'
+  sparkle.style.left = `${e.clientX}px`
+  sparkle.style.top = `${e.clientY}px`
+  const scale = 0.5 + Math.random()
+  const rotation = Math.random() * 360
+  sparkle.style.transform = `translate(-50%, -50%) scale(${scale}) rotate(${rotation}deg)`
+  document.body.appendChild(sparkle)
+  setTimeout(() => sparkle.remove(), 600)
+}
+
+onMounted(() => {
+  applySavedVisuals()
+  window.addEventListener('mousemove', handleMouseMove)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', handleMouseMove)
+})
 
 function onStart(daten) {
   gestartet.value = true

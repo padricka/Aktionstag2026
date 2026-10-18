@@ -10,14 +10,46 @@
 
       <div class="setting">
         <div class="setting-info">
+          <span class="setting-name">Thema</span>
+        </div>
+        <div class="theme-actions">
+          <button
+            type="button"
+            class="btn"
+            :class="{ active: settings.theme === 'dark' }"
+            @click="setTheme('dark')"
+          >
+            Dark
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :class="{ active: settings.theme === 'light' }"
+            @click="setTheme('light')"
+          >
+            Light
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :class="{ active: settings.theme === 'girl' }"
+            @click="setTheme('girl')"
+          >
+            Girl
+          </button>
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="setting-info">
           <span class="setting-name">Helligkeit</span>
           <span class="setting-value mono">{{ settings.brightness }} %</span>
         </div>
         <input
           type="range" min="25" max="100"
           v-model.number="settings.brightness"
-          @input="applyBrightness"
           class="slider"
+          @input="applyBrightness"
         />
       </div>
 
@@ -27,17 +59,19 @@
           <span class="setting-value mono">{{ settings.scanlinesEnabled ? 'an' : 'aus' }}</span>
         </div>
         <button
+          type="button"
           class="btn"
           :class="{ active: settings.scanlinesEnabled }"
-          @click="settings.scanlinesEnabled = !settings.scanlinesEnabled"
+          @click="toggleScanlines"
         >
           {{ settings.scanlinesEnabled ? 'Deaktivieren' : 'Aktivieren' }}
         </button>
       </div>
     </section>
 
-    <section class="settings-section">
+    <section class="settings-section audio-stub">
       <h2 class="label">Audio</h2>
+      <p class="stub-note">Noch nicht verdrahtet — Werte werden gespeichert, ändern aber noch keinen Sound.</p>
 
       <div class="setting">
         <div class="setting-info">
@@ -57,6 +91,7 @@
           <span class="setting-value mono">{{ settings.musicEnabled ? 'an' : 'aus' }}</span>
         </div>
         <button
+          type="button"
           class="btn"
           :class="{ active: settings.musicEnabled }"
           @click="settings.musicEnabled = !settings.musicEnabled"
@@ -83,6 +118,7 @@
           <span class="setting-value mono">{{ settings.sfxEnabled ? 'an' : 'aus' }}</span>
         </div>
         <button
+          type="button"
           class="btn"
           :class="{ active: settings.sfxEnabled }"
           @click="settings.sfxEnabled = !settings.sfxEnabled"
@@ -93,8 +129,8 @@
     </section>
 
     <footer class="settings-actions">
-      <button class="btn" @click="resetToDefaults">Zurücksetzen</button>
-      <button class="btn btn-primary" @click="saveAndClose">Speichern</button>
+      <button type="button" class="btn" @click="resetToDefaults">Zurücksetzen</button>
+      <button type="button" class="btn btn-primary" @click="saveAndClose">Speichern</button>
     </footer>
   </div>
 </template>
@@ -105,12 +141,13 @@ import { reactive, onMounted } from 'vue'
 const emit = defineEmits(['save'])
 
 const DEFAULT_SETTINGS = {
+  theme: 'dark',
   brightness: 100,
-  scanlinesEnabled: true,
+  scanlinesEnabled: false,
   masterVolume: 80,
   musicEnabled: true,
   musicVolume: 60,
-  sfxEnabled: true
+  sfxEnabled: true,
 }
 
 const settings = reactive({ ...DEFAULT_SETTINGS })
@@ -118,25 +155,51 @@ const settings = reactive({ ...DEFAULT_SETTINGS })
 onMounted(() => {
   const saved = localStorage.getItem('drv_game_settings')
   if (saved) {
-    try { Object.assign(settings, JSON.parse(saved)) } catch (e) { /* ignore */ }
+    try { Object.assign(settings, { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }) } catch (e) { /* ignore */ }
   }
-  applyBrightness()
+  applyAll()
 })
+
+function applyTheme() {
+  const root = document.documentElement
+  root.classList.remove('theme-light', 'theme-girl', 'theme-dark')
+  root.classList.add(`theme-${settings.theme || 'dark'}`)
+}
 
 function applyBrightness() {
   document.documentElement.style.filter = `brightness(${settings.brightness}%)`
 }
 
-function saveAndClose() {
-  localStorage.setItem('drv_game_settings', JSON.stringify(settings))
+function applyScanlines() {
+  document.documentElement.classList.toggle('scanlines', !!settings.scanlinesEnabled)
+}
+
+function applyAll() {
+  applyTheme()
   applyBrightness()
+  applyScanlines()
+}
+
+function setTheme(theme) {
+  settings.theme = theme
+  applyTheme()
+}
+
+function toggleScanlines() {
+  settings.scanlinesEnabled = !settings.scanlinesEnabled
+  applyScanlines()
+}
+
+function saveAndClose() {
+  localStorage.setItem('drv_game_settings', JSON.stringify({ ...settings }))
+  applyAll()
   emit('save')
 }
 
 function resetToDefaults() {
   Object.assign(settings, DEFAULT_SETTINGS)
   localStorage.setItem('drv_game_settings', JSON.stringify(DEFAULT_SETTINGS))
-  applyBrightness()
+  applyAll()
 }
 </script>
 
@@ -162,6 +225,7 @@ function resetToDefaults() {
 .settings-head p {
   font-size: var(--text-sm);
   margin: 0;
+  color: var(--fg-2);
 }
 
 .settings-section {
@@ -173,6 +237,14 @@ function resetToDefaults() {
 
 .settings-section h2 {
   margin: 0 0 var(--space-3) 0;
+}
+
+.stub-note {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  margin: 0 0 var(--space-3) 0;
+  letter-spacing: 0.02em;
 }
 
 .setting {
@@ -197,6 +269,12 @@ function resetToDefaults() {
 .setting-value {
   font-size: var(--text-xs);
   color: var(--fg-3);
+}
+
+.theme-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .slider {
