@@ -6,68 +6,86 @@
     </header>
 
     <p class="hint">
-      Frage den Leitstand, welcher Steckplatz blinkt — und betätige den Schalter an dieser Position.
+      Frag den Leitstand, welcher Steckplatz brennt – kapp das Kabel mit diesem Symbol.
     </p>
 
-    <div class="symbols">
-      <button
-        v-for="(s, idx) in switches"
-        :key="`${s}-${idx}`"
-        class="symbol"
-        :class="{ active: auswahl === s }"
-        :disabled="erledigt"
-        :aria-label="`Steckplatz ${idx + 1}: ${s}`"
-        :aria-pressed="auswahl === s"
-        @click="auswahl = s"
-      >
-        <span class="slot-pos">{{ idx + 1 }}</span>
-        <SymbolIcon :name="s" :farbe="auswahl === s ? '#050a08' : '#ffffff'" :size="100" />
-      </button>
+    <div class="body">
+      <WirePanel
+        :wires="wires"
+        :seconds="timeLeft"
+        :state="panelState"
+        @cut="kappen"
+      />
     </div>
 
-    <div class="foot">
-      <button
-        class="btn-action"
-        :disabled="!auswahl || erledigt"
-        @click="bestaetigen"
-      >
-        {{ erledigt ? 'Erledigt' : 'Hauptschalter betätigen' }}
-      </button>
-      <p v-if="serverError && !erledigt" class="msg-err">{{ serverError }}</p>
-    </div>
+    <p v-if="serverError && panelState === 'error'" class="msg-err">{{ serverError }}</p>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
+import WirePanel from '../../WirePanel.vue'
 
 const props = defineProps({
   symbole: { type: Array, default: () => ['raute', 'dreieck', 'quadrat', 'kreis'] },
   view: { type: Object, default: null },
   serverError: { type: String, default: '' },
+  timeLeft: { type: Number, default: null },
 })
 const emit = defineEmits(['solved', 'failed'])
 
-const auswahl = ref(null)
-const lokalGesendet = ref(false)
+const FEHLER_MS = 1200
 
-const switches = computed(() => props.view?.switches || props.symbole)
+const lokalGesendet = ref(false)
+const fehlerAktiv = ref(false)
+let fehlerTimer = null
+
+const wires = computed(() => props.view?.switches || props.symbole)
 const pDone = computed(() => !!props.view?.p_done)
-const erledigt = computed(() => pDone.value || lokalGesendet.value)
+
+// Panel ist reine Darstellung: "checking" hält es gesperrt, bis der Server antwortet.
+const panelState = computed(() => {
+  if (pDone.value) return 'defused'
+  if (fehlerAktiv.value) return 'error'
+  if (lokalGesendet.value) return 'checking'
+  return 'armed'
+})
+
+function fehlerZeigen() {
+  fehlerAktiv.value = true
+  if (fehlerTimer) clearTimeout(fehlerTimer)
+  fehlerTimer = setTimeout(() => {
+    fehlerAktiv.value = false
+    fehlerTimer = null
+  }, FEHLER_MS)
+}
+
+function fehlerBeenden() {
+  if (fehlerTimer) { clearTimeout(fehlerTimer); fehlerTimer = null }
+  fehlerAktiv.value = false
+}
 
 watch(() => props.serverError, (e) => {
-  if (e && !pDone.value) lokalGesendet.value = false
+  if (e && !pDone.value) {
+    lokalGesendet.value = false
+    fehlerZeigen()
+  }
 })
 
 watch(pDone, (done) => {
-  if (done) lokalGesendet.value = true
+  if (done) {
+    lokalGesendet.value = true
+    fehlerBeenden()
+  }
 })
 
-function bestaetigen() {
-  if (!auswahl.value || erledigt.value) return
+onUnmounted(fehlerBeenden)
+
+function kappen({ symbol }) {
+  if (pDone.value || lokalGesendet.value) return
   lokalGesendet.value = true
-  emit('solved', { player: 'P1', value: auswahl.value })
+  fehlerBeenden()
+  emit('solved', { player: 'P1', value: symbol })
 }
 </script>
 
@@ -83,6 +101,7 @@ function bestaetigen() {
   background: var(--bg-1);
   border: 1px solid var(--border);
   padding: 28px 36px;
+  overflow: hidden;
 }
 
 .head {
@@ -114,80 +133,21 @@ function bestaetigen() {
   margin: 0 0 24px 0;
 }
 
-.symbols {
+.body {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  padding: 8px 0;
   min-height: 0;
-}
-
-.symbol {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-  cursor: pointer;
-  min-height: 240px;
-  padding: 20px;
-  transition: border-color 0.15s, background 0.15s;
+  padding: 8px 0;
+  overflow: auto;
 }
-
-.slot-pos {
-  position: absolute;
-  top: 10px;
-  left: 12px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--fg-3);
-  letter-spacing: 0.1em;
-}
-
-.symbol:hover:not(:disabled) {
-  border-color: var(--green-border);
-  background: var(--bg-1);
-}
-
-.symbol.active {
-  background: var(--green);
-  border-color: var(--green);
-}
-
-.symbol.active .slot-pos { color: #050a08; }
-
-.symbol:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.foot {
-  padding-top: 22px;
-  margin-top: 16px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.btn-action {
-  padding: 14px 64px;
-  background: var(--green);
-  color: #050a08;
-  border: none;
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-}
-
-.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .msg-err {
   font-size: 12px;
   color: var(--red);
-  margin: 0;
+  margin: 10px 0 0 0;
+  text-align: center;
+  flex-shrink: 0;
 }
 </style>
