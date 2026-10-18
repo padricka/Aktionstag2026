@@ -24,7 +24,7 @@
         v-for="s in tastaturSymbole"
         :key="s"
         class="key"
-        :disabled="geloest || eingabe.length >= codeLength"
+        :disabled="busy || eingabe.length >= codeLength"
         :aria-label="`Symbol: ${s}`"
         @click="tippen(s)"
       >
@@ -34,48 +34,76 @@
 
     <div class="foot">
       <div class="actions">
-        <button class="btn-side" :disabled="geloest || !eingabe.length" @click="eingabe.pop()">
+        <button class="btn-side" :disabled="busy || !eingabe.length" @click="loeschen">
           Löschen
         </button>
         <button
           class="btn-action"
-          :disabled="eingabe.length < codeLength || geloest"
+          :disabled="eingabe.length < codeLength || busy"
           @click="ausfuehren"
         >
-          {{ geloest ? 'Akzeptiert' : 'Ausführen' }}
+          {{ busy ? 'Prüfen …' : 'Ausführen' }}
         </button>
       </div>
-      <p v-if="fehler" class="msg-err">{{ fehler }}</p>
+      <p v-if="fehler || serverError" class="msg-err">{{ fehler || serverError }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
 import { CODE_SYMBOLE } from '../graphic-symbols/Symbole.js'
 
 const props = defineProps({
   codeLength: { type: Number, default: 4 },
-  symbole:    { type: Array,  default: () => CODE_SYMBOLE }
+  symbole:    { type: Array,  default: () => CODE_SYMBOLE },
+  serverError: { type: String, default: '' },
+  inputResultNonce: { type: Number, default: 0 },
 })
 const emit = defineEmits(['solved', 'failed'])
 
 const eingabe = ref([])
-const geloest = ref(false)
-const fehler  = ref('')
+const busy = ref(false)
+const fehler = ref('')
 
 const tastaturSymbole = computed(() => {
   if (props.symbole && props.symbole.length >= 12) return props.symbole
   return CODE_SYMBOLE
 })
 
+function freigebenNachFehler() {
+  busy.value = false
+  fehler.value = props.serverError || 'Falsche Eingabe'
+  eingabe.value = []
+}
+
+// Server meldet falsch → Eingabe wieder freigeben (vorher blieb UI auf „Akzeptiert“)
+watch(() => props.serverError, (e) => {
+  if (e && busy.value) freigebenNachFehler()
+})
+
+watch(() => props.inputResultNonce, () => {
+  if (busy.value && props.serverError) freigebenNachFehler()
+})
+
 function tippen(s) {
-  if (eingabe.value.length < props.codeLength) eingabe.value.push(s)
+  if (busy.value || eingabe.value.length >= props.codeLength) return
+  fehler.value = ''
+  eingabe.value.push(s)
+}
+
+function loeschen() {
+  if (busy.value || !eingabe.value.length) return
+  eingabe.value.pop()
+  fehler.value = ''
 }
 
 function ausfuehren() {
-  geloest.value = true
+  if (busy.value || eingabe.value.length < props.codeLength) return
+  busy.value = true
+  fehler.value = ''
+  // Nicht vorab als gelöst markieren — erst Server-Antwort (bei richtig wechselt der Task)
   emit('solved', { player: 'P2', code: [...eingabe.value] })
 }
 </script>
