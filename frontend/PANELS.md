@@ -9,7 +9,7 @@ Die Task-Komponente (`components/tasks/taskN/…`) reicht `view`-Daten als Props
 |---|---|---|---|
 | Tresor | `VaultDoor.vue` | Finale: Beamer + Leitstand | fertig (PR #21) |
 | Kabelpanel | `WirePanel.vue` | Aufgabe 1, Vorderseite (`main_switches`) | fertig, **Mustervorlage** |
-| Steuerpult | `ControlDesk.vue` | Aufgabe 2, Vorderseite (`valve_panel`) | Tests liegen bereit |
+| Steuerpult | `ControlDesk.vue` | Aufgabe 2, Vorderseite (`valve_panel`) | fertig |
 | Sync-Knopf | `SyncButton.vue` | Aufgabe 3, Vorder- + Rückseite | Tests liegen bereit |
 
 ## Regeln für jedes Panel
