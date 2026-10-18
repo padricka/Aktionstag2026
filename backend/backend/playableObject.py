@@ -173,6 +173,10 @@ class FireProtocolTask(PlayableObject):
     COLORS = ["ORANGE", "RED", "GREEN"]
     FRAGMENT_POOL = ["DRV", "AK26", "SYS", "BOX", "SEC", "FIRE"]
 
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 2):
+    #   Jede Rolle kennt genau EINEN Schritt der Sequenz -> nur gemeinsam kann die
+    #   Vorderseite fluten. Passwort-Fragmente tragen 1–3 Punkte, sortiert ergeben sie
+    #   das Passwort. Fragment 0 = Leitstand, 1 = Rückseite, 2 = erst nach dem Fluten.
     @classmethod
     def create(cls, players):
         sequence = [
@@ -180,41 +184,40 @@ class FireProtocolTask(PlayableObject):
             for _ in range(FIRE_SEQUENCE_LEN)
         ]
 
-        picked = random.sample(cls.FRAGMENT_POOL, 3)
-        p2_frags = picked[:2]
-        last_frag = picked[2]
+        steps = list(range(FIRE_SEQUENCE_LEN))
+        random.shuffle(steps)
+        clue_steps = {ROLE_M: steps[0], ROLE_P1: steps[1], ROLE_P2: steps[2]}
 
-        order = [0, 1, 2]
-        random.shuffle(order)
+        dots = [1, 2, 3]
+        random.shuffle(dots)
+        texts = random.sample(cls.FRAGMENT_POOL, 3)
+        fragments = [{"dots": d, "text": t} for d, t in zip(dots, texts)]
 
         return {
             "sequence": sequence,
             "step": 0,
-            "fragments": p2_frags,
-            "last_fragment": last_frag,
-            "order": order,
+            "clue_steps": clue_steps,
+            "fragments": fragments,
             "p1_done": False,
             "p2_done": False,
         }
 
     @classmethod
+    def _clue(cls, state, role):
+        idx = state["clue_steps"][role]
+        step = state["sequence"][idx]
+        return {"step": idx + 1, "valve": step["valve"], "color": step["color"]}
+
+    @classmethod
     def views(cls, state):
         frags = state["fragments"]
-        last = state["last_fragment"]
-        order = state["order"]
-        all_frags = frags + [last]
-        ordered = [all_frags[i] for i in order]
+        last = frags[2] if state["p1_done"] else None
 
         return {
             ROLE_M: {
-                "type": "fire_protocol",
-                "sequence": state["sequence"],
-                "step": state["step"],
-                "sequence_len": len(state["sequence"]),
-                "fragments": frags,
-                "last_fragment": last,
-                "order": order,
-                "password_preview": "-".join(ordered),
+                "type": "fire_log",
+                "clue": cls._clue(state, ROLE_M),
+                "fragment": frags[0],
             },
             ROLE_P1: {
                 "type": "valve_panel",
@@ -222,14 +225,16 @@ class FireProtocolTask(PlayableObject):
                 "colors": cls.COLORS,
                 "sequence_len": len(state["sequence"]),
                 "step": state["step"],
-                "last_fragment": state["last_fragment"] if state["p1_done"] else None,
-                "p1_done": state["p1_done"],
+                "clue": cls._clue(state, ROLE_P1),
+                "last_fragment": last,
+                "p_done": state["p1_done"],
             },
             ROLE_P2: {
                 "type": "password_input",
-                "fragments": frags,
-                "last_fragment": state["last_fragment"] if state["p1_done"] else None,
-                "p2_done": state["p2_done"],
+                "clue": cls._clue(state, ROLE_P2),
+                "fragment": frags[1],
+                "last_fragment": last,
+                "p_done": state["p2_done"],
             },
         }
 
@@ -263,9 +268,8 @@ class FireProtocolTask(PlayableObject):
             if not state["p1_done"]:
                 return StepResult(Outcome.IGNORED, state)
 
-            all_frags = state["fragments"] + [state["last_fragment"]]
-            ordered = [all_frags[i] for i in state["order"]]
-            expected = "".join(ordered).upper()
+            ordered = sorted(state["fragments"], key=lambda f: f["dots"])
+            expected = "".join(f["text"] for f in ordered).upper()
 
             clean_in = value.replace("-", "").replace(" ", "").upper()
             if clean_in != expected:
