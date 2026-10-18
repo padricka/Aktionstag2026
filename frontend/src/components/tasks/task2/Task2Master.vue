@@ -2,48 +2,36 @@
   <div class="task">
     <header class="head">
       <h2 class="title">Löschprotokoll</h2>
-      <span class="role">Master</span>
+      <span class="role">Leitstand</span>
     </header>
 
-    <p class="hint">Sage P1 die Ventil-Sequenz. Sage P2 die Passwort-Reihenfolge.</p>
+    <p class="hint">
+      Lies deinen Log-Schritt und das Fragment vor. Die anderen haben die fehlenden Teile —
+      gemeinsam ergibt sich die Reihenfolge und das Passwort (Punkte sortieren).
+    </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
     <div v-else class="body">
       <section class="panel">
-        <span class="panel-label">Ventil-Sequenz (P1)</span>
-        <div class="seq">
-          <div
-            v-for="(s, i) in view.sequence"
-            :key="i"
-            class="seq-item"
-            :class="{ done: i < view.step, current: i === view.step }"
-          >
-            <span class="seq-num">{{ i + 1 }}</span>
-            <span class="seq-valve">{{ s.valve }}</span>
-            <span class="seq-color">
-              <span class="color-dot" :style="{ background: colorHex(s.color) }"></span>
-              {{ s.color }}
-            </span>
-          </div>
+        <span class="panel-label">System-Log · ein Schritt</span>
+        <div class="clue">
+          <span class="clue-step">Schritt {{ clue.step }}</span>
+          <span class="clue-valve">{{ clue.valve }}</span>
+          <span class="clue-color">
+            <span class="color-dot" :style="{ background: colorHex(clue.color) }"></span>
+            {{ clue.color }}
+          </span>
         </div>
       </section>
 
       <section class="panel">
-        <span class="panel-label">Passwort-Reihenfolge (P2)</span>
-
-        <div class="order">
-          <div v-for="(idx, pos) in view.order" :key="pos" class="order-item">
-            <span class="order-pos">{{ pos + 1 }}</span>
-            <span class="order-ref">Teil #{{ idx }}</span>
-            <span class="order-val">{{ alleTeile[idx] }}</span>
-          </div>
+        <span class="panel-label">Passwort-Fragment</span>
+        <div class="fragment">
+          <span class="fragment-dots">{{ dotsLabel(fragment.dots) }}</span>
+          <span class="fragment-text">{{ fragment.text }}</span>
         </div>
-
-        <div class="preview">
-          <span class="preview-label">Passwort</span>
-          <span class="preview-val">{{ view.password_preview }}</span>
-        </div>
+        <p class="frag-hint">Punkte = Sortierreihenfolge (● zuerst, ●●● zuletzt).</p>
       </section>
     </div>
   </div>
@@ -53,23 +41,26 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  view: { type: Object, default: null }
+  view: { type: Object, default: null },
 })
 
 const COLOR_HEX = {
   ORANGE: '#ff8a00',
-  RED:    '#ff0055',
-  GREEN:  '#00ff66',
+  RED: '#ff0055',
+  GREEN: '#00ff66',
 }
+
+const clue = computed(() => props.view?.clue || { step: '–', valve: '–', color: '–' })
+const fragment = computed(() => props.view?.fragment || { dots: 0, text: '–' })
 
 function colorHex(name) {
-  return COLOR_HEX[(name || '').toUpperCase()] || '#555'
+  return COLOR_HEX[String(name || '').toUpperCase()] || '#555'
 }
 
-const alleTeile = computed(() => {
-  if (!props.view) return []
-  return [...props.view.fragments, props.view.last_fragment]
-})
+function dotsLabel(n) {
+  const count = Math.max(0, Number(n) || 0)
+  return '●'.repeat(count) || '–'
+}
 </script>
 
 <style scoped>
@@ -94,12 +85,7 @@ const alleTeile = computed(() => {
   margin-bottom: 6px;
 }
 
-.title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0;
-}
+.title { font-size: 16px; font-weight: 700; color: var(--fg); margin: 0; }
 
 .role {
   font-size: 11px;
@@ -110,11 +96,7 @@ const alleTeile = computed(() => {
   letter-spacing: 0.15em;
 }
 
-.hint {
-  font-size: 13px;
-  color: var(--fg-3);
-  margin: 0 0 24px 0;
-}
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
 .empty {
   flex: 1;
@@ -122,7 +104,6 @@ const alleTeile = computed(() => {
   align-items: center;
   justify-content: center;
   color: var(--fg-3);
-  font-size: 14px;
 }
 
 .body {
@@ -150,124 +131,75 @@ const alleTeile = computed(() => {
   font-weight: 600;
 }
 
-.seq {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.seq-item {
+.clue {
   display: grid;
-  grid-template-columns: 44px 1fr 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 18px;
-  padding: 20px 22px;
+  padding: 28px 24px;
   background: var(--bg-1);
   border: 1px solid var(--border-2);
 }
 
-.seq-item.done { opacity: 0.5; border-color: var(--green-border); }
-
-.seq-item.current {
-  border-color: var(--green);
-  box-shadow: 0 0 0 3px var(--green-bg);
-}
-
-.seq-num {
-  font-family: var(--mono);
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--green);
-}
-
-.seq-valve {
-  font-family: var(--mono);
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--fg);
-  letter-spacing: 0.1em;
-}
-
-.seq-color {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.clue-step {
   font-family: var(--mono);
   font-size: 18px;
-  font-weight: 600;
-  color: var(--fg);
-  letter-spacing: 0.1em;
-}
-
-.color-dot {
-  display: inline-block;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--border-3);
-}
-
-.order {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.order-item {
-  display: grid;
-  grid-template-columns: 44px 100px 1fr;
-  align-items: center;
-  gap: 18px;
-  padding: 16px 22px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-}
-
-.order-pos {
-  font-family: var(--mono);
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--amber, #ffb830);
-}
-
-.order-ref {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--fg-3);
-  letter-spacing: 0.1em;
-}
-
-.order-val {
-  font-family: var(--mono);
-  font-size: 22px;
   font-weight: 700;
   color: var(--green);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
-.preview {
-  margin-top: auto;
-  padding: 22px;
-  background: var(--bg-1);
-  border: 1px dashed var(--green-border);
-  text-align: center;
-}
-
-.preview-label {
-  display: block;
-  font-size: 11px;
-  color: var(--fg-3);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  margin-bottom: 10px;
-  font-weight: 600;
-}
-
-.preview-val {
+.clue-valve {
   font-family: var(--mono);
   font-size: 28px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--fg);
   letter-spacing: 0.1em;
-  word-break: break-all;
+}
+
+.clue-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.color-dot {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-3);
+}
+
+.fragment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 24px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+}
+
+.fragment-dots {
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: var(--amber, #ffb830);
+}
+
+.fragment-text {
+  font-family: var(--mono);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.12em;
+}
+
+.frag-hint {
+  font-size: 12px;
+  color: var(--fg-3);
+  margin: 0;
+  text-align: center;
 }
 </style>
