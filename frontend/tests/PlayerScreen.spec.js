@@ -1,0 +1,220 @@
+/**
+ * PlayerScreen — Join → Lobby → Rollenwahl → Tick / Game Over.
+ * useGameSocket gemockt; Task-Komponenten gestubbt.
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
+import PlayerScreen from '../src/components/PlayerScreen.vue'
+import {
+  simulateMessage,
+  resetGameSocketMock,
+  getSentEvents,
+} from './mocks/useGameSocket.js'
+
+vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
+
+const taskStub = { name: 'TaskStub', template: '<div class="task-stub"></div>' }
+
+const stubs = {
+  Task1P1: taskStub,
+  Task1P2: taskStub,
+  Task1Master: taskStub,
+  Task2P1: taskStub,
+  Task2P2: taskStub,
+  Task2Master: taskStub,
+  Task3P1: taskStub,
+  Task3P2: taskStub,
+  Task3Master: taskStub,
+}
+
+async function joinAs(wrapper, id = 'abcd') {
+  await wrapper.find('.input').setValue(id)
+  await wrapper.find('.btn-main').trigger('click')
+  await flushPromises()
+}
+
+describe('PlayerScreen.vue', () => {
+  beforeEach(() => {
+    resetGameSocketMock()
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: 'localhost',
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('zeigt Verbinden-Phase mit Spielernamen', () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+
+    expect(wrapper.find('.phase-connect').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Patrick')
+    expect(wrapper.find('.btn-main').attributes('disabled')).toBeDefined()
+  })
+
+  it('sendet player_register nach Beitreten', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+
+    await joinAs(wrapper, 'ensp')
+
+    expect(wrapper.find('.phase-lobby').exists()).toBe(true)
+    expect(getSentEvents()).toEqual([
+      { event: 'player_register', payload: { player_name: 'Patrick' } },
+    ])
+  })
+
+  it('sendet choose_role bei Rollenwahl', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+
+    const masterCard = wrapper.findAll('.role-card').find((b) => b.text().includes('Master'))
+    await masterCard.trigger('click')
+
+    expect(getSentEvents().at(-1)).toEqual({
+      event: 'choose_role',
+      payload: { role: 'MASTER' },
+    })
+  })
+
+  it('wechselt nach role_assigned in die Warte-Phase', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+
+    simulateMessage({
+      event: 'role_assigned',
+      payload: { role: 'FI-SI' },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.phase-wait').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Spieler 1')
+  })
+
+  it('deaktiviert belegte Rollen aus lobby_update', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+
+    simulateMessage({
+      event: 'lobby_update',
+      payload: {
+        players: [{ name: 'Anna', role: 'MASTER' }],
+        roles_taken: ['MASTER'],
+        status: 'waiting',
+        ready_to_start: false,
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    const masterCard = wrapper.findAll('.role-card').find((b) => b.text().includes('Master'))
+    expect(masterCard.attributes('disabled')).toBeDefined()
+    expect(masterCard.classes()).toContain('taken')
+  })
+
+  it('sendet start_game wenn ready_to_start', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({
+      event: 'lobby_update',
+      payload: {
+        players: [
+          { name: 'Patrick', role: 'MASTER' },
+          { name: 'A', role: 'FI-SI' },
+          { name: 'B', role: 'FI-AE' },
+        ],
+        roles_taken: ['MASTER', 'FI-SI', 'FI-AE'],
+        status: 'waiting',
+        ready_to_start: true,
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('.start-btn').trigger('click')
+    expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
+  })
+
+  it('zeigt Task-UI und HP nach game_tick', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-AE' } })
+    simulateMessage({
+      event: 'game_tick',
+      payload: {
+        health: 250,
+        time_left: 280,
+        tasks: [{ view: { type: 'shutdown_terminal', code_length: 4 } }],
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.task-bar').exists()).toBe(true)
+    expect(wrapper.find('.task-stub').exists()).toBe(true)
+    expect(wrapper.find('.bar-stats').text()).toContain('250 HP')
+  })
+
+  it('zeigt GameOver nach game_over', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({
+      event: 'game_over',
+      payload: { result: 'meltdown', score: 7, survived_seconds: 11 },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.end').exists()).toBe(true)
+    expect(wrapper.find('.end-score').text()).toBe('7')
+  })
+
+  it('akzeptiert auch type statt event (Übergang)', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({
+      type: 'game_over',
+      payload: { result: 'victory', score: 99, survived_seconds: 1 },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.end-status').text()).toBe('Mission erfüllt')
+  })
+
+  it('emittiert exit bei Zurück', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await wrapper.find('.back-btn').trigger('click')
+    expect(wrapper.emitted('exit')).toHaveLength(1)
+  })
+})

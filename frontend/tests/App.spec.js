@@ -1,14 +1,11 @@
 /**
- * App.spec.js
- *
  * App.vue zeigt anfangs das Startmenü. Nach dem Start wird je nach Rolle
  * die Host-Ansicht (Beamer) oder die Spieler-Ansicht (Laptop) gerendert.
  * HostScreen/PlayerScreen/SettingsScreen werden gestubbt (kein Backend/Socket
  * im Test); StartMenu bleibt echt, damit der Klick-Flow getestet wird.
  */
-// @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
 import App from '../src/App.vue'
 import StartMenu from '../src/StartMenu.vue'
 
@@ -16,11 +13,38 @@ vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSock
 
 const stubs = {
   HostScreen: { name: 'HostScreen', template: '<div class="host-screen"></div>' },
-  PlayerScreen: { name: 'PlayerScreen', template: '<div class="player-screen"></div>' },
-  SettingsScreen: { name: 'SettingsScreen', template: '<div class="settings-screen"></div>' },
+  PlayerScreen: {
+    name: 'PlayerScreen',
+    props: ['playerName'],
+    template: '<div class="player-screen">{{ playerName }}</div>',
+  },
+  SettingsScreen: {
+    name: 'SettingsScreen',
+    template: '<div class="settings-screen"><button class="fake-save" @click="$emit(\'save\')">save</button></div>',
+  },
 }
 
 describe('App.vue', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    document.documentElement.className = ''
+    document.documentElement.style.filter = ''
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        matches: true,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      })
+    )
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    document.documentElement.className = ''
+    vi.unstubAllGlobals()
+  })
+
   it('zeigt anfangs das Startmenü', () => {
     const wrapper = mount(App, { global: { stubs } })
 
@@ -36,5 +60,48 @@ describe('App.vue', () => {
 
     expect(wrapper.find('.host-screen').exists()).toBe(true)
     expect(wrapper.findComponent(StartMenu).exists()).toBe(false)
+  })
+
+  it('zeigt nach Spieler-Start die Player-Ansicht mit Namen', async () => {
+    const wrapper = mount(App, { global: { stubs } })
+
+    await wrapper.find('input').setValue('Patrick')
+    await wrapper.find('.btn-primary').trigger('click')
+
+    expect(wrapper.find('.player-screen').exists()).toBe(true)
+    expect(wrapper.find('.player-screen').text()).toBe('Patrick')
+    expect(wrapper.findComponent(StartMenu).exists()).toBe(false)
+  })
+
+  it('öffnet Einstellungen über dem Startmenü (Startmenü bleibt sichtbar)', async () => {
+    const wrapper = mount(App, { global: { stubs } })
+
+    await wrapper.find('.settings-link').trigger('click')
+
+    expect(wrapper.find('.settings-overlay').exists()).toBe(true)
+    expect(wrapper.find('.settings-screen').exists()).toBe(true)
+    expect(wrapper.findComponent(StartMenu).exists()).toBe(true)
+  })
+
+  it('schließt Einstellungen nach save', async () => {
+    const wrapper = mount(App, { global: { stubs } })
+
+    await wrapper.find('.settings-link').trigger('click')
+    await wrapper.find('.fake-save').trigger('click')
+
+    expect(wrapper.find('.settings-overlay').exists()).toBe(false)
+  })
+
+  it('wendet gespeichertes Theme beim Mount an', async () => {
+    localStorage.setItem(
+      'drv_game_settings',
+      JSON.stringify({ theme: 'light', brightness: 80, scanlinesEnabled: false })
+    )
+
+    mount(App, { global: { stubs } })
+    await flushPromises()
+
+    expect(document.documentElement.classList.contains('theme-light')).toBe(true)
+    expect(document.documentElement.style.filter).toBe('brightness(80%)')
   })
 })

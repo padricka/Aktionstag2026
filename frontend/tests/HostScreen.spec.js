@@ -11,7 +11,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import HostScreen from '../src/components/HostScreen.vue'
-import { simulateMessage, resetGameSocketMock } from './mocks/useGameSocket.js'
+import {
+  simulateMessage,
+  resetGameSocketMock,
+  getSentEvents,
+} from './mocks/useGameSocket.js'
 
 vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
 
@@ -37,6 +41,36 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.id-value').text()).toBe('TEST')
     expect(wrapper.findAll('.slot')).toHaveLength(3)
     expect(wrapper.find('.host-top').exists()).toBe(true)
+  })
+
+  it('sendet host_register nach create-game', async () => {
+    mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+
+    expect(getSentEvents()).toContainEqual({ event: 'host_register', payload: {} })
+  })
+
+  it('füllt Lobby-Slots aus lobby_update', async () => {
+    const wrapper = mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+
+    simulateMessage({
+      event: 'lobby_update',
+      payload: {
+        players: [
+          { name: 'A', role: 'MASTER' },
+          { name: 'B', role: 'FI-SI' },
+        ],
+        roles_taken: ['MASTER', 'FI-SI'],
+        status: 'waiting',
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    const slots = wrapper.findAll('.slot')
+    expect(slots[0].text()).toContain('A')
+    expect(slots[1].text()).toContain('B')
+    expect(slots[2].text()).toContain('wartet')
   })
 
   it('wechselt bei game_tick in die Lauf-Ansicht mit HP/Zeit', async () => {
