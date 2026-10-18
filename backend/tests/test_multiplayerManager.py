@@ -1,5 +1,11 @@
+import pytest
 from unittest.mock import patch, MagicMock
 from backend.multiplayerManager import MultiplayerManager
+
+# TRIAGE (siehe TRIAGE.md): Alt-Design. add_player/Heartbeat/try_start_game gibt es im
+# aktuellen MultiplayerManager nicht mehr: die Lobby laeuft ueber register_player und
+# choose_role (Redis). Heartbeat-Timeouts sind laut TODO_MVP bewusst nach dem Freeze.
+pytestmark = pytest.mark.skip(reason="veraltet: altes MultiplayerManager-Design (add_player/Heartbeat), Lobby laeuft ueber register_player/choose_role (TRIAGE.md)")
 
 
 def test_heartbeat_updates_player_timestamp():

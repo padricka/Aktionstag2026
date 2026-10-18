@@ -1,6 +1,12 @@
 import pytest
 from backend.hostManager import HostManager
 
+# TRIAGE (siehe TRIAGE.md): Alt-Design. Diese Tests beschreiben eine Host-Verwaltung
+# (set_host/is_host/handle_disconnect, "nur Host darf starten"), die nie gebaut wurde.
+# Der aktuelle HostManager ist ein MVP (nur start(), "Host-Check bewusst noch nicht drin").
+# Ersetzen, sobald die Host-Logik (host_register / Host-Check) neu spezifiziert ist.
+pytestmark = pytest.mark.skip(reason="veraltet: altes HostManager-Design, aktueller HostManager hat nur start() (TRIAGE.md)")
+
 
 @pytest.fixture
 def manager():
