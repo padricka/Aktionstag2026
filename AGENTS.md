@@ -49,6 +49,6 @@ Der Backend-Lauf braucht **kein** laufendes Redis (`fakeredis`, In-Memory-Channe
 - **Nach einer Umbenennung Importe und Tests mitziehen** (`playable_object` → `playableObject` hat eine ganze Testdatei gesperrt).
 - **Doppelte Dateien:** echte Module liegen in `backend/backend/`. Ein gleichnamiges Modul direkt in `backend/` ist ein Überbleibsel.
 - **`.Jules/` und `.jules/`** existieren nebeneinander (Journal-Dateien automatischer Aufgaben). Nicht umbenennen oder zusammenlegen, sonst finden die Aufgaben ihre Notizen nicht. Unter Windows landen beide im selben Ordner, das ist harmlos.
-- **`ClientScreen.vue`** ist ungenutzt (die App nutzt `PlayerScreen.vue`) und hat einen Template-Syntaxfehler. Siehe `STATUS.md`, nicht „mal eben" reparieren.
+- **Live-Pfad Frontend:** `App` → `StartMenu` / `HostScreen` / `PlayerScreen`. Master ist eine **Rolle in `PlayerScreen`** (lädt `Task*Master`), kein separates `MasterScreen`.
 - **Frontend-Tests senden teils noch `type` statt `event`.** Sie bilden das Frontend vor der Vertragsanpassung ab (Aufgabe F1).
 - Git-Warnung „LF will be replaced by CRLF" unter Windows ist harmlos.
