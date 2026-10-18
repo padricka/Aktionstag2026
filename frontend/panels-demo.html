@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel-Vorschau</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Nur Entwicklung: Vorschau der Effekt-Panels ohne Backend -->
+    <div id="app"></div>
+    <script type="module">
+        import { createApp } from 'vue'
+        import '/src/style.css'
+        import PanelsDemo from '/src/dev/PanelsDemo.vue'
+        createApp(PanelsDemo).mount('#app')
+    </script>
+</body>
+</html>
