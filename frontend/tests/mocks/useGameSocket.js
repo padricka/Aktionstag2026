@@ -1,19 +1,35 @@
+/**
+ * Fake-WebSocket für Komponenten-Tests.
+ * - connect() ruft onOpen sofort auf (wie eine offene Verbindung)
+ * - sendEvent-Aufrufe werden aufgezeichnet
+ * - simulateMessage() speist Server-Events ein
+ */
 let registrierter_on_message_callback = null
+let sentEvents = []
+let connectCalls = []
 
 export function useGameSocket(options = {}) {
-  // Falls ein Objekt mit onMessage übergeben wurde:
   if (typeof options === 'object' && typeof options?.onMessage === 'function') {
     registrierter_on_message_callback = options.onMessage
   }
 
   return {
-    isConnected: true,
-    connect: (url, cb) => {
-      if (typeof cb === 'function') {
-        registrierter_on_message_callback = cb
+    isConnected: { value: true },
+    error: { value: null },
+    connect: (url, onMsg, onOpen) => {
+      connectCalls.push({ url })
+      if (typeof onMsg === 'function') {
+        registrierter_on_message_callback = onMsg
+      }
+      if (typeof onOpen === 'function') {
+        onOpen()
       }
     },
-    sendEvent: () => {}
+    disconnect: () => {},
+    sendEvent: (event, payload = {}) => {
+      sentEvents.push({ event, payload })
+    },
+    sendMessage: () => {},
   }
 }
 
@@ -24,6 +40,16 @@ export function simulateMessage(payload) {
   registrierter_on_message_callback(payload)
 }
 
+export function getSentEvents() {
+  return sentEvents
+}
+
+export function getConnectCalls() {
+  return connectCalls
+}
+
 export function resetGameSocketMock() {
   registrierter_on_message_callback = null
+  sentEvents = []
+  connectCalls = []
 }

@@ -42,3 +42,21 @@ it("klick auf host button schickt event mit rolle host", async () => {
   const event = wrapper.emitted("spiel-starten");
   expect(event[0][0].role).toBe("host");
 });
+
+it("klick auf Spieler schickt event mit rolle player und name", async () => {
+  const wrapper = mount(StartMenu);
+
+  await wrapper.find("input").setValue("Anna");
+  await wrapper.find(".btn-primary").trigger("click");
+
+  const event = wrapper.emitted("spiel-starten");
+  expect(event[0][0]).toEqual({ name: "Anna", role: "player" });
+});
+
+it("Einstellungen-Link emittet open-settings", async () => {
+  const wrapper = mount(StartMenu);
+
+  await wrapper.find(".settings-link").trigger("click");
+
+  expect(wrapper.emitted("open-settings")).toHaveLength(1);
+});

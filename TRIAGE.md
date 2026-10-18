@@ -42,6 +42,6 @@ python -m pytest -rs
 
 ## Noch offen / erledigt danach
 
-- **Frontend-Specs:** PR #8 hat App/StartMenu/HostScreen angepasst. Cleanup entfernte ungenutzte Screens (`ClientScreen`, `MasterScreen`-Hülle) und Attrappen (`HealthBar`, `SwitchPanel`) samt Specs.
+- **Frontend-Specs:** App/StartMenu/HostScreen + PlayerScreen/Settings/GameOver/Task1P2/useGameSocket (43 grün). Cleanup entfernte ungenutzte Screens (`ClientScreen`, `MasterScreen`-Hülle) und Attrappen (`HealthBar`, `SwitchPanel`) samt Specs. Task2/Task3 und Master-Views noch ohne eigene Specs.
 - **`ChannelConsumer`** (Spielzeug-`/ws/channel/`) samt Test entfernt — nicht Teil des Spiels.
 - Das CI (`.github/workflows/ci.yml`) ist bewusst nicht blockierend. Nach Happy Path verschärfen (`continue-on-error` entfernen).
