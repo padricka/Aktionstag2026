@@ -28,6 +28,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 "health": snap["health"],
                 "time_left": snap["time_left"],
                 "tasks": self._tasks_for_me(snap["tasks"]),
+                "reboot_digits": snap.get("reboot_digits", [None, None, None]),
             }, status="alive")
 
     async def disconnect(self, close_code):
@@ -117,6 +118,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 "health": snap["health"],
                 "time_left": snap["time_left"],
                 "tasks": self._tasks_for_me(snap["tasks"]),
+                "reboot_digits": snap.get("reboot_digits", [None, None, None]),
             }, status="alive")
 
     async def handle_choose_role(self, payload):

@@ -82,7 +82,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
         "view": { "type": "alarm_leds", "slots": 4, "burning_slot": 3,
                   "color_order": ["GELB", "ROT", "BLAU", "GRÜN"], "p_done": false }
       }
-    ]
+    ],
+    "reboot_digits": [4, null, null]
   }
 }
 
@@ -90,10 +91,13 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // (Escape Room: niemand kennt die Lösung allein). Das Frontend wählt die Komponente
 // über view.type. Alle view-Typen und Felder: GAME_DESIGN.md, Abschnitt 5.
 // Umgesetzt: Aufgabe 1 (alarm_leds / main_switches / code_stickers),
-//            Aufgabe 2 (fire_log / valve_panel / password_input).
+//            Aufgabe 2 (fire_log / valve_panel / password_input),
+//            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).
+// "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
+// Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 
 // 3. Spielende (Broadcast)
-// result: "meltdown" (HP 0 oder Zeit abgelaufen). Gewinnen kommt später.
+// result: "meltdown" (HP 0 oder Zeit abgelaufen) | "victory" (Neustart-Code richtig).
 {
   "event": "game_over",
   "payload": {
