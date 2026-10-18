@@ -1,41 +1,59 @@
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">Freigabe-Passwort setzen</h2>
-      <span class="role">P2</span>
+      <h2 class="title">Freigabe-Passwort</h2>
+      <span class="role">Rückseite</span>
     </header>
 
-    <p class="hint">Frage den Master, in welcher Reihenfolge die Teile zusammengesetzt werden.</p>
+    <p class="hint">
+      Teile eure Fragmente und sortiert nach Punkten (● → ●●●). Das letzte Fragment erscheint erst nach dem Fluten.
+    </p>
 
-    <div class="frags">
-      <div
-        v-for="(frag, i) in sichtbareTeile"
-        :key="i"
-        class="frag"
-        :class="{ missing: !frag }"
-      >
-        <span class="frag-idx">Teil #{{ i }}</span>
-        <span class="frag-value">{{ frag || '—' }}</span>
-        <span class="frag-state">{{ frag ? 'verfügbar' : 'wartet' }}</span>
-      </div>
+    <div class="grid">
+      <section class="panel">
+        <span class="panel-label">Dein Aufkleber · Sequenz</span>
+        <div class="clue">
+          <span>Schritt {{ clue.step }}</span>
+          <strong>{{ clue.valve }} · {{ clue.color }}</strong>
+        </div>
+      </section>
+
+      <section class="panel">
+        <span class="panel-label">Dein Fragment</span>
+        <div class="fragment">
+          <span class="fragment-dots">{{ dotsLabel(fragment.dots) }}</span>
+          <span class="fragment-text">{{ fragment.text }}</span>
+        </div>
+      </section>
+
+      <section class="panel" :class="{ missing: !lastFragment }">
+        <span class="panel-label">Letztes Fragment</span>
+        <div class="fragment">
+          <template v-if="lastFragment">
+            <span class="fragment-dots">{{ dotsLabel(lastFragment.dots) }}</span>
+            <span class="fragment-text">{{ lastFragment.text }}</span>
+          </template>
+          <span v-else class="waiting">wartet auf Fluten …</span>
+        </div>
+      </section>
     </div>
 
     <div class="foot">
       <input
         v-model="enteredPassword"
         class="input-pw"
-        placeholder="TEIL-TEIL-TEIL"
-        :disabled="p2Done"
+        placeholder="FRAGMENTE ZUSAMMEN"
+        :disabled="pDone"
         @keyup.enter="verifyPassword"
       />
       <button
         class="btn-action"
-        :disabled="!enteredPassword.trim() || p2Done"
+        :disabled="!enteredPassword.trim() || pDone"
         @click="verifyPassword"
       >
-        {{ p2Done ? 'Akzeptiert' : 'Passwort bestätigen' }}
+        {{ pDone ? 'Akzeptiert' : 'Passwort bestätigen' }}
       </button>
-      <p v-if="serverError" class="msg-err">{{ serverError }}</p>
+      <p v-if="serverError && !pDone" class="msg-err">{{ serverError }}</p>
     </div>
   </div>
 </template>
@@ -44,31 +62,36 @@
 import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
-  fragments:    { type: Array,  default: () => [] },
-  lastFragment: { type: String, default: null },
-  p2Done:       { type: Boolean, default: false },
-  serverError:  { type: String, default: '' },
+  view: { type: Object, default: null },
+  fragments: { type: Array, default: () => [] },
+  lastFragment: { type: [Object, String], default: null },
+  p2Done: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['solved'])
-
 const enteredPassword = ref('')
 
-const sichtbareTeile = computed(() => {
-  const out = [...props.fragments]
-  out[2] = props.lastFragment || null
-  return out
+const clue = computed(() => props.view?.clue || { step: '–', valve: '–', color: '–' })
+const fragment = computed(() => props.view?.fragment || { dots: 0, text: '–' })
+const pDone = computed(() => !!(props.view?.p_done ?? props.p2Done))
+const lastFragment = computed(() => {
+  const lf = props.view?.last_fragment ?? props.lastFragment
+  if (!lf) return null
+  if (typeof lf === 'string') return { dots: 0, text: lf }
+  return lf
 })
 
-watch(() => props.p2Done, (v) => { if (!v) enteredPassword.value = '' })
+function dotsLabel(n) {
+  const count = Math.max(0, Number(n) || 0)
+  return '●'.repeat(count) || '–'
+}
 
-// Nach falscher Eingabe: Server-Fehler → Feld leeren, Retry erlauben
-watch(() => props.serverError, (e) => {
-  if (e) enteredPassword.value = ''
-})
+watch(pDone, (v) => { if (!v) enteredPassword.value = '' })
+watch(() => props.serverError, (e) => { if (e) enteredPassword.value = '' })
 
 function verifyPassword() {
-  if (!enteredPassword.value.trim() || props.p2Done) return
+  if (!enteredPassword.value.trim() || pDone.value) return
   emit('solved', { password: enteredPassword.value.trim() })
 }
 </script>
@@ -108,59 +131,83 @@ function verifyPassword() {
 
 .hint { font-size: 13px; color: var(--fg-3); margin: 0 0 20px 0; }
 
-.frags {
+.grid {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  padding: 8px 0;
+  gap: 16px;
 }
 
-.frag {
+.panel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   gap: 14px;
-  padding: 28px 20px;
+  padding: 20px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
 }
 
-.frag.missing { border-style: dashed; opacity: 0.55; }
+.panel.missing { border-style: dashed; opacity: 0.7; }
 
-.frag-idx {
-  font-size: 12px;
+.panel-label {
+  font-size: 11px;
   color: var(--fg-3);
-  letter-spacing: 0.2em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   font-weight: 600;
 }
 
-.frag-value {
+.clue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
   font-family: var(--mono);
-  font-size: 44px;
-  font-weight: 700;
+  font-size: 14px;
+  color: var(--fg-2);
+  flex: 1;
+  justify-content: center;
+}
+
+.clue strong {
+  font-size: 20px;
   color: var(--fg);
-  letter-spacing: 0.1em;
-  line-height: 1;
 }
 
-.frag.missing .frag-value {
-  font-size: 28px;
-  color: var(--fg-3);
-  font-weight: 400;
+.fragment {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
 }
 
-.frag-state {
-  font-size: 11px;
+.fragment-dots {
+  font-size: 20px;
+  letter-spacing: 0.2em;
+  color: var(--amber, #ffb830);
+}
+
+.fragment-text {
+  font-family: var(--mono);
+  font-size: 32px;
+  font-weight: 700;
   color: var(--green);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 
-.frag.missing .frag-state { color: var(--fg-3); }
+.waiting {
+  font-family: var(--mono);
+  color: var(--fg-3);
+  font-size: 14px;
+}
 
 .foot {
   padding-top: 20px;
@@ -170,10 +217,8 @@ function verifyPassword() {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
 }
 
-/* Schmaler als vorher: 480px statt 720px */
 .input-pw {
   width: 100%;
   max-width: 480px;
@@ -184,7 +229,7 @@ function verifyPassword() {
   font-family: var(--mono);
   font-size: 20px;
   text-align: center;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.15em;
   font-weight: 700;
   outline: none;
 }
@@ -203,7 +248,6 @@ function verifyPassword() {
   cursor: pointer;
 }
 
-.btn-action:hover:not(:disabled) { background: #4dff8f; }
 .btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .msg-err { font-size: 12px; color: var(--red); margin: 0; }
