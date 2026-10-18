@@ -1,6 +1,7 @@
 # Test-Triage Backend
 
-Stand nach der Triage: **138 grün · 23 übersprungen (veraltet) · 4 rot (gültig, Code fehlt)**
+Stand nach B3: **150 grün · 23 übersprungen (veraltet) · 0 rot**
+Stand nach der Triage: 138 grün · 23 übersprungen · 4 rot (gültig, Code fehlt).
 Vorher: 110 grün · 44 rot · 1 Datei, die nicht lud.
 
 Maßstab für „veraltet" ist `JSON_Vertrag.md` (Events `event` + `payload`) und der aktuelle Code in `backend/backend/`.
@@ -17,18 +18,20 @@ Maßstab für „veraltet" ist `JSON_Vertrag.md` (Events `event` + `payload`) un
 | `test_gameConsumer::test_register_assigns_role_and_broadcasts` | 1 | erwartet `role_assigned` schon beim Registrieren; gibt es erst nach `choose_role` | **skip** |
 | `test_hostManager` | 14 | Alt-Design (`set_host`/`is_host`/…); aktueller `HostManager` kann nur `start()` | **skip** |
 | `test_multiplayerManager` | 5 | Alt-Design (`add_player`/Heartbeat); Lobby läuft über `register_player`/`choose_role` | **skip** |
-| `test_taskDatenRettung` | 4 | **gültig**: Sync-Button fehlt im Code | **bleibt rot** |
+| `test_taskDatenRettung` | 4 | **gültig**: Sync-Button fehlte im Code | **grün** (B3) |
 
 ## Wie man „übersprungen" liest
 
 `skip` heißt: **nicht kaputt, sondern nicht mehr gültig.** Der Grund steht an jedem Test (`pytest -rs` zeigt ihn an). Nichts wurde gelöscht, damit die Absicht erhalten bleibt.
 Wer eine Host-Verwaltung oder Heartbeats wirklich bauen will, schreibt zuerst die Tests nach dem aktuellen Vertrag neu und entfernt dann den `skip`.
 
-## Die 4 roten Tests sind Absicht (TDD-Rot)
+## Die 4 roten Tests waren Absicht (TDD-Rot) — mit B3 erledigt
 
-`tests/test_taskDatenRettung.py` beschreibt Aufgabe 3 so, wie die README sie verspricht: Spieler 1 und 2 schalten ihren Button frei und **drücken ihn dann gleichzeitig** (Zeitfenster). `DataRescueTask.handle_input` in `playableObject.py` kennt aber keinen `sync_button`: die Aufgabe gilt schon als gelöst, sobald beide Antworten stimmen.
+`tests/test_taskDatenRettung.py` beschreibt Aufgabe 3 so, wie die README sie verspricht: Spieler 1 und 2 schalten ihren Button frei und **drücken ihn dann gleichzeitig** (Zeitfenster). `DataRescueTask.handle_input` in `playableObject.py` kannte keinen `sync_button`: die Aufgabe galt schon als gelöst, sobald beide Antworten stimmen.
 
-Zu tun: `sync_button` mit Zeitfenster in `DataRescueTask` umsetzen, bis die 4 Tests grün sind. Das ist **kein** Teil des MVP-Happy-Paths (`TODO_MVP_Schmaler_Pfad.md`).
+Umgesetzt in B3: `sync_button` mit `SYNC_WINDOW = 3.0`. Erster Druck = `progress`, zweiter Druck im Fenster = `solved`, zweiter Druck zu spät = `wrong` (beide müssen neu drücken), Doppeldruck desselben Spielers = `ignored`, `MASTER` = `ignored`. Kein Teil des MVP-Happy-Paths (`TODO_MVP_Schmaler_Pfad.md`).
+
+**Offene Entscheidung aus B3:** `test_both_buttons_within_window_solve` fordert `score == 50` nach der Rettung. Das widerspricht `GAME_DESIGN.md` §4 („Score = Restzeit × Multiplikator", mit `DEFAULT_TIME=300` und Multiplikator 3 wären es 900). Der Test ist die Spezifikation, deshalb trägt `DataRescueTask` jetzt `fixed_score = 50`, das `DataCenter._score_for_solve` Vorrang vor der Multiplikator-Regel gibt. Soll die Restzeit-Regel auch für Aufgabe 3 gelten, muss der Test angepasst werden — dann `fixed_score` entfernen.
 
 ## Lokal ausführen
 

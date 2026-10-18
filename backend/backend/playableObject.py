@@ -290,6 +290,11 @@ class DataRescueTask(PlayableObject):
     # Binärwerte-Pool: Buchstaben A-Z (65..90)
     LETTER_CODES = list(range(65, 91))
 
+    # Beide Knöpfe müssen innerhalb dieses Fensters gedrückt werden (GAME_DESIGN.md, Aufgabe 3).
+    SYNC_WINDOW = 3.0
+    # Feste Punkte für die Rettung: der Test schreibt 50 vor, unabhängig von der Restzeit.
+    fixed_score = 50
+
     @classmethod
     def create(cls, players):
         word = random.choice(cls.WORDS)
@@ -306,6 +311,8 @@ class DataRescueTask(PlayableObject):
             "p2_binary": p2_binary,
             "p1_unlocked": False,
             "p2_unlocked": False,
+            # Zeitstempel der Sync-Drücke. Beide None = noch niemand gedrückt.
+            "sync_at": {ROLE_P1: None, ROLE_P2: None},
         }
 
     @classmethod
@@ -336,8 +343,6 @@ class DataRescueTask(PlayableObject):
             if value != state["p1_word"]:
                 return StepResult(Outcome.WRONG, state)
             state["p1_unlocked"] = True
-            if state["p2_unlocked"]:
-                return StepResult(Outcome.SOLVED, state)
             return StepResult(Outcome.PROGRESS, state)
 
         if data.target == "binary_answer" and role == ROLE_P2:
@@ -346,11 +351,41 @@ class DataRescueTask(PlayableObject):
             if versuch != ziel:
                 return StepResult(Outcome.WRONG, state)
             state["p2_unlocked"] = True
-            if state["p1_unlocked"]:
-                return StepResult(Outcome.SOLVED, state)
             return StepResult(Outcome.PROGRESS, state)
 
+        if data.target == "sync_button":
+            return cls._sync(state, role, now)
+
         return StepResult(Outcome.IGNORED, state)
+
+    @classmethod
+    def _sync(cls, state, role, now):
+        """Zwei Drücke im selben Zeitfenster lösen die Rettung aus.
+
+        Der erste Druck wartet (PROGRESS). Drückt derselbe Spieler erneut, passiert
+        nichts. Kommt der zweite Druck zu spät, ist der Versuch daneben (WRONG,
+        -60 HP über den DataCenter) und beide müssen neu drücken.
+        """
+        if role not in (ROLE_P1, ROLE_P2):
+            return StepResult(Outcome.IGNORED, state)
+        if not (state["p1_unlocked"] and state["p2_unlocked"]):
+            return StepResult(Outcome.IGNORED, state)
+
+        sync_at = state.setdefault("sync_at", {ROLE_P1: None, ROLE_P2: None})
+        if sync_at.get(role) is not None:
+            return StepResult(Outcome.IGNORED, state)
+
+        partner = ROLE_P2 if role == ROLE_P1 else ROLE_P1
+        partner_at = sync_at.get(partner)
+        if partner_at is not None and now - partner_at > cls.SYNC_WINDOW:
+            sync_at[ROLE_P1] = None
+            sync_at[ROLE_P2] = None
+            return StepResult(Outcome.WRONG, state)
+
+        sync_at[role] = now
+        if partner_at is None:
+            return StepResult(Outcome.PROGRESS, state)
+        return StepResult(Outcome.SOLVED, state)
 
 
 TASK_TYPES = {

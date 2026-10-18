@@ -146,7 +146,15 @@ class DataCenter:
         return task
 
     def _score_for_solve(self, kind: str) -> int:
-        """Score = Restzeit × Multiplikator (T1=1, T2=2, T3=3)."""
+        """Score = Restzeit × Multiplikator (T1=1, T2=2, T3=3).
+
+        Aufgaben mit fester Punktzahl (``fixed_score`` am Task, z. B. die
+        Datenrettung mit 50 laut `test_taskDatenRettung.py`) überschreiben das.
+        """
+        task_cls = TASK_TYPES.get(kind)
+        fixed = getattr(task_cls, "fixed_score", None)
+        if fixed is not None:
+            return fixed
         multiplier = TASK_MULTIPLIER.get(kind, 1)
         return max(0, self.time_left) * multiplier
 

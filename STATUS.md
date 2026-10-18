@@ -7,7 +7,7 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **137** grün · 23 übersprungen · **4 rot (Absicht, sync_button)** | lokal nach Cleanup |
+| Backend-Tests | **150** grün · 23 übersprungen · **0 rot** | nach B3 (`feat/b3-sync-button`) |
 | Frontend-Tests | **65** grün (F1 Alarm + F1 Löschprotokoll Escape-Views) | nach `feat/f1-fire-views` |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
@@ -25,7 +25,7 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 1. **I1 Happy Path einmal real durchspielen** (`docker compose up --build -d`, Beamer + Master + 2 Spieler im Browser). Ergebnis als Liste „was geht / was nicht" festhalten.
 2. **F1 Frontend am Vertrag ausrichten.** Senden nutzt schon `{event, payload}`. Offen: ob eingehende Nachrichten überall über `event` (nicht `type`) ausgewertet werden. Danach Tests mitziehen.
 3. ~~**`ClientScreen.vue` entscheiden**~~ — erledigt: gelöscht (ungenutzt, kaputt). Master bleibt als Rolle in `PlayerScreen`.
-4. **Aufgabe 3 „Datenrettung":** `sync_button` mit Zeitfenster in `DataRescueTask`. Die 4 roten Tests sind die Spezifikation. Kein Teil des MVP-Happy-Paths.
+4. ~~**Aufgabe 3 „Datenrettung":** `sync_button` mit Zeitfenster in `DataRescueTask`.~~ — erledigt (B3). Offen aus B3: `score == 50` im Test vs. „Restzeit × Multiplikator" in `GAME_DESIGN.md` §4, siehe `TRIAGE.md`.
 5. **CI verschärfen:** `continue-on-error` entfernen, sobald Happy Path + Frontend-Triage stabil sind.
 6. **Oberfläche überarbeiten** (nach grünem Happy Path).
 
