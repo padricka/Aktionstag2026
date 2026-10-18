@@ -77,12 +77,19 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
     "tasks": [
       {
         "task_id": "task-001",
-        "assigned_to_player": "Bene",
-        "instruction": "Aktiviere die Hauptkühlung!"
+        "kind": "alarm",
+        "instruction": "Alarm verifizieren!",
+        "view": { "type": "alarm_leds", "slots": 4, "burning_slot": 3,
+                  "color_order": ["GELB", "ROT", "BLAU", "GRÜN"], "p_done": false }
       }
     ]
   }
 }
+
+// "view" ist pro Spieler verschieden: Jeder bekommt NUR die Ansicht seiner Rolle
+// (Escape Room: niemand kennt die Lösung allein). Das Frontend wählt die Komponente
+// über view.type. Alle view-Typen und Felder: GAME_DESIGN.md, Abschnitt 5.
+// Umgesetzt: Aufgabe 1 (alarm_leds / main_switches / code_stickers).
 
 // 3. Spielende (Broadcast)
 // result: "meltdown" (HP 0 oder Zeit abgelaufen). Gewinnen kommt später.
