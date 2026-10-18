@@ -144,6 +144,7 @@
           :input-result-nonce="inputResultNonce"
           :server-error="lastError"
           :time-left="timeLeft"
+          :victory="currentTask === 4 ? sieg : undefined"
           @solved="onTaskSolved"
           @task-failed="onTaskFailed"
           @failed="onTaskFailed"
@@ -167,6 +168,7 @@ import Task2Master from './tasks/task2/Task2Master.vue'
 import Task3P1 from './tasks/task3/Task3P1.vue'
 import Task3P2 from './tasks/task3/Task3P2.vue'
 import Task3Master from './tasks/task3/Task3Master.vue'
+import Task4Reboot from './tasks/task4/Task4Reboot.vue'
 
 const props = defineProps({
   playerName: { type: String, default: '' }
@@ -214,13 +216,15 @@ const normalizedRole = computed(() => {
 const currentTaskComponent = computed(() => {
   if (!myRole.value) return null
   if (myRole.value === 'MASTER') {
-    const masterMap = { 1: Task1Master, 2: Task2Master, 3: Task3Master }
+    const masterMap = { 1: Task1Master, 2: Task2Master, 3: Task3Master, 4: Task4Reboot }
     return masterMap[currentTask.value] || null
   }
+  // Finale: alle Rollen sehen dieselbe Komponente, jeder seine eigene Ziffer.
   const playerMap = {
     '1-P1': Task1P1, '1-P2': Task1P2,
     '2-P1': Task2P1, '2-P2': Task2P2,
     '3-P1': Task3P1, '3-P2': Task3P2,
+    '4-P1': Task4Reboot, '4-P2': Task4Reboot,
   }
   return playerMap[`${currentTask.value}-${normalizedRole.value}`] || null
 })
@@ -241,6 +245,9 @@ const task3Binary     = computed(() => task.value?.view?.binary_codes || [])
 const istSpielVorbei = computed(
   () => isGameOver.value || hp.value <= 0 || status.value === 'game_over' || status.value === 'won'
 )
+
+// Sieg: der Tresor im Finale öffnet sich (Task4Reboot wertet das aus).
+const sieg = computed(() => isGameOver.value && gameOverResult.value === 'victory')
 
 const zeit = computed(() => {
   const t = Math.max(0, timeLeft.value)
@@ -475,6 +482,10 @@ function onTaskSolved(data) {
     } else {
       payloadData = { action_type: 'text_input', target: 'binary_answer', value: data?.answer || '' }
     }
+  } else if (currentTask.value === 4) {
+    // Finale: nur der Leitstand hat das Terminal (reboot_code), die anderen sagen ihre Ziffer an.
+    if (myRole.value !== 'MASTER') return
+    payloadData = { action_type: 'text_input', target: 'reboot_code', value: String(data?.value ?? '') }
   }
 
   lastError.value = ''

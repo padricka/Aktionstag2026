@@ -25,6 +25,15 @@ const taskStub = {
   `,
 }
 
+const rebootStub = {
+  name: 'Task4RebootStub',
+  template: `
+    <div class="reboot-stub">
+      <button class="reboot-stub-solved" @click="$emit('solved', { player: 'MASTER', value: '472' })">solved</button>
+    </div>
+  `,
+}
+
 const stubs = {
   Task1P1: taskStub,
   Task1P2: taskStub,
@@ -35,6 +44,7 @@ const stubs = {
   Task3P1: taskStub,
   Task3P2: taskStub,
   Task3Master: taskStub,
+  Task4Reboot: rebootStub,
 }
 
 async function joinAs(wrapper, id = 'abcd') {
@@ -235,6 +245,57 @@ describe('PlayerScreen.vue', () => {
     expect(wrapper.find('.task-bar').exists()).toBe(true)
     expect(wrapper.find('.task-stub').exists()).toBe(true)
     expect(wrapper.find('.bar-stats').text()).toContain('250 HP')
+  })
+
+  it('sendet beim Finale (Aufgabe 4) reboot_code vom Leitstand', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({
+      event: 'game_tick',
+      payload: {
+        health: 240,
+        time_left: 200,
+        reboot_digits: [4, 7, 2],
+        tasks: [{ view: { type: 'reboot', digit: 7, terminal: true } }],
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.reboot-stub').exists()).toBe(true)
+    await wrapper.find('.reboot-stub-solved').trigger('click')
+
+    expect(getSentEvents().at(-1)).toEqual({
+      event: 'player_input',
+      payload: { action_type: 'text_input', target: 'reboot_code', value: '472' },
+    })
+  })
+
+  it('zeigt das Finale auch der Vorderseite, ohne reboot_code zu senden', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
+    simulateMessage({
+      event: 'game_tick',
+      payload: {
+        health: 240,
+        time_left: 200,
+        reboot_digits: [4, null, null],
+        tasks: [{ view: { type: 'reboot', digit: 3, terminal: false } }],
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.reboot-stub').exists()).toBe(true)
+    await wrapper.find('.reboot-stub-solved').trigger('click')
+
+    expect(getSentEvents().some((e) => e.payload?.target === 'reboot_code')).toBe(false)
   })
 
   it('zeigt GameOver nach game_over', async () => {
