@@ -1,71 +1,40 @@
+/**
+ * App.spec.js
+ *
+ * App.vue zeigt anfangs das Startmenü. Nach dem Start wird je nach Rolle
+ * die Host-Ansicht (Beamer) oder die Spieler-Ansicht (Laptop) gerendert.
+ * HostScreen/PlayerScreen/SettingsScreen werden gestubbt (kein Backend/Socket
+ * im Test); StartMenu bleibt echt, damit der Klick-Flow getestet wird.
+ */
 // @vitest-environment jsdom
-import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
 import App from '../src/App.vue'
+import StartMenu from '../src/StartMenu.vue'
 
-// Falls Child-Komponenten WebSockets nutzen, kurz abfangen
-vi.mock('../src/composables/useGameSocket.js', () => ({
-  useGameSocket: () => ({
-    isConnected: true,
-    connect: vi.fn(),
-    sendEvent: vi.fn()
-  })
-}))
+vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
+
+const stubs = {
+  HostScreen: { name: 'HostScreen', template: '<div class="host-screen"></div>' },
+  PlayerScreen: { name: 'PlayerScreen', template: '<div class="player-screen"></div>' },
+  SettingsScreen: { name: 'SettingsScreen', template: '<div class="settings-screen"></div>' },
+}
 
 describe('App.vue', () => {
-  // Hilfsfunktion: Klickt uns durch StartMenu & Rollenauswahl bis zur Haupt-App
-  async function setupAppWrapper() {
-    const wrapper = mount(App, {
-      global: {
-        stubs: {
-          HostScreen: true,
-          ClientScreen: true
-        }
-      }
-    })
+  it('zeigt anfangs das Startmenü', () => {
+    const wrapper = mount(App, { global: { stubs } })
 
-    // 1. StartMenu triggern (event @spiel-starten simulieren)
-    const startMenu = wrapper.findComponent({ name: 'StartMenu' })
-    if (startMenu.exists()) {
-      await startMenu.vm.$emit('spiel-starten', { name: 'TestPlayer' })
-    } else {
-      // Falls StartMenu gestubbt ist oder einen Button hat:
-      await wrapper.find('button').trigger('click')
-    }
-
-    // 2. Rollenauswahl: Auf "HOST" oder "PLAYER" klicken
-    await wrapper.find('.host-btn').trigger('click')
-
-    return wrapper
-  }
-
-  it('rendert die Header-Elemente und den initialen Tab korrekt', async () => {
-    const wrapper = await setupAppWrapper()
-
-    // Brand Text prüfen
-    expect(wrapper.find('.brand-text').text()).toContain('DRV-Projekt')
-
-    // Werden die 3 Nav-Links gerendert?
-    const links = wrapper.findAll('.nav-link')
-    expect(links).toHaveLength(3)
-
-    // Ist der erste Link (init) active?
-    expect(links[0].classes()).toContain('active')
+    expect(wrapper.findComponent(StartMenu).exists()).toBe(true)
+    expect(wrapper.find('.title').text()).toBe('DRV-BOX')
+    expect(wrapper.find('.btn-host').exists()).toBe(true)
   })
 
-  it('wechselt das aktive Modul bei Klick auf einen Navigationslink', async () => {
-    const wrapper = await setupAppWrapper()
+  it('zeigt nach host-Start die Host-Ansicht statt des Startmenüs', async () => {
+    const wrapper = mount(App, { global: { stubs } })
 
-    const links = wrapper.findAll('.nav-link')
+    await wrapper.find('.btn-host').trigger('click')
 
-    // Klick auf den zweiten Link (Manual)
-    await links[1].trigger('click')
-
-    // Assertions
-    expect(links[1].classes()).toContain('active')
-    expect(links[0].classes()).not.toContain('active')
-
-    // Prüfen, ob der Inhalt umgeschaltet hat
-    expect(wrapper.find('.content-placeholder').text()).toContain('MANUAL')
+    expect(wrapper.find('.host-screen').exists()).toBe(true)
+    expect(wrapper.findComponent(StartMenu).exists()).toBe(false)
   })
 })
