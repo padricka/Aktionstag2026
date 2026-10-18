@@ -1,14 +1,19 @@
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY",
-    "django-insecure-drv-ak26-reaktorspiel-secret-key-change-in-production"
-)
-
 DEBUG = os.environ.get("DEBUG", "True").lower() in ("true", "1")
+
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG:
+        # Fallback only for local development
+        SECRET_KEY = "django-insecure-dev-key-only"
+    else:
+        # Fail securely in production
+        raise ImproperlyConfigured("SECRET_KEY environment variable is required in production (DEBUG=False).")
 
 ALLOWED_HOSTS = ["*"]
 
