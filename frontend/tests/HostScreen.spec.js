@@ -103,4 +103,38 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.lobby').exists()).toBe(false)
     expect(wrapper.find('.host-top').exists()).toBe(false)
   })
+
+  it('zeigt die gefundenen Ziffern aus reboot_digits auf dem Beamer', async () => {
+    const wrapper = mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+
+    simulateMessage({
+      event: 'game_tick',
+      payload: { health: 240, time_left: 290, tasks: [], reboot_digits: [4, 7, null] },
+    })
+    await wrapper.vm.$nextTick()
+
+    const raeder = wrapper.findAll('[role="spinbutton"]')
+    expect(raeder.map((r) => r.attributes('aria-valuenow'))).toEqual(['4', '7', undefined])
+    expect(wrapper.find('.vd-panel__status').text()).toBe('GESPERRT · 2/3')
+  })
+
+  it('zeigt bei Sieg den offenen Tresor statt des Game-Over-Overlays', async () => {
+    const wrapper = mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+
+    simulateMessage({
+      event: 'game_tick',
+      payload: { health: 240, time_left: 290, tasks: [], reboot_digits: [4, 7, 2] },
+    })
+    simulateMessage({
+      event: 'game_over',
+      payload: { result: 'victory', score: 60, survived_seconds: 200 },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.vault').classes()).toContain('vault--open')
+    expect(wrapper.find('.end').exists()).toBe(false)
+    expect(wrapper.find('.finale-win').exists()).toBe(true)
+  })
 })

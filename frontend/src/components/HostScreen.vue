@@ -2,7 +2,7 @@
   <div class="host">
 
     <GameOver
-      v-if="istSpielVorbei"
+      v-if="istSpielVorbei && !istSieg"
       :result="gameOverResult"
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
@@ -18,7 +18,7 @@
       </header>
 
       <!-- LOBBY -->
-      <section v-if="status !== 'running'" class="lobby">
+      <section v-if="status !== 'running' && !istSieg" class="lobby">
         <h1 class="lobby-title">Bereit für den Start</h1>
 
         <div v-if="gameId" class="id-block">
@@ -72,6 +72,13 @@
             <div class="hp-fill" :style="{ width: hpPercent + '%' }"></div>
           </div>
         </div>
+
+        <!-- Finale: Neustart-Code, füllt sich mit jeder gelösten Aufgabe -->
+        <div class="finale">
+          <span class="host-label">Neustart-Code</span>
+          <VaultDoor mode="display" :digits="rebootDigits" :state="vaultState" />
+          <p v-if="istSieg" class="finale-win">SERVER ONLINE · SIEG</p>
+        </div>
       </section>
 
     </template>
@@ -82,6 +89,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
+import VaultDoor from './VaultDoor.vue'
 
 defineEmits(['exit'])
 
@@ -92,6 +100,7 @@ const playerList = ref([])
 const readyToStart = ref(false)
 const hp = ref(300)
 const timeLeft = ref(300)
+const rebootDigits = ref([null, null, null])
 
 const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
@@ -102,6 +111,10 @@ const istSpielVorbei = computed(
   () => isGameOver.value || hp.value <= 0 || timeLeft.value <= 0
     || status.value === 'game_over' || status.value === 'won'
 )
+
+// Sieg: der Tresor bleibt sichtbar und öffnet sich, statt im Overlay zu verschwinden.
+const istSieg = computed(() => status.value === 'won' && gameOverResult.value === 'victory')
+const vaultState = computed(() => (istSieg.value ? 'open' : 'locked'))
 
 const statusLabel = computed(() => {
   if (istSpielVorbei.value) return gameOverResult.value === 'victory' ? 'Sieg' : 'Niederlage'
@@ -141,6 +154,7 @@ function handleMessage(msg) {
     if (status.value === 'waiting' || status.value === 'ready') {
       hp.value = 300
       timeLeft.value = 300
+      rebootDigits.value = [null, null, null]
       isGameOver.value = false
       gameOverResult.value = 'meltdown'
       gameOverScore.value = 0
@@ -151,6 +165,9 @@ function handleMessage(msg) {
   if (event === 'game_tick') {
     if (typeof payload.health === 'number') hp.value = payload.health
     timeLeft.value = payload.time_left ?? timeLeft.value
+    if (Array.isArray(payload.reboot_digits)) {
+      rebootDigits.value = [0, 1, 2].map((i) => payload.reboot_digits[i] ?? null)
+    }
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
       status.value = 'running'
     }
@@ -356,13 +373,13 @@ onMounted(async () => {
 /* Running */
 .running {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 60px;
-  overflow: hidden;
   min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  justify-items: center;
+  align-items: center;
+  gap: 18px;
+  overflow: hidden;
 }
 
 .time-block { text-align: center; }
@@ -379,7 +396,7 @@ onMounted(async () => {
 
 .time-value {
   font-family: var(--mono);
-  font-size: 220px;
+  font-size: clamp(72px, 20vh, 220px);
   font-weight: 500;
   letter-spacing: -0.05em;
   line-height: 0.9;
@@ -420,11 +437,36 @@ onMounted(async () => {
   transition: width 0.3s;
 }
 
+/* Finale — Neustart-Code, gut sichtbar für den ganzen Raum */
+.finale {
+  width: 100%;
+  max-width: min(640px, 58vh);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.finale .host-label { margin-bottom: 8px; }
+
+.finale-win {
+  margin: 12px 0 0 0;
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--green);
+  text-shadow: 0 0 24px rgba(0, 255, 102, 0.45);
+}
+
 @media (max-width: 900px) {
   .host { padding: 20px; }
   .lobby-title { font-size: 28px; }
   .id-value { font-size: 56px; letter-spacing: 0.12em; }
   .time-value { font-size: 120px; }
   .slots { grid-template-columns: 1fr; }
+  .finale { max-width: 420px; }
+  .finale-win { font-size: 20px; }
 }
 </style>
