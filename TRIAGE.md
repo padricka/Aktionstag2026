@@ -11,7 +11,7 @@ Maßstab für „veraltet" ist `JSON_Vertrag.md` (Events `event` + `payload`) un
 |---|---|---|---|
 | Mehr-Spieler-Tests (`test_gameConsumer`, `test_redisHandler`, …) | 12 | `lupa` fehlte. `fakeredis` braucht es für `redis.lock()` (Lua) | `lupa` in `requirements.txt` |
 | `test_gameLoop` | 4 | Test-Attrappe `snap()` kannte `score` nicht (echter `DataCenter.snapshot()` und Vertrag schon) | Attrappe ergänzt |
-| `test_channelConsumers` | 1 | Test rief nicht existierende Methode `receive_bytes_from` auf | `receive_from` |
+| `test_channelConsumers` | 1 | Spielzeug-Consumer `/ws/channel/` | **entfernt** im Cleanup (Consumer + Test) |
 | `test_taskLoeschprotokoll` | 11 | falscher Import nach Umbenennung (`playable_object` → `playableObject`) | in PR #5 behoben |
 | `test_consumers` | 3 | altes Protokoll (`action`/`type`), ersetzt durch `test_gameConsumer.py` | **skip** |
 | `test_gameConsumer::test_register_assigns_role_and_broadcasts` | 1 | erwartet `role_assigned` schon beim Registrieren; gibt es erst nach `choose_role` | **skip** |
@@ -40,7 +40,8 @@ pip install -r requirements.txt
 python -m pytest -rs
 ```
 
-## Noch offen
+## Noch offen / erledigt danach
 
-- **Frontend-Tests:** auf `main` sind alle 7 Testdateien rot (veraltete Selektoren, fehlende Komponenten, ein Syntaxfehler in `ClientScreen.vue`). Eigene Triage, siehe separater PR.
-- Das CI (`.github/workflows/ci.yml`) ist bewusst nicht blockierend. Nach der Triage kann es verschärft werden (`continue-on-error` entfernen).
+- **Frontend-Specs:** PR #8 hat App/StartMenu/HostScreen angepasst. Cleanup entfernte ungenutzte Screens (`ClientScreen`, `MasterScreen`-Hülle) und Attrappen (`HealthBar`, `SwitchPanel`) samt Specs.
+- **`ChannelConsumer`** (Spielzeug-`/ws/channel/`) samt Test entfernt — nicht Teil des Spiels.
+- Das CI (`.github/workflows/ci.yml`) ist bewusst nicht blockierend. Nach Happy Path verschärfen (`continue-on-error` entfernen).

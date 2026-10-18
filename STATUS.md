@@ -7,12 +7,11 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | 138 grün · 23 übersprungen (veraltet) · **4 rot (Absicht)** | `TRIAGE.md` |
-| Frontend-Tests | 13 grün · 1 übersprungen (`ClientScreen`) | PR #8 |
+| Backend-Tests | **137** grün · 23 übersprungen · **4 rot (Absicht, sync_button)** | lokal nach Cleanup |
+| Frontend-Tests | **8** grün (App, StartMenu, HostScreen) | lokal nach Cleanup |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
-
-> Die Zahlen gelten, sobald PR #7 (Backend-Triage) und PR #8 (Frontend-Specs) gemerged sind. Vorher stand `main` bei 44 roten Backend-Tests und 7 roten Frontend-Dateien.
+| Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
 
 ## Was laut Tests schon funktioniert (Backend)
 Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataCenter.py`, `test_gameLoop.py` und den Task-Tests decken ab: Verbinden und `lobby_update`, `player_register`, `choose_role` (`role_assigned`), `owner_settings`, `start_game`, `game_tick`, `player_input` (`input_result`), `game_over`, Aufgabe 1 „Alarm" und Aufgabe 2 „Löschprotokoll".
@@ -20,18 +19,18 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 
 ## Nächste Aufgaben (Reihenfolge)
 
-1. **I1 Happy Path einmal real durchspielen** (`docker compose up --build -d`, Beamer + Master + 2 Spieler im Browser). Ergebnis als Liste „was geht / was nicht" festhalten. Erst das zeigt, wo es wirklich hakt.
-2. **F1 Frontend am Vertrag ausrichten.** Senden nutzt schon `{event, payload}`. Offen: ob die Komponenten eingehende Nachrichten über `event` oder noch über `type` auswerten (die Tests nutzen noch `type`). Danach Tests mitziehen.
-3. **`ClientScreen.vue` entscheiden:** ungenutzt (App nutzt `PlayerScreen.vue`), hat einen Template-Fehler. Löschen samt Spec, oder Spec auf `PlayerScreen.vue` umstellen.
-4. **Aufgabe 3 „Datenrettung":** `sync_button` mit Zeitfenster in `DataRescueTask` (`backend/backend/playableObject.py`). Die 4 roten Tests in `test_taskDatenRettung.py` sind die Spezifikation. Kein Teil des MVP-Happy-Paths.
-5. **CI verschärfen:** in `ci.yml` die beiden `continue-on-error: true` entfernen, sobald die Punkte 1–3 durch sind.
-6. **Oberfläche überarbeiten** (nach grünem Happy Path): Beamer-, Master- und zwei Spieler-Ansicht sind aktuell reine Konsolenoptik.
+1. **I1 Happy Path einmal real durchspielen** (`docker compose up --build -d`, Beamer + Master + 2 Spieler im Browser). Ergebnis als Liste „was geht / was nicht" festhalten.
+2. **F1 Frontend am Vertrag ausrichten.** Senden nutzt schon `{event, payload}`. Offen: ob eingehende Nachrichten überall über `event` (nicht `type`) ausgewertet werden. Danach Tests mitziehen.
+3. ~~**`ClientScreen.vue` entscheiden**~~ — erledigt: gelöscht (ungenutzt, kaputt). Master bleibt als Rolle in `PlayerScreen`.
+4. **Aufgabe 3 „Datenrettung":** `sync_button` mit Zeitfenster in `DataRescueTask`. Die 4 roten Tests sind die Spezifikation. Kein Teil des MVP-Happy-Paths.
+5. **CI verschärfen:** `continue-on-error` entfernen, sobald Happy Path + Frontend-Triage stabil sind.
+6. **Oberfläche überarbeiten** (nach grünem Happy Path).
 
 ## Offene Entscheidungen (nicht technisch)
 
-- **Master-Rolle:** Aktuell ist der Master ein Spielfeld-Spieler mit dem Manual (Antworten). Ist das so gewollt, oder soll das Manual getrennt/digital laufen? Vor dem UI-Redesign klären.
-- **Theme-Switcher** (Dark/Light/„Girl"-Modus, ehemals PR #1) wurde geschlossen, nicht gemerged. Kann nach dem Happy Path neu aufgesetzt werden.
-- **Host-Verwaltung:** Der aktuelle `HostManager` kann nur `start()`, ein Host-Check ist „bewusst noch nicht drin". Die alten Tests dazu sind übersprungen. Wenn Host-Rechte gewollt sind: zuerst Tests nach dem Vertrag neu schreiben.
+- **Master-Rolle:** Master = Mitspieler mit Manual in `PlayerScreen` + `Task*Master` (so gewollt laut README). Eigenes `MasterScreen.vue` war tote Parallel-UI und wurde entfernt.
+- **Theme-Switcher** (ehemals PR #1) geschlossen — nach Happy Path neu aufsetzen.
+- **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-PR #2 SECRET_KEY · PR #3 ARIA-Labels · PR #5 Übergabe-Schaden · PR #6 CI · PR #7 Backend-Triage · PR #8 Frontend-Specs. Doppelter Sicherheits-PR #4 geschlossen.
+PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
