@@ -474,9 +474,9 @@ async def test_tasks_for_me_filters_views(env):
         task_c = tick_c["payload"]["tasks"][0]
 
         assert "views" not in task_a and "state" not in task_a
-        assert task_a["view"]["type"] == "alarm_source"
+        assert task_a["view"]["type"] == "alarm_leds"
         assert task_b["view"]["type"] == "main_switches"
-        assert task_c["view"]["type"] == "shutdown_terminal"
+        assert task_c["view"]["type"] == "code_stickers"
     finally:
         await beenden(a, b, c, game_ids=["cov_tfm"])
 

@@ -87,19 +87,36 @@ class AlarmTask(PlayableObject):
         {"id": "K4", "label": "FIREWALL-MODUL", "symbol": "kreis"},
     ]
 
-    # Pool für den Freigabe-Code. Wird bei jedem Task neu gemischt.
+    # Pool für den Shutdown-Code. Wird bei jedem Task neu gemischt.
     CODE_POOL = ['dreieck-runter', 'kreuz', 'dreieck-runter-voll', 'stern']
+    # Aufkleber-Farben. Ihre Reihenfolge (nur der Leitstand kennt sie) ordnet den Code.
+    STICKER_COLORS = ["ROT", "GELB", "GRÜN", "BLAU"]
 
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 1):
+    #   Leitstand  sieht, WELCHER Steckplatz brennt, und die Farb-Reihenfolge -> tippt den Code
+    #   Vorderseite sieht die Schalter (Symbole in Steckplatz-Reihenfolge)    -> drückt den Schalter
+    #   Rückseite  sieht die Code-Symbole auf farbigen Aufklebern, gemischt   -> keine Eingabe
     @classmethod
     def create(cls, players):
-        broken = random.choice(cls.COMPONENTS)
-        # Code-Reihenfolge wird jedes Mal neu gemischt
+        slot = random.randrange(len(cls.COMPONENTS))
+        broken = cls.COMPONENTS[slot]
+
         code = list(cls.CODE_POOL)
         random.shuffle(code)
+        color_order = list(cls.STICKER_COLORS)
+        random.shuffle(color_order)
+        # Das i-te Code-Symbol bekommt die i-te Farbe der Farb-Reihenfolge ...
+        stickers = [{"symbol": s, "color": c} for s, c in zip(code, color_order)]
+        # ... die Rückseite sieht die Aufkleber aber gemischt.
+        random.shuffle(stickers)
+
         return {
+            "burning_slot": slot + 1,
             "broken_id": broken["id"],
             "broken_symbol": broken["symbol"],
             "code": code,
+            "color_order": color_order,
+            "stickers": stickers,
             "switch_ok": False,
             "cmd_ok": False,
         }
@@ -108,20 +125,20 @@ class AlarmTask(PlayableObject):
     def views(cls, state):
         return {
             ROLE_M: {
-                "type": "alarm_source",
-                "component": state["broken_id"],
-                "symbol": state["broken_symbol"],
-                "code": state["code"],
+                "type": "alarm_leds",
+                "slots": len(cls.COMPONENTS),
+                "burning_slot": state["burning_slot"],
+                "color_order": state["color_order"],
+                "p_done": state["cmd_ok"],
             },
             ROLE_P1: {
                 "type": "main_switches",
                 "switches": [c["symbol"] for c in cls.COMPONENTS],
-                "p1_done": state["switch_ok"],
+                "p_done": state["switch_ok"],
             },
             ROLE_P2: {
-                "type": "shutdown_terminal",
-                "code_length": len(state["code"]),
-                "p2_done": state["cmd_ok"],
+                "type": "code_stickers",
+                "stickers": state["stickers"],
             },
         }
 
@@ -134,7 +151,7 @@ class AlarmTask(PlayableObject):
                 return StepResult(Outcome.WRONG, state)
             state["switch_ok"] = True
 
-        elif data.target == "shutdown_cmd" and role == ROLE_P2:
+        elif data.target == "shutdown_cmd" and role == ROLE_M:
             expected = ",".join(state["code"]).lower()
             if value.replace(" ", "") != expected:
                 return StepResult(Outcome.WRONG, state)
