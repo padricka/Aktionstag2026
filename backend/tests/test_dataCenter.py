@@ -179,8 +179,8 @@ def test_fire_protocol_flow_via_process_input(data_center):
         assert res["result"] == "correct"
 
     # P2: richtiges Passwort
-    alle = st["fragments"] + [st["last_fragment"]]
-    pw = "".join(alle[i] for i in st["order"])
+    # Passwort = alle Fragmente nach Punkten sortiert (Escape-Room, GAME_DESIGN.md)
+    pw = "".join(f["text"] for f in sorted(st["fragments"], key=lambda f: f["dots"]))
     assert _druecke(data_center, "release_pw", pw, "Ben")["result"] == "correct"
     assert data_center.current_task()["task_id"] != task["task_id"]
     assert data_center.health == 55
