@@ -1,6 +1,6 @@
 # AGENTS.md — Arbeitsregeln für alle, die an DRV-BOX mitarbeiten
 
-Gilt für Menschen **und** KI-Agenten (Cursor, Jules, Hermes, Claude …). Bitte zuerst lesen, dann `STATUS.md` (aktueller Stand und nächste Aufgaben).
+Gilt für alle, die am Projekt arbeiten, auch für automatische Coding-Assistenten. Bitte zuerst lesen, dann `STATUS.md` (aktueller Stand und nächste Aufgaben).
 
 **DRV-BOX** ist ein kooperatives 3-Spieler-Browserspiel („Server retten"). Backend: Python, Django Channels, Redis. Frontend: Vue 3, Vite, Tailwind. Spielidee: `README.md`.
 
