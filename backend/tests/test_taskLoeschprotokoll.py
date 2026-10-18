@@ -5,7 +5,7 @@ import fakeredis
 from unittest.mock import patch
 
 from backend.dataCenter import DataCenter
-from backend.playable_object import *  # noqa
+from backend.playableObject import *  # noqa
 from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
 
 GAME = "t2_session"
