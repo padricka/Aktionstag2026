@@ -270,6 +270,32 @@ describe('PlayerScreen.vue', () => {
     expect(wrapper.find('.bar-stats').text()).toContain('250 HP')
   })
 
+  it('hat im Spiel einen Taschenrechner; offen rückt die Aufgabe zur Seite', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({ event: 'game_tick', payload: { health: 250, time_left: 280, tasks: [{ kind: 'alarm', view: {} }] } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.task-main').classes()).not.toContain('with-calc')
+    await wrapper.find('button.calc-handle').trigger('click')
+    expect(wrapper.find('.calc-panel').exists()).toBe(true)
+    expect(wrapper.find('.task-main').classes()).toContain('with-calc')
+    expect(wrapper.find('.task-stub').exists()).toBe(true)      // Aufgabe bleibt sichtbar
+  })
+
+  it('zeigt den Taschenrechner noch nicht in der Lobby', async () => {
+    const wrapper = mount(PlayerScreen, {
+      props: { playerName: 'Patrick' },
+      global: { stubs },
+    })
+    await joinAs(wrapper)
+    expect(wrapper.find('button.calc-handle').exists()).toBe(false)
+  })
+
   it('sendet beim Finale (Aufgabe 4) reboot_code vom Leitstand', async () => {
     const wrapper = mount(PlayerScreen, {
       props: { playerName: 'Patrick' },
