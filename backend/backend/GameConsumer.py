@@ -12,7 +12,8 @@ CLOSE_UNKNOWN_GAME = 4404
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.game_id = self.scope["url_route"]["kwargs"]["game_id"]
+        # IDs werden klein erzeugt, der Beamer zeigt sie groß: Schreibweise egal
+        self.game_id = self.scope["url_route"]["kwargs"]["game_id"].lower()
         self.room_group_name = f"game_{self.game_id}"
         self.lobby = MultiplayerManager(self.game_id)
         self.host = HostManager()

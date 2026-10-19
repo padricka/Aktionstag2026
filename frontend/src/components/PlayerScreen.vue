@@ -179,7 +179,8 @@ const WS_BASE = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.h
 const MAX_HP = 300
 const ALL_ROLES = ['MASTER', 'FI-SI', 'FI-AE']
 
-const gameId = ref('')
+const gameId = ref('')      // so wie eingetippt (Anzeige)
+const joinedId = ref('')    // bereinigt (trim, klein) – damit wird verbunden, auch beim Neustart
 const connected = ref(false)
 const joining = ref(false)
 const registered = ref(false)   // true, sobald ich in einem lobby_update auftauche
@@ -406,6 +407,7 @@ const { connect, sendEvent, disconnect } = useGameSocket({
 function handleJoin() {
   const id = gameId.value.trim().toLowerCase()
   if (!id || joining.value) return
+  joinedId.value = id
 
   joining.value = true
   joinError.value = ''
@@ -448,7 +450,7 @@ function handleRestart() {
     disconnect()
     resetRound()
 
-    connect(`${WS_BASE}${gameId.value}/`, handleServerMessage, () => {
+    connect(`${WS_BASE}${joinedId.value}/`, handleServerMessage, () => {
       connected.value = true
       sendEvent('player_register', { player_name: props.playerName || 'Agent' })
       restarting.value = false

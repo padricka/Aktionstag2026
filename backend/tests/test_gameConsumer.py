@@ -786,3 +786,19 @@ async def test_dev_skip_without_task_is_silent(env):
         assert env.hget(state_key(gid), "solved_count") == b"0"
     finally:
         await beenden(host, a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Groß-/Kleinschreibung der ID
+@pytest.mark.asyncio
+async def test_game_id_is_case_insensitive(env):
+    """Der Beamer zeigt die ID groß (XVK2), erzeugt wird sie klein: beides muss gehen."""
+    RedisHandler().create_game("cov_case")
+    comm, ok = await verbinden_roh("COV_CASE")
+    assert ok is True
+    msg = await comm.receive_json_from()
+    assert msg["event"] == "lobby_update"
+    await registrieren(comm, "A")
+    await recv_until(comm, "lobby_update", lambda p: len(p["players"]) == 1)
+    assert env.hexists("game:cov_case:players", "A")
+    assert not env.exists("game:COV_CASE:state")
+    await comm.disconnect()
