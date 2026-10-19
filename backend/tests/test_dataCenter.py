@@ -54,6 +54,20 @@ def test_start_sets_status_running(data_center):
     assert data_center.status == "running"
 
 
+def test_claim_game_over_only_once(data_center):
+    """Spielende darf nur einmal gemeldet werden (Consumer und Spielschleife)."""
+    data_center.start()
+    assert data_center.claim_game_over() is True
+    assert data_center.claim_game_over() is False
+
+
+def test_start_resets_game_over_claim(data_center):
+    data_center.start()
+    data_center.claim_game_over()
+    data_center.start()
+    assert data_center.claim_game_over() is True
+
+
 def test_register_mistake_reduces_health(data_center):
     data_center.register_mistake()
     assert data_center.health == 240

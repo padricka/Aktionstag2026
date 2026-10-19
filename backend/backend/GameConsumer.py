@@ -4,7 +4,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from backend.redis_handler import ROLES
 from backend.hostManager import HostManager
 from backend.multiplayerManager import MultiplayerManager
-from backend.gameLoop import games
+from backend.gameLoop import announce_game_over, games
 
 # Close-Code, wenn die Sitzungs-ID nicht existiert (4000-4999 = anwendungsspezifisch)
 CLOSE_UNKNOWN_GAME = 4404
@@ -195,29 +195,12 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         await self.send_event("input_result", {"result": result["result"]})
 
-        if result.get("won"):
-            snap = await asyncio.to_thread(self.data_center.snapshot)
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game.over",
-                "payload": {
-                    "result": "victory",
-                    "score": snap["score"],
-                    "survived_seconds": snap["survived_seconds"],
-                },
-            })
-            return
-
         snap = await asyncio.to_thread(self.data_center.snapshot)
 
-        if snap["health"] <= 0 or self.data_center.status == "game_over":
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game.over",
-                "payload": {
-                    "result": "meltdown",
-                    "score": snap["score"],
-                    "survived_seconds": snap["survived_seconds"],
-                },
-            })
+        if result.get("won"):
+            await announce_game_over(self.data_center, self.game_id, "victory", snap)
+        elif snap["health"] <= 0 or self.data_center.status == "game_over":
+            await announce_game_over(self.data_center, self.game_id, "meltdown", snap)
         else:
             await self.channel_layer.group_send(self.room_group_name, {
                 "type": "game.tick",

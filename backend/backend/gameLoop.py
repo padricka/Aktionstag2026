@@ -7,6 +7,22 @@ from backend.dataCenter import DataCenter   # ← Modul-Ebene (Test kann patchen
 games: dict[str, "GameLoop"] = {}
 
 
+async def announce_game_over(data_center, game_id: str, result: str, snap: dict) -> bool:
+    """game_over an alle, aber nur einmal pro Runde (Consumer und Spielschleife melden beide)."""
+    if not await asyncio.to_thread(data_center.claim_game_over):
+        return False
+    await get_channel_layer().group_send(f"game_{game_id}", {
+        "type": "game.over",
+        "payload": {
+            "result": result,
+            "score": snap["score"],
+            "survived_seconds": snap["survived_seconds"],
+        },
+    })
+    print(f"[GAMELOOP] Game over: {result}")
+    return True
+
+
 class GameLoop:
     def __init__(self, game_id: str | None = None):
         self.game_id = game_id
@@ -32,15 +48,7 @@ class GameLoop:
         group = f"game_{self.game_id}"
 
         async def send_game_over(result, snap):
-            await channel_layer.group_send(group, {
-                "type": "game.over",
-                "payload": {
-                    "result": result,
-                    "score": snap["score"],
-                    "survived_seconds": snap["survived_seconds"],
-                },
-            })
-            print(f"[GAMELOOP] Game over: {result}")
+            await announce_game_over(self.data_center, self.game_id, result, snap)
 
         try:
             while True:

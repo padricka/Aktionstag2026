@@ -581,6 +581,48 @@ async def test_broadcast_lobby_update(env):
     await b.disconnect()
 
 
+async def game_over_events(comm, dauer):
+    """Alle game_over, die in `dauer` Sekunden ankommen."""
+    gesehen = []
+    deadline = time.monotonic() + dauer
+    while time.monotonic() < deadline:
+        # receive_nothing statt Timeout: ein Timeout in receive_json_from bricht die App ab
+        if await comm.receive_nothing(timeout=0.1):
+            continue
+        msg = await comm.receive_json_from()
+        if msg["event"] == "game_over":
+            gesehen.append(msg["payload"]["result"])
+    return gesehen
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ausloeser, erwartet", [
+    ("sieg", "victory"),
+    ("strafe", "meltdown"),
+])
+async def test_game_over_by_input_is_sent_only_once(env, ausloeser, erwartet):
+    """Spielende durch Eingabe: Consumer meldet es, die Spielschleife darf es nicht nochmal tun."""
+    gid = f"cov_over_once_{ausloeser}"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+
+        if ausloeser == "sieg":
+            set_button_task(env, gid)
+            env.hset(state_key(gid), "solved_count", 3)   # letzte Aufgabe
+            payload = {"action_type": "button_press", "target": "reactor_vent", "value": "open"}
+        else:
+            env.hset(state_key(gid), "health", 10)
+            payload = {"action_type": "button_press", "target": "penalty", "value": "wrong"}
+
+        await b.send_json_to({"event": "player_input", "payload": payload})
+        # Die Spielschleife prüft jede Sekunde den Status → >2 s warten
+        assert await game_over_events(c, 2.5) == [erwartet]
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
 @pytest.mark.asyncio
 async def test_broadcast_game_over(env):
     """Cover-Zeile 243: game_over handler im Consumer."""
