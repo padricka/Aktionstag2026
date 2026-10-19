@@ -6,6 +6,7 @@ from .redis_handler import RedisHandler, _s, DEFAULT_TIME
 from .schemas import PlayerInput
 from .playableObject import TASK_TYPES, Outcome
 
+MAX_HEALTH = 300
 HEALTH_BONUS = 15
 MISTAKE_DAMAGE = 60
 TOTAL_TASKS = 4
@@ -27,11 +28,23 @@ TASK_MULTIPLIER = {
 }
 
 
+def tick_payload(snap: dict) -> dict:
+    """game_tick-Payload laut JSON_Vertrag – die einzige Stelle, die ihn zusammenbaut
+    (Spielschleife und Consumer), damit kein Weg ein Feld vergisst."""
+    return {
+        "health": snap["health"],
+        "max_health": snap.get("max_health", MAX_HEALTH),
+        "time_left": snap["time_left"],
+        "tasks": snap["tasks"],
+        "reboot_digits": snap.get("reboot_digits") or [None] * REBOOT_CODE_LEN,
+    }
+
+
 class DataCenter:
     def __init__(self, game_id: str = "test_game"):
         self.game_id = game_id
         self.redis = RedisHandler()
-        self.max_health = 300
+        self.max_health = MAX_HEALTH
 
         state_key = self.redis._k_state(self.game_id)
         if not self.redis.r.exists(state_key):
@@ -97,6 +110,7 @@ class DataCenter:
             "survived_seconds": int(time.time()) - started,
             "tasks": [self._public(task)] if task else [],
             "score": int(state.get("score", 0)),
+            "max_health": self.max_health,
             "reboot_digits": self._reboot_digits(state),
         }
 
@@ -174,6 +188,7 @@ class DataCenter:
     def _public(task: dict) -> dict:
         out = {
             "task_id": task.get("task_id"),
+            "kind": task.get("kind"),
             "assigned_to_player": task.get("assigned_to_player"),
             "instruction": task.get("instruction"),
         }
