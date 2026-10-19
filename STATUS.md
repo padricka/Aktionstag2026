@@ -7,8 +7,8 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **181** grün · 23 übersprungen · **0 rot** | nach `fix/lobby-platz-freigeben` (Docker, Python 3.13) |
-| Frontend-Tests | **132** grün | `main` @ d86e3a3 (Docker, Node 22) |
+| Backend-Tests | **189** grün · 23 übersprungen · **0 rot** | `main` nach #38 (Docker, Python 3.13) |
+| Frontend-Tests | **141** grün | `main` nach #38 (Docker, Node 22; #33/#34 noch offen) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
@@ -22,10 +22,10 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 > **Neu:** Der Escape-Room-Umbau aus `GAME_DESIGN.md` (Pakete B1–B4, F1) läuft parallel zu den Punkten unten. Die Paketaufteilung dort regelt, wer welche Datei anfasst.
 
 
-1. **I1 Happy Path einmal real durchspielen** (`docker compose up --build -d`, Beamer + Master + 2 Spieler im Browser). Ergebnis als Liste „was geht / was nicht" festhalten.
+1. ~~**I1 Happy Path einmal real durchspielen**~~ — laut Team am 2026-10-19 gespielt, das Spiel läuft. Offene Punkte bitte hier ergänzen. Ursprünglich: (`docker compose up --build -d`, Beamer + Master + 2 Spieler im Browser). Ergebnis als Liste „was geht / was nicht" festhalten.
 2. **F1 Frontend am Vertrag ausrichten.** Senden nutzt schon `{event, payload}`. Offen: ob eingehende Nachrichten überall über `event` (nicht `type`) ausgewertet werden. Danach Tests mitziehen.
 3. ~~**`ClientScreen.vue` entscheiden**~~ — erledigt: gelöscht (ungenutzt, kaputt). Master bleibt als Rolle in `PlayerScreen`.
-4. **Aufgabe 3 „Datenrettung":** `sync_button` mit Zeitfenster in `DataRescueTask`. Die 4 roten Tests sind die Spezifikation. Kein Teil des MVP-Happy-Paths.
+4. ~~**Aufgabe 3 „Datenrettung":** `sync_button` mit Zeitfenster in `DataRescueTask`.~~ — erledigt in #26, die 4 Tests sind grün.
 5. **CI verschärfen:** `continue-on-error` entfernen, sobald Happy Path + Frontend-Triage stabil sind.
 6. **Oberfläche überarbeiten** (nach grünem Happy Path).
 
@@ -36,4 +36,4 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-Lobby: Spieler ohne Rolle geben beim Verbindungsabbruch ihren Platz frei (`fix/lobby-platz-freigeben`) · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
+#35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
