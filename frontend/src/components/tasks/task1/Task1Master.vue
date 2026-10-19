@@ -271,6 +271,13 @@ function ausfuehren() {
   box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
 }
 
+:global(html.theme-girl) .led:not(.burning),
+:global(html.theme-light) .led:not(.burning) {
+  background: #fff;
+  border-color: var(--fg-2);
+  box-shadow: inset 0 0 0 8px var(--bg-3);
+}
+
 .led.burning {
   background: var(--red);
   border-color: var(--red);
@@ -353,6 +360,7 @@ function ausfuehren() {
   height: 88px;
   background: var(--bg-1);
   border: 2px dashed var(--border-2);
+  color: var(--fg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -380,6 +388,7 @@ function ausfuehren() {
   justify-content: center;
   min-height: 72px;
   background: var(--bg-1);
+  color: var(--fg);
   border: 1px solid var(--border-2);
   cursor: pointer;
 }
