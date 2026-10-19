@@ -2,7 +2,8 @@ import json
 import random
 import time
 from pydantic import ValidationError
-from .redis_handler import RedisHandler, _s, DEFAULT_TIME
+from . import leaderboard
+from .redis_handler import RedisHandler, _s, DEFAULT_TIME, ROLES
 from .schemas import PlayerInput
 from .playableObject import TASK_TYPES, Outcome
 
@@ -140,6 +141,19 @@ class DataCenter:
     def claim_game_over(self) -> bool:
         """True nur beim ersten Aufruf pro Runde: wer True bekommt, meldet das Spielende."""
         return bool(self.redis.r.hsetnx(self._key, "over_announced", 1))
+
+    def record_result(self, result: str, snap: dict) -> dict:
+        """Runde ins Leaderboard eintragen (nicht im DEV-Modus).
+
+        Rückgabe für game_over: eigener Platz (None im DEV-Modus), Top 5, Anzahl Runden.
+        """
+        if self.dev_mode:
+            return {**leaderboard.top(), "rank": None}
+        players = self.redis._load_players(self.game_id)
+        rolle = {r: i for i, r in enumerate(ROLES)}
+        team = sorted(players, key=lambda n: rolle.get(players[n].get("role"), len(ROLES)))
+        rec = leaderboard.add_entry(team, snap["score"], result, snap["survived_seconds"], self.game_id)
+        return {"rank": rec["entry"]["rank"], "top": rec["top"], "total": rec["total"]}
 
     def register_mistake(self) -> int:
         if self.health <= 0:

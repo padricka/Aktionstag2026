@@ -786,3 +786,25 @@ async def test_dev_skip_without_task_is_silent(env):
         assert env.hget(state_key(gid), "solved_count") == b"0"
     finally:
         await beenden(host, a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Leaderboard am Spielende
+@pytest.mark.asyncio
+async def test_game_over_carries_leaderboard_with_own_rank(env, leaderboard_file):
+    gid = "cov_lb"
+    (a, b, c) = await spieler(gid, ("Anna", "MASTER"), ("Ben", "FI-SI"), ("Cem", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        env.hset(state_key(gid), mapping={"health": 10, "score": 333})
+        await b.send_json_to({"event": "player_input", "payload": {
+            "action_type": "button_press", "target": "penalty", "value": "x"}})
+
+        over = await recv_until(c, "game_over", timeout=5)
+        lb = over["payload"]["leaderboard"]
+        assert lb["rank"] == 1 and lb["total"] == 1
+        assert lb["top"][0]["players"] == ["Anna", "Ben", "Cem"]
+        assert lb["top"][0]["score"] == 333
+        assert json.loads(leaderboard_file.read_text(encoding="utf-8"))["entries"][0]["score"] == 333
+    finally:
+        await beenden(a, b, c, game_ids=[gid])

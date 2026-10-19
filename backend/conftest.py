@@ -29,3 +29,10 @@ async def cleanup_games():
         except Exception:
             pass
     games.clear()
+
+@pytest.fixture(autouse=True)
+def leaderboard_file(tmp_path, monkeypatch):
+    """Kein Test schreibt je ins echte Leaderboard."""
+    path = tmp_path / "leaderboard.json"
+    monkeypatch.setenv("LEADERBOARD_FILE", str(path))
+    return path

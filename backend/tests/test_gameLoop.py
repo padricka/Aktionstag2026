@@ -125,8 +125,10 @@ async def test_loop_sends_game_over_when_status_already_game_over(channel_layer,
     dc.tick.assert_not_called()
     channel_layer.group_send.assert_awaited_once_with("game_g1", {
         "type": "game.over",
-        "payload": {"result": "meltdown", "score": 0, "survived_seconds": 42},
+        "payload": {"result": "meltdown", "score": 0, "survived_seconds": 42,
+                    "leaderboard": dc.record_result.return_value},
     })
+    dc.record_result.assert_called_once_with("meltdown", dc.snapshot.return_value)
 
 
 async def test_loop_game_over_when_health_reaches_zero(channel_layer, fast_sleep):
@@ -136,8 +138,20 @@ async def test_loop_game_over_when_health_reaches_zero(channel_layer, fast_sleep
     types = [c.args[1]["type"] for c in channel_layer.group_send.await_args_list]
     assert types == ["game.tick", "game.over"]
     over = channel_layer.group_send.await_args_list[1].args[1]["payload"]
-    assert over == {"result": "meltdown", "score": 0, "survived_seconds": 7}
+    assert over == {"result": "meltdown", "score": 0, "survived_seconds": 7,
+                    "leaderboard": dc.record_result.return_value}
     dc.finish.assert_not_called()
+
+
+async def test_game_over_is_sent_even_if_leaderboard_fails(channel_layer, fast_sleep):
+    """Kaputte Datei o. Ä. darf das Spielende nicht verhindern."""
+    dc = fake_dc(status="game_over")
+    dc.record_result.side_effect = OSError("Platte voll")
+    await game_with(dc)._run_tick_loop()
+
+    over = channel_layer.group_send.await_args_list[0].args[1]["payload"]
+    assert over["result"] == "meltdown"
+    assert over["leaderboard"] is None
 
 
 async def test_loop_finishes_when_time_runs_out(channel_layer, fast_sleep):
