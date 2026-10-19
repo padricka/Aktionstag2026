@@ -65,4 +65,13 @@ describe('Task3Master.vue (ascii_binary_tables)', () => {
     expect(hint).toContain('Rückseite')
     expect(hint).toContain('N–Z')
   })
+
+  it('ordnet die oberen Stellenwerte den ersten vier Spalten der Rückseite zu', () => {
+    const w = mount(Task3Master, { props: { view: masterView } })
+
+    const spalten = w.findAll('.bits-head .bit-cell').map((el) => el.text())
+    expect(spalten).toEqual(['128', '64', '32', '16', '·', '·', '·', '·'])
+    expect(w.find('.bits-note').text()).toMatch(/ersten vier Spalten/)
+    expect(w.find('.bits-note').text()).toMatch(/Rückseite/)
+  })
 })

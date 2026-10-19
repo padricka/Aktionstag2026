@@ -54,7 +54,34 @@ describe('Task3P2.vue (binary_puzzle) – Anzeige', () => {
     expect(w.html()).not.toContain('72')
     expect(w.html()).not.toContain('79')
     expect(w.find('.hint').text()).toContain('Leitstand')
-    expect(w.find('.hint').text()).toMatch(/128/)
+    // GAME_DESIGN §4: die oberen Stellenwerte kennt NUR der Leitstand –
+    // der Hinweis darf sie deshalb nicht verraten (früher stand hier 128, 64, 32, 16).
+    expect(w.find('.hint').text()).not.toMatch(/128|64|32|16/)
+  })
+})
+
+describe('Task3P2.vue (binary_puzzle) – Rechenhilfe', () => {
+  it('Stellenwert-Zeile über den Spalten: ? ? ? ? | 8 4 2 1', () => {
+    const w = mount(Task3P2, { props: { view: binaryView } })
+    const kopf = w.findAll('.bits-head .bit-cell').map((el) => el.text())
+    expect(kopf).toEqual(['?', '?', '?', '?', '8', '4', '2', '1'])
+    expect(w.find('.bits-head .is-unknown').attributes('title')).toContain('Leitstand')
+  })
+
+  it('jeder Code als Zeile mit 8 einzelnen Bits, Einsen hervorgehoben', () => {
+    const w = mount(Task3P2, { props: { view: binaryView } })
+    const zeilen = w.findAll('.bits-row')
+    expect(zeilen).toHaveLength(2)
+    expect(zeilen[0].findAll('.bit-cell.bit').map((el) => el.text()).join('')).toBe('01001000')
+    expect(zeilen[0].findAll('.bit.is-one')).toHaveLength(2)
+    expect(zeilen[1].findAll('.bit.is-one')).toHaveLength(5)
+  })
+
+  it('erklärt das Prinzip in einem Satz und mit Beispiel aus den eigenen Stellenwerten', () => {
+    const w = mount(Task3P2, { props: { view: binaryView } })
+    expect(w.find('.hint').text()).toMatch(/Addiere die Stellenwerte über jeder 1/)
+    expect(w.find('.example').text()).toContain('0000 0101')
+    expect(w.find('.example').text()).toContain('4 + 1 = 5')
   })
 })
 

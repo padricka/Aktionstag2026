@@ -15,8 +15,9 @@
     </header>
 
     <p class="hint">
-      Wandle die Binärzahlen in Dezimal um, mit Leerzeichen getrennt.
-      Die oberen Stellenwerte (128, 64, 32, 16) stehen beim Leitstand.
+      Wandle die Binärzahlen in Dezimal um: Addiere die Stellenwerte über jeder 1.
+      Die Werte der ?-Spalten kennt nur der Leitstand – frag ihn.
+      Antwort mit Leerzeichen getrennt.
     </p>
 
     <div class="body">
@@ -28,11 +29,35 @@
           </div>
         </div>
 
+        <!-- Rechenhilfe: jede Ziffer steht unter ihrem Stellenwert -->
         <section class="panel">
-          <span class="panel-label">Deine Stellenwerte</span>
-          <div class="places">
-            <span v-for="wert in placeValues" :key="wert" class="place-value">{{ wert }}</span>
+          <span class="panel-label">Rechenhilfe · Stellenwerte</span>
+          <div class="bits" role="table" aria-label="Binärzahlen nach Stellen">
+            <div class="bits-head" role="row">
+              <span class="bits-label" role="rowheader">Wert</span>
+              <span
+                v-for="(wert, i) in spaltenWerte"
+                :key="`h${i}`"
+                role="columnheader"
+                class="bit-cell"
+                :class="[wert === null ? 'is-unknown' : 'place-value', { 'nibble-start': i === 4 }]"
+                :title="wert === null ? 'Stellenwert kennt der Leitstand' : undefined"
+              >{{ wert === null ? '?' : wert }}</span>
+            </div>
+            <div v-for="(b, r) in binaryCodes" :key="`r${r}`" class="bits-row" role="row">
+              <span class="bits-label" role="rowheader">Code {{ r + 1 }}</span>
+              <span
+                v-for="(ziffer, i) in String(b).split('')"
+                :key="`b${r}-${i}`"
+                role="cell"
+                class="bit-cell bit"
+                :class="{ 'is-one': ziffer === '1', 'nibble-start': i === 4 }"
+              >{{ ziffer }}</span>
+            </div>
           </div>
+          <p class="example">
+            Beispiel: <span class="mono">0000 0101</span> → Einsen über 4 und 1 → <strong>4 + 1 = 5</strong>
+          </p>
         </section>
 
         <div class="foot">
@@ -93,6 +118,14 @@ const { state: syncState, begin: syncBegin } = useSyncWindow()
 // Binärzahlen und Stellenwerte kommen fertig vom Server; nichts wird gerechnet.
 const binaryCodes = computed(() => props.view?.binary_codes || props.binaryCodes)
 const placeValues = computed(() => props.view?.place_values || [])
+
+// 8 Spalten: vorne die Stellen, die nur der Leitstand kennt (null = "?"),
+// hinten die eigenen Stellenwerte vom Server. Gerechnet wird hier nichts.
+const spaltenWerte = computed(() => {
+  const bits = String(binaryCodes.value[0] || '').length || 8
+  const eigene = placeValues.value
+  return [...Array(Math.max(0, bits - eigene.length)).fill(null), ...eigene]
+})
 
 const unlocked = computed(() => !!props.view?.button_unlocked)
 
@@ -228,25 +261,79 @@ function drueckeSync() {
   font-weight: 600;
 }
 
-.places {
+/* Rechenhilfe: 8 Spalten, Stellenwert über jeder Ziffer */
+.bits {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
-.place-value {
-  display: block;
-  padding: 18px 8px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--fg);
-  text-align: center;
-  letter-spacing: 0.05em;
+.bits-head,
+.bits-row {
+  display: grid;
+  grid-template-columns: 72px repeat(8, minmax(0, 1fr));
+  gap: 6px;
+  align-items: stretch;
 }
+
+.bits-label {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bit-cell {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border-2);
+  background: var(--bg-1);
+}
+
+/* Lücke zwischen den beiden Hälften: links Leitstand, rechts Rückseite */
+.bit-cell.nibble-start { margin-left: 10px; }
+
+.place-value {
+  font-size: 20px;
+  color: var(--green);
+  border-color: var(--green-border);
+  background: var(--green-bg);
+}
+
+.is-unknown {
+  font-size: 20px;
+  color: var(--amber);
+  border-style: dashed;
+  border-color: var(--amber-border);
+  background: var(--amber-bg);
+  cursor: help;
+}
+
+.bit {
+  font-size: 22px;
+  color: var(--fg-4);
+}
+
+.bit.is-one {
+  color: var(--fg);
+  border-color: var(--border-3);
+  background: var(--bg-3);
+  box-shadow: inset 0 -2px 0 var(--green);
+}
+
+.example {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--fg-2);
+}
+
+.example .mono { font-family: var(--mono); color: var(--fg); letter-spacing: 0.08em; }
+.example strong { color: var(--green); font-family: var(--mono); }
 
 .foot {
   padding-top: 16px;

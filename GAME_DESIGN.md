@@ -73,11 +73,13 @@ Das letzte Fragment erscheint erst nach erfolgreichem Fluten. **Belohnungsziffer
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Halbe** ASCII-Tabelle (A–M) und die **oberen Bit-Stellenwerte** (128, 64, 32, 16). | Das Wort als ASCII-Zahlen (z. B. `83 69 82 86 69 82`). Die **andere Hälfte** der ASCII-Tabelle (N–Z). | Zwei Binärzahlen (z. B. `01000010`). Die **unteren Bit-Stellenwerte** (8, 4, 2, 1). |
+| **Sieht** | **Halbe** ASCII-Tabelle (A–M) und die **oberen Bit-Stellenwerte** (128, 64, 32, 16). | Das Wort als ASCII-Zahlen (z. B. `83 69 82 86 69 82`). Die **andere Hälfte** der ASCII-Tabelle (N–Z). | Zwei 8-stellige Binärzahlen (z. B. `10100110`; Werte 17–255 mit Einsen in **beiden** Hälften, keine wie 101/110). Die **unteren Bit-Stellenwerte** (8, 4, 2, 1) als **Rechenhilfe**: jede Ziffer steht unter ihrem Stellenwert, die ersten vier Spalten zeigen „?“. |
 | **Eingabe** | – | `ascii_answer` (Wort), danach `sync_button` | `binary_answer` (Dezimalwerte), danach `sync_button` |
 
 **Lösung:** Vorderseite und Rückseite brauchen jeweils auch die Tabellenhälfte des Leitstands. Beide schalten so ihren Button frei. **Dann drücken Vorderseite und Rückseite innerhalb eines Zeitfensters (3 Sekunden).**
 Die bestehenden Tests in `test_taskDatenRettung.py` beschreiben den Sync-Button bereits. **Belohnungsziffer sichtbar für:** Vorderseite.
+
+**Rückseite – so löst man es:** „Addiere die Stellenwerte über jeder 1.“ Beispiel `0000 0101` → 4 + 1 = 5. Die Werte der ?-Spalten (128, 64, 32, 16) sagt der Leitstand an; er sieht dieselben acht Spalten und weiß so, welche Werte gemeint sind. Der Hinweis der Rückseite nennt diese Zahlen bewusst nicht.
 
 ### Finale — Neustart (`kind: "reboot"`, neu)
 

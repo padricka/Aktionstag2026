@@ -260,5 +260,26 @@ def test_jedes_wort_braucht_beide_tabellenhaelften():
 
 
 def test_jeder_binaerwert_braucht_die_oberen_stellenwerte():
-    # Alle Werte liegen über 15, also reichen 8-4-2-1 allein nie aus.
-    assert min(DataRescueTask.LETTER_CODES) > 15
+    # Jeder Wert hat Einsen vorne UND hinten: 8-4-2-1 allein reicht nie,
+    # die Werte des Leitstands allein auch nicht.
+    for v in DataRescueTask.BINARY_VALUES:
+        assert v & 0b11110000, v
+        assert v & 0b00001111, v
+
+
+def test_binaerwerte_sehen_nicht_selbst_wie_binaer_aus():
+    # 100, 101, 110, 111 wären mit Binärzahlen zu verwechseln
+    for v in DataRescueTask.BINARY_VALUES:
+        assert set(str(v)) - {"0", "1"}, v
+
+
+def test_alle_oberen_stellenwerte_kommen_vor():
+    # Früher waren es nur Buchstaben (65–90 = 010xxxxx): 128 und 32 kamen nie vor.
+    gesehen = 0
+    for _ in range(200):
+        st = DataRescueTask.create({})
+        assert len(set(st["p2_values"])) == 2
+        assert st["p2_binary"] == [format(v, "08b") for v in st["p2_values"]]
+        for v in st["p2_values"]:
+            gesehen |= v
+    assert gesehen & 0b11110000 == 0b11110000

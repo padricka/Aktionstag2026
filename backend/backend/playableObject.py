@@ -287,16 +287,22 @@ class DataRescueTask(PlayableObject):
     instruction = "Daten retten!"
 
     WORDS = ["SERVER", "BACKUP", "DATEN", "RETTEN", "SICHERN", "CLOUD"]
-    # Binärwerte-Pool: Buchstaben A-Z (65..90)
-    LETTER_CODES = list(range(65, 91))
+    # Binärwerte-Pool für die Rückseite: Einsen vorne (Leitstand: 128/64/32/16)
+    # UND hinten (Rückseite: 8/4/2/1), damit beide gebraucht werden. Werte wie
+    # 101 oder 110 fallen raus – die sähen selbst wie Binärzahlen aus.
+    # (Früher nur Buchstaben 65–90: immer 010xxxxx, 128 und 32 kamen nie vor.)
+    BINARY_VALUES = [
+        v for v in range(17, 256)
+        if v & 0b11110000 and v & 0b00001111 and set(str(v)) - {"0", "1"}
+    ]
 
     @classmethod
     def create(cls, players):
         word = random.choice(cls.WORDS)
         p1_codes = [ord(c) for c in word]
 
-        # Zwei unterschiedliche Buchstaben-Codes (A-Z) zufällig ziehen
-        p2_values = random.sample(cls.LETTER_CODES, 2)
+        # Zwei unterschiedliche Werte zufällig ziehen
+        p2_values = random.sample(cls.BINARY_VALUES, 2)
         p2_binary = [format(v, "08b") for v in p2_values]
 
         return {
