@@ -1,8 +1,9 @@
 <!--
-  Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "rescue_key").
+  Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "rescue_log").
 
-  Der Leitstand sieht den Schlüssel k als 4 Bit und hat die Rechenregel
-  Binär → Dezimal. Umgerechnet wird hier nichts – das ist Teil des Rätsels.
+  Der Leitstand hat das Log: Login-Name in Hex (für die Vorderseite), Backup-Jobs
+  (für die Rückseite) und den Schlüsselbund. Umgerechnet oder ausgewählt wird hier
+  nichts – das ist Teil des Rätsels.
 -->
 <template>
   <div class="task">
@@ -12,22 +13,64 @@
     </header>
 
     <p class="hint">
-      Wie man Binär in Dezimal umrechnet, steht in Regel ② auf deinem Teil der Anleitung –
-      die Pakete liest dir die Rückseite vor. Den Schlüssel k brauchen die anderen zum Entschlüsseln.
+      Lies den anderen dein Log vor: Login für die Vorderseite, Backups für die Rückseite.
+      Mit Regel ④ rechnest du die Pakete um, mit Regel ⑥ entschlüsselst du das Wort.
     </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
     <div v-else class="body">
-      <section class="panel">
-        <span class="panel-label">Verschlüsselungs-Log · Schlüssel k (binär)</span>
-        <div class="key">
-          <div v-for="(bit, i) in bits" :key="i" class="key-col">
-            <span class="key-bit">{{ bit }}</span>
-            <span class="key-place">{{ PLACES[i] }}</span>
+      <div class="main-col">
+        <section class="panel">
+          <span class="panel-label">Zugangsdaten Backup-Terminal</span>
+          <div class="login">
+            <span class="login-label">BENUTZER</span>
+            <span v-for="(h, i) in view.login_hex" :key="i" class="login-hex">{{ h }}</span>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section class="panel">
+          <span class="panel-label">Backup-Jobs</span>
+          <table class="log-table">
+            <thead>
+              <tr><th>Datum</th><th>Platte</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="b in view.backups"
+                :key="b.serial"
+                class="backup-row"
+                :class="{ 'is-bad': b.status !== 'OK' }"
+              >
+                <td>{{ b.date }}</td>
+                <td>{{ b.serial }}</td>
+                <td class="status">{{ b.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel keyring">
+          <span class="panel-label">Schlüsselbund · Verschlüsselungs-Log</span>
+          <table class="log-table">
+            <thead>
+              <tr><th>Key-ID</th><th>Schlüssel (binär)</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(s, i) in view.keys"
+                :key="i"
+                class="key-row"
+                :class="{ 'is-bad': s.status !== 'aktiv' }"
+              >
+                <td>{{ s.id }}</td>
+                <td class="bits">{{ s.key }}</td>
+                <td class="status">{{ s.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
 
       <aside v-if="view.note" class="note-col">
         <span class="panel-label">Dein Teil der Anleitung</span>
@@ -38,18 +81,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import TornNote from '../../TornNote.vue'
 
-const props = defineProps({
+defineProps({
   view: { type: Object, default: null },
   // gleiche Aufgabe → gleiche Risskante
   noteSeed: { type: String, default: '' },
 })
-
-const PLACES = [8, 4, 2, 1]
-
-const bits = computed(() => String(props.view?.key || '').split(''))
 </script>
 
 <style scoped>
@@ -104,14 +142,20 @@ const bits = computed(() => String(props.view?.key || '').split(''))
   overflow: auto;
 }
 
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 24px;
+  gap: 12px;
+  padding: 18px 22px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
-  align-self: start;
 }
 
 .panel-label {
@@ -122,34 +166,49 @@ const bits = computed(() => String(props.view?.key || '').split(''))
   font-weight: 600;
 }
 
-.key {
+.login {
   display: flex;
-  justify-content: center;
-  gap: 18px;
-  padding: 24px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 18px;
   background: var(--bg);
   border: 1px solid var(--border-2);
-}
-
-.key-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
   font-family: var(--mono);
 }
 
-.key-bit {
-  font-size: 56px;
-  font-weight: 700;
-  color: var(--green);
-  line-height: 1;
+.login-label { font-size: 13px; color: var(--fg-3); letter-spacing: 0.15em; }
+.login-hex { font-size: 26px; font-weight: 700; color: var(--green); letter-spacing: 0.05em; }
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+  font-size: 16px;
 }
 
-.key-place {
-  font-size: 13px;
+.log-table th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--fg-3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-2);
 }
+
+.log-table td {
+  padding: 8px 14px;
+  color: var(--fg);
+  border-top: 1px dashed var(--border-2);
+}
+
+.log-table .bits { letter-spacing: 0.2em; color: var(--green); font-weight: 700; }
+.log-table .status { font-weight: 700; color: var(--green); }
+.log-table .is-bad .status { color: var(--red); }
 
 .note-col {
   display: flex;

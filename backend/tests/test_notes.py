@@ -98,14 +98,15 @@ def test_datenrettung_hat_teile_1_bis_3_mit_risskanten():
 
 
 def test_datenrettung_regeln_stehen_bei_dem_der_die_fakten_nicht_hat():
-    """① Einsen zählen (Vorderseite: Pakete hat die Rückseite), ② Binär → Dezimal
-    (Leitstand: Pakete hat die Rückseite), ③ ASCII + ④ Caesar (Rückseite: Tabelle hat
-    die Vorderseite, den Schlüssel der Leitstand)."""
+    """① Backup-Platte (Rückseite: Datum/Status im Log des Leitstands), ② Hex-Login +
+    ③ Einsen zählen (Vorderseite: Hex hat der Leitstand, Pakete die Rückseite),
+    ④ Binär → Dezimal + ⑥ zurückschieben (Leitstand: Pakete/Buchstaben haben die anderen),
+    ⑤ Schlüssel wählen (Rückseite: die Schlüssel stehen im Log des Leitstands)."""
     regeln = {
         r: [z["text"][0] for z in notes.piece(notes.RESCUE_NOTE, r)["lines"] if z["style"] == "rule"]
         for r in ROLLEN
     }
-    assert regeln == {ROLE_M: ["②"], ROLE_P1: ["①"], ROLE_P2: ["③", "④"]}
+    assert regeln == {ROLE_M: ["④", "⑥"], ROLE_P1: ["②", "③"], ROLE_P2: ["①", "⑤"]}
 
 
 def test_datenrettung_jede_regel_hat_ein_rechenbeispiel():
@@ -118,5 +119,5 @@ def test_datenrettung_jede_regel_hat_ein_rechenbeispiel():
 
 
 def test_datenrettung_hat_die_falle_rot13():
-    zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_P2)["lines"]
+    zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_M)["lines"]
     assert any(z["style"] == "strike" and "ROT13" in z["text"] for z in zeilen)

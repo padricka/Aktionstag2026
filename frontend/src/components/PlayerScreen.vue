@@ -284,7 +284,7 @@ function taskNumberFromView(viewType) {
     case 'fire_protocol':
     case 'valve_panel':
     case 'rack_rear':         return 2
-    case 'rescue_key':
+    case 'rescue_log':
     case 'rescue_terminal':
     case 'packet_dump':
     case 'task3_master':
@@ -500,9 +500,14 @@ function onTaskSolved(data) {
                       value: `${data?.valve || ''}:${data?.color || ''}` }
     }
   } else if (currentTask.value === 3) {
-    // Datenrettung: nur die Vorderseite tippt das Wort, geprüft wird im Backend.
-    if (normalizedRole.value !== 'P1') return
-    payloadData = { action_type: 'text_input', target: 'rescue_word', value: data?.answer || '' }
+    // Datenrettung: Rückseite legt die Platte ein, Vorderseite meldet sich an und
+    // tippt das Wort. Geprüft wird alles im Backend.
+    if (data?.target === 'mount_disk' && normalizedRole.value === 'P2') {
+      payloadData = { action_type: 'button_press', target: 'mount_disk', value: data?.value || '' }
+    } else if (normalizedRole.value === 'P1') {
+      const target = data?.target === 'terminal_login' ? 'terminal_login' : 'rescue_word'
+      payloadData = { action_type: 'text_input', target, value: data?.answer || '' }
+    }
   } else if (currentTask.value === 4) {
     // Finale: nur der Leitstand hat das Terminal (reboot_code), die anderen sagen ihre Ziffer an.
     if (myRole.value !== 'MASTER') return

@@ -363,26 +363,40 @@ class DataRescueTask(PlayableObject):
     instruction = "Daten retten!"
 
     WORD = "RENTE"
-    PACKETS = len(WORD) + 1          # ein beschädigtes Paket dazu
+    LOGINS = ["REHA", "BUND", "DRV"]     # Rentenversicherung, kurz – Hex soll machbar bleiben
+    PACKETS = len(WORD) + 1              # ein beschädigtes Paket dazu
+    DISKS = 4
     ASCII_TABLE = {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
 
     # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3) – das Wort als Kette:
     #   RENTE → Caesar um k VOR → ASCII-Code → Prüfbit + 7 Bit (gerade Anzahl Einsen)
-    #   Leitstand sieht k (4 Bit), Vorderseite die ASCII-Tabelle, Rückseite die Pakete.
+    #   Leitstand: Log (Login in Hex, Backup-Jobs, Schlüsselbund)
+    #   Vorderseite: ASCII-Tabelle, Terminal (erst Login, dann das Wort)
+    #   Rückseite: Backup-Platten, nach dem Einlegen Pakete + Key-ID im Paket-Kopf
     #   Die Regeln dazu (notes.RESCUE_NOTE) stehen jeweils bei einem anderen.
     @classmethod
     def create(cls, players):
-        k = random.randint(1, 9)
+        login = random.choice(cls.LOGINS)
+        keys, key_id, k = cls._keyring()
         cipher = "".join(chr((ord(c) - ord("A") + k) % 26 + ord("A")) for c in cls.WORD)
         packets = [cls._packet(ord(c), healthy=True) for c in cipher]
         corrupt = random.randrange(cls.PACKETS)
         packets.insert(corrupt, cls._packet(random.choice(list(cls.ASCII_TABLE.values())), healthy=False))
+        backups, serial = cls._backups()
         return {
             "word": cls.WORD,
+            "login": login,
+            "keys": keys,
+            "key_id": key_id,
             "k": k,
             "cipher": cipher,
             "packets": packets,
             "corrupt": corrupt,
+            "backups": backups,
+            "serial": serial,
+            "disks": random.sample([b["serial"] for b in backups], cls.DISKS),
+            "mounted": False,
+            "logged_in": False,
         }
 
     @staticmethod
@@ -392,37 +406,98 @@ class DataRescueTask(PlayableObject):
         parity = bits.count("1") % 2
         return f"{parity if healthy else 1 - parity}{bits}"
 
+    @staticmethod
+    def _keyring():
+        """Schlüsselbund: der richtige (aktiv), sein REVOKED-Zwilling mit gleicher ID,
+        ein anderer aktiver und ein abgelaufener. Schlüssel 1–9, alle verschieden."""
+        key_id, other_id, old_id = random.sample(range(1, 16), 3)
+        k, twin, other, old = random.sample(range(1, 10), 4)
+        keys = [
+            {"id": key_id, "key": format(k, "04b"), "status": "aktiv"},
+            {"id": key_id, "key": format(twin, "04b"), "status": "REVOKED"},
+            {"id": other_id, "key": format(other, "04b"), "status": "aktiv"},
+            {"id": old_id, "key": format(old, "04b"), "status": "abgelaufen"},
+        ]
+        random.shuffle(keys)
+        keys.sort(key=lambda s: s["id"])
+        return keys, key_id, k
+
+    @classmethod
+    def _backups(cls):
+        """Vier Backup-Jobs über einen Monatswechsel: zwei Ende Monat m, zwei Anfang m+1.
+        Das allerneueste ist FEHLER, das richtige das zweitneueste. Als Text verglichen
+        („28.03.“ > „03.04.“) sieht ein altes Backup neuer aus – die Falle zu ①."""
+        month = random.randint(1, 11)
+        early = sorted(random.sample(range(20, 29), 2))
+        late = sorted(random.sample(range(1, 10), 2))
+        dates = [(month, d) for d in early] + [(month + 1, d) for d in late]
+        serials = random.sample(range(1000, 10000), cls.DISKS)
+        status = ["OK", "OK", "OK", "FEHLER"]                  # chronologisch, neuestes kaputt
+        backups = [
+            {"date": f"{d:02d}.{m:02d}.", "serial": f"SN-{s}", "status": st}
+            for (m, d), s, st in zip(dates, serials, status)
+        ]
+        serial = backups[2]["serial"]
+        random.shuffle(backups)
+        return backups, serial
+
     @classmethod
     def views(cls, state):
+        mounted = state["mounted"]
         return {
             ROLE_M: {
-                "type": "rescue_key",
-                "key": format(state["k"], "04b"),
+                "type": "rescue_log",
+                "login_hex": [f"0x{ord(c):02X}" for c in state["login"]],
+                "backups": state["backups"],
+                "keys": state["keys"],
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_M),
             },
             ROLE_P1: {
                 "type": "rescue_terminal",
                 "ascii_table": cls.ASCII_TABLE,
+                "login_len": len(state["login"]),
+                "logged_in": state["logged_in"],
                 "word_len": len(state["word"]),
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
                 "type": "packet_dump",
-                "packets": state["packets"],
+                "disks": state["disks"],
+                "mounted": mounted,
+                "key_id": format(state["key_id"], "04b") if mounted else None,
+                "packets": state["packets"] if mounted else None,
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_P2),
             },
         }
 
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):
-        if data.target != "rescue_word" or role != ROLE_P1:
-            return StepResult(Outcome.IGNORED, state)
         value = str(data.value).strip().upper()
-        if not value:
-            return StepResult(Outcome.IGNORED, state)
-        if value != state["word"]:
-            return StepResult(Outcome.WRONG, state)
-        return StepResult(Outcome.SOLVED, state)
+
+        if data.target == "mount_disk" and role == ROLE_P2:
+            if state["mounted"]:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["serial"]:
+                return StepResult(Outcome.WRONG, state)
+            state["mounted"] = True
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "terminal_login" and role == ROLE_P1:
+            if state["logged_in"] or not value:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["login"]:
+                return StepResult(Outcome.WRONG, state)
+            state["logged_in"] = True
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "rescue_word" and role == ROLE_P1:
+            if not state["logged_in"] or not value:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["word"]:
+                return StepResult(Outcome.WRONG, state)
+            return StepResult(Outcome.SOLVED, state)
+
+        return StepResult(Outcome.IGNORED, state)
 
 
 # --------------------------------------------------------------------------- Reboot

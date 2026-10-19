@@ -68,7 +68,10 @@ def _loese_loeschprotokoll(dc):
 
 
 def _loese_datenrettung(dc):
-    return _input(dc, P1_NAME, "rescue_word", _state(dc)["word"])
+    st = _state(dc)
+    _input(dc, P2_NAME, "mount_disk", st["serial"])
+    _input(dc, P1_NAME, "terminal_login", st["login"])
+    return _input(dc, P1_NAME, "rescue_word", st["word"])
 
 
 def _bis_zum_finale(dc):
