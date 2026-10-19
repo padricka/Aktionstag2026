@@ -96,7 +96,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 
 | Aufgabe | Rolle | `view.type` | Felder |
 |---|---|---|---|
-| 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `color_order: [..4 Farben..]`, `p_done` |
+| 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code-Symbole + Ablenker, pro Aufgabe gemischt), `p_done` |
 | 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done` |
 | 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt) |
 | 2 | MASTER | `fire_log` | `clue: {step, valve, color}`, `fragment: {dots, text}` |

@@ -89,7 +89,7 @@
         <div class="hp-block">
           <div class="hp-head">
             <span class="host-label">Server</span>
-            <span class="hp-value">{{ hp }} / 300</span>
+            <span class="hp-value">{{ hp }} / {{ maxHp }}</span>
           </div>
           <div class="hp-track">
             <div class="hp-fill" :style="{ width: hpPercent + '%' }"></div>
@@ -124,6 +124,7 @@ const skipping = ref(false)
 const status = ref('waiting')
 const playerList = ref([])
 const readyToStart = ref(false)
+const maxHp = ref(300)   // bis zum ersten game_tick; danach max_health vom Backend
 const hp = ref(300)
 const timeLeft = ref(300)
 const rebootDigits = ref([null, null, null])
@@ -134,9 +135,9 @@ const gameOverScore = ref(0)
 const gameOverSurvived = ref(0)
 const gameOverBoard = ref(null)   // Top 5 + eigener Platz aus game_over.leaderboard
 
+// Spielende entscheidet allein das Backend (game_over / status), nicht hp oder Zeit hier.
 const istSpielVorbei = computed(
-  () => isGameOver.value || hp.value <= 0 || timeLeft.value <= 0
-    || status.value === 'game_over' || status.value === 'won'
+  () => isGameOver.value || status.value === 'game_over' || status.value === 'won'
 )
 
 // Sieg: der Tresor bleibt sichtbar und öffnet sich, statt im Overlay zu verschwinden.
@@ -150,7 +151,7 @@ const statusLabel = computed(() => {
   return 'Wartet'
 })
 
-const hpPercent = computed(() => Math.max(0, Math.min(100, (hp.value / 300) * 100)))
+const hpPercent = computed(() => Math.max(0, Math.min(100, (hp.value / maxHp.value) * 100)))
 
 const zeit = computed(() => {
   const t = Math.max(0, timeLeft.value)
@@ -194,7 +195,7 @@ function handleMessage(msg) {
     readyToStart.value = !!payload.ready_to_start
     devMode.value = !!payload.dev_mode
     if (status.value === 'waiting' || status.value === 'ready') {
-      hp.value = 300
+      hp.value = maxHp.value
       timeLeft.value = 300
       rebootDigits.value = [null, null, null]
       isGameOver.value = false
@@ -212,10 +213,10 @@ function handleMessage(msg) {
     if (Array.isArray(payload.reboot_digits)) {
       rebootDigits.value = [0, 1, 2].map((i) => payload.reboot_digits[i] ?? null)
     }
+    if (typeof payload.max_health === 'number') maxHp.value = payload.max_health
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
       status.value = 'running'
     }
-    if (hp.value <= 0) isGameOver.value = true
   }
 
   if (event === 'game_over') {

@@ -11,6 +11,7 @@ import {
   simulateMessage,
   resetGameSocketMock,
   getSentEvents,
+  getConnectCalls,
 } from './mocks/useGameSocket.js'
 
 vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
@@ -123,6 +124,26 @@ describe('PlayerScreen.vue — Neustart', () => {
     const wrapper = await nachSpielende()
     await wrapper.find('.end-card .end-exit').trigger('click')
     expect(wrapper.emitted('exit')).toHaveLength(1)
+  })
+
+  it('verbindet sich nach Neustart mit derselben bereinigten ID wie beim Beitreten', async () => {
+    // Der Beamer zeigt die ID groß; Spieler tippen sie oft genau so (ggf. mit Leerzeichen)
+    const wrapper = mount(PlayerScreen, { props: { playerName: NAME }, global: { stubs } })
+    await wrapper.find('.input').setValue(' XVK2 ')
+    await wrapper.find('.btn-main').trigger('click')
+    await flushPromises()
+    lobby([{ name: NAME, role: 'FI-SI' }], 'running')
+    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
+    simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 0, survived_seconds: 9 } })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('.restart-btn').trigger('click')
+    vi.advanceTimersByTime(300)
+
+    const urls = getConnectCalls().map((c) => c.url)
+    expect(urls).toHaveLength(2)
+    expect(urls[1]).toBe(urls[0])
+    expect(urls[1]).toMatch(/\/ws\/game\/xvk2\/$/)
   })
 })
 

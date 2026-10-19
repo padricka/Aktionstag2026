@@ -259,3 +259,11 @@ async def test_tick_without_reboot_digits_sends_empty_slots(channel_layer, fast_
 
     payload = channel_layer.group_send.await_args_list[0].args[1]["payload"]
     assert payload["reboot_digits"] == [None, None, None]
+
+
+async def test_tick_sends_max_health(channel_layer, fast_sleep):
+    dc = fake_dc(ticks=[snap(5, 5), snap(0, 4)])
+    await game_with(dc)._run_tick_loop()
+
+    payload = channel_layer.group_send.await_args_list[0].args[1]["payload"]
+    assert payload["max_health"] == 300
