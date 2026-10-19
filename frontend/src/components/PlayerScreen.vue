@@ -6,9 +6,12 @@
       :result="gameOverResult"
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
+      :leaderboard="gameOverBoard"
       :show-restart="true"
+      :show-exit="true"
       :restarting="restarting"
       @restart="handleRestart"
+      @exit="$emit('exit')"
     />
 
     <!-- Phase 1: Verbinden -->
@@ -81,6 +84,7 @@
         <span class="bar-brand">DRV-BOX</span>
         <span class="bar-session">{{ gameId.toUpperCase() }}</span>
         <span class="bar-role">{{ roleLabel(myRole) }}</span>
+        <span v-if="devMode" class="bar-dev">DEV · nicht gewertet</span>
       </header>
 
       <main class="wait-main">
@@ -119,6 +123,7 @@
       <header class="task-bar">
         <span class="bar-brand">DRV-BOX</span>
         <span class="bar-role">{{ roleLabel(myRole) }}</span>
+        <span v-if="devMode" class="bar-dev" title="DEV-Modus: Zeit steht, Fehler kosten nichts">DEV · nicht gewertet</span>
         <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
       </header>
 
@@ -176,18 +181,21 @@ const props = defineProps({
 defineEmits(['exit'])
 
 const WS_BASE = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8000/ws/game/`
-const MAX_HP = 300
+const DEFAULT_MAX_HP = 300   // nur bis zum ersten game_tick; danach gilt max_health vom Backend
 const ALL_ROLES = ['MASTER', 'FI-SI', 'FI-AE']
 
-const gameId = ref('')
+const gameId = ref('')      // so wie eingetippt (Anzeige)
+const joinedId = ref('')    // bereinigt (trim, klein) – damit wird verbunden, auch beim Neustart
 const connected = ref(false)
 const joining = ref(false)
+const registered = ref(false)   // true, sobald ich in einem lobby_update auftauche
 const joinError = ref('')
 const myRole = ref(null)
 const lobbyPlayers = ref([])
 const rolesTaken = ref([])
 const status = ref('waiting')
-const hp = ref(MAX_HP)
+const maxHp = ref(DEFAULT_MAX_HP)
+const hp = ref(DEFAULT_MAX_HP)
 const timeLeft = ref(300)
 const task = ref(null)
 const currentTask = ref(1)
@@ -195,6 +203,8 @@ const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
 const gameOverScore = ref(0)
 const gameOverSurvived = ref(0)
+const gameOverBoard = ref(null)   // Top 5 + eigener Platz aus game_over.leaderboard
+const devMode = ref(false)        // vom Beamer gesetzt; DEV-Runden zählen nicht fürs Leaderboard
 const lastError = ref('')
 const roleError = ref('')
 
@@ -243,7 +253,7 @@ const task3Ascii      = computed(() => task.value?.view?.ascii_codes || [])
 const task3Binary     = computed(() => task.value?.view?.binary_codes || [])
 
 const istSpielVorbei = computed(
-  () => isGameOver.value || hp.value <= 0 || status.value === 'game_over' || status.value === 'won'
+  () => isGameOver.value || status.value === 'game_over' || status.value === 'won'
 )
 
 // Sieg: der Tresor im Finale öffnet sich (Task4Reboot wertet das aus).
@@ -274,6 +284,14 @@ function isTaken(r) {
 
 watch(currentTask, () => { lastError.value = '' })
 
+// Welche Aufgabe läuft, sagt das Backend (task.kind). Hier nur: kind → Komponente.
+const TASK_NUMBER = { alarm: 1, fire_protocol: 2, data_rescue: 3, reboot: 4 }
+
+function taskNumber(t) {
+  return TASK_NUMBER[t?.kind] ?? taskNumberFromView(t?.view?.type)
+}
+
+// Übergang: ältere Payloads/Test-Fixtures ohne kind. Entfernen, sobald alle Ticks kind haben.
 function taskNumberFromView(viewType) {
   switch (viewType) {
     case 'alarm_leds':
@@ -300,27 +318,43 @@ const handleServerMessage = (msg) => {
   const event = msg?.event || msg?.type
   const payload = msg?.payload || msg
 
+  // Vertippte Sitzungs-ID: Server schließt die Verbindung → zurück zur Eingabe.
+  // Der Hinweis bleibt stehen, bis der nächste Versuch startet.
+  if (event === 'error' && payload.code === 'unknown_game') {
+    disconnect()
+    connected.value = false
+    joining.value = false
+    joinError.value = `Sitzung „${gameId.value.trim().toUpperCase()}" gibt es nicht. Bitte die ID vom Beamer prüfen.`
+    return
+  }
+
   if (event === 'lobby_update') {
     const newPlayers = payload.players ?? []
     const stillInLobby = newPlayers.some(p => p.name === (props.playerName || 'Agent'))
+    const lobbyOpen = payload.status === 'waiting' || payload.status === 'ready'
 
-    if (connected.value && myRole.value && !stillInLobby && newPlayers.length === 0) {
-      myRole.value = null
-      connected.value = false
-      task.value = null
-      currentTask.value = 1
-      isGameOver.value = false
-      restarting.value = false
+    if (stillInLobby) {
+      registered.value = true
+    } else if (connected.value && registered.value && lobbyOpen) {
+      // Neustart (reset_game) löscht alle Spieler. Statt zurück zur ID-Eingabe:
+      // Runde zurücksetzen und automatisch wieder anmelden. Wer selbst Neustart
+      // gedrückt hat, meldet sich in handleRestart über die neue Verbindung an.
+      registered.value = false
+      resetRound()
+      if (!restarting.value) {
+        sendEvent('player_register', { player_name: props.playerName || 'Agent' })
+      }
     }
 
     lobbyPlayers.value = newPlayers
     rolesTaken.value = payload.roles_taken ?? []
     status.value = payload.status ?? status.value
     readyToStart.value = !!payload.ready_to_start
+    devMode.value = !!payload.dev_mode
 
     if (status.value === 'waiting' || status.value === 'ready') {
       if (!isGameOver.value) {
-        hp.value = MAX_HP
+        hp.value = maxHp.value
         timeLeft.value = 300
         lastError.value = ''
       }
@@ -337,16 +371,18 @@ const handleServerMessage = (msg) => {
     timeLeft.value = payload.time_left ?? timeLeft.value
     task.value = payload.tasks?.[0] ?? task.value
 
-    const n = taskNumberFromView(task.value?.view?.type)
+    const n = taskNumber(task.value)
     if (n && n !== currentTask.value) {
       currentTask.value = n
       lastError.value = ''
     }
 
+    if (typeof payload.max_health === 'number') maxHp.value = payload.max_health
+
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
       status.value = 'running'
     }
-    if (hp.value <= 0) { isGameOver.value = true; status.value = 'game_over' }
+    // Spielende entscheidet allein das Backend (game_over), nicht hp <= 0 hier.
   }
 
   if (event === 'input_result') {
@@ -354,7 +390,6 @@ const handleServerMessage = (msg) => {
     if (payload.result === 'wrong') {
       lastError.value = 'Falsche Eingabe'
       if (typeof payload.health === 'number') hp.value = payload.health
-      if (hp.value <= 0) { isGameOver.value = true; status.value = 'game_over' }
     } else {
       lastError.value = ''
     }
@@ -366,6 +401,7 @@ const handleServerMessage = (msg) => {
     gameOverResult.value = payload.result || 'meltdown'
     gameOverScore.value = payload.score || 0
     gameOverSurvived.value = payload.survived_seconds || 0
+    gameOverBoard.value = payload.leaderboard || null
     status.value = gameOverResult.value === 'victory' ? 'won' : 'game_over'
   }
 
@@ -390,6 +426,7 @@ const { connect, sendEvent, disconnect } = useGameSocket({
 function handleJoin() {
   const id = gameId.value.trim().toLowerCase()
   if (!id || joining.value) return
+  joinedId.value = id
 
   joining.value = true
   joinError.value = ''
@@ -430,24 +467,30 @@ function handleRestart() {
 
   setTimeout(() => {
     disconnect()
+    resetRound()
 
-    isGameOver.value = false
-    gameOverResult.value = 'meltdown'
-    gameOverScore.value = 0
-    gameOverSurvived.value = 0
-    myRole.value = null
-    task.value = null
-    currentTask.value = 1
-    hp.value = MAX_HP
-    timeLeft.value = 300
-    lastError.value = ''
-    inputResultNonce.value = 0
-
-    connect(`${WS_BASE}${gameId.value}/`, handleServerMessage, () => {
+    connect(`${WS_BASE}${joinedId.value}/`, handleServerMessage, () => {
+      connected.value = true
       sendEvent('player_register', { player_name: props.playerName || 'Agent' })
       restarting.value = false
     })
   }, 300)
+}
+
+/** Alles, was zu einer Runde gehört, auf Anfang (Rolle wird neu gewählt). */
+function resetRound() {
+  isGameOver.value = false
+  gameOverResult.value = 'meltdown'
+  gameOverScore.value = 0
+  gameOverSurvived.value = 0
+  gameOverBoard.value = null
+  myRole.value = null
+  task.value = null
+  currentTask.value = 1
+  hp.value = maxHp.value
+  timeLeft.value = 300
+  lastError.value = ''
+  inputResultNonce.value = 0
 }
 
 function onTaskFailed() {
@@ -626,6 +669,17 @@ function onTaskSolved(data) {
 .bar-role { color: var(--fg-2); letter-spacing: 0.1em; }
 .bar-count,
 .bar-stats { margin-left: auto; color: var(--fg-3); letter-spacing: 0.05em; }
+
+/* Bernstein wie am Beamer: DEV-Runden zählen nicht */
+.bar-dev {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-border);
+}
 
 /* Phase 2: Rollenwahl */
 .phase-lobby {

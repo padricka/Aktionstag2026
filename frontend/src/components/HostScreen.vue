@@ -6,6 +6,7 @@
       :result="gameOverResult"
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
+      :leaderboard="gameOverBoard"
     />
 
     <template v-else>
@@ -28,6 +29,20 @@
         </div>
         <p v-else-if="bootError" class="lobby-error">{{ bootError }}</p>
         <p v-else class="lobby-sub">Sitzung wird erstellt …</p>
+
+        <!-- DEV-Modus: zum Testen. Zeit steht, Fehler kosten nichts, Aufgaben überspringbar -->
+        <div v-if="gameId" class="dev-block">
+          <button
+            class="dev-toggle"
+            :class="{ on: devMode }"
+            :aria-pressed="devMode ? 'true' : 'false'"
+            @click="toggleDevMode"
+          >
+            DEV-Modus: {{ devMode ? 'AN' : 'AUS' }}
+          </button>
+          <span v-if="devMode" class="dev-note">Zeit steht · keine HP-Verluste · Aufgaben überspringbar · Runden werden nicht gewertet</span>
+        </div>
+        <p v-if="devError" class="dev-error">{{ devError }}</p>
 
         <div class="slots">
           <div
@@ -58,6 +73,14 @@
 
       <!-- RUNNING -->
       <section v-else class="running">
+        <div v-if="devMode && status === 'running'" class="dev-panel">
+          <span class="dev-badge">DEV-MODUS · Zeit steht · keine HP-Verluste · nicht gewertet</span>
+          <button class="dev-skip" :disabled="skipping" @click="skipTask">
+            {{ skipping ? 'Überspringe …' : 'Aufgabe überspringen ⏭' }}
+          </button>
+          <span v-if="devError" class="dev-error">{{ devError }}</span>
+        </div>
+
         <div class="time-block">
           <span class="host-label">Zeit</span>
           <div class="time-value" :class="{ critical: timeLeft <= 30 }">{{ zeit }}</div>
@@ -66,7 +89,7 @@
         <div class="hp-block">
           <div class="hp-head">
             <span class="host-label">Server</span>
-            <span class="hp-value">{{ hp }} / 300</span>
+            <span class="hp-value">{{ hp }} / {{ maxHp }}</span>
           </div>
           <div class="hp-track">
             <div class="hp-fill" :style="{ width: hpPercent + '%' }"></div>
@@ -95,9 +118,13 @@ defineEmits(['exit'])
 
 const gameId = ref('')
 const bootError = ref('')
+const devMode = ref(false)
+const devError = ref('')
+const skipping = ref(false)
 const status = ref('waiting')
 const playerList = ref([])
 const readyToStart = ref(false)
+const maxHp = ref(300)   // bis zum ersten game_tick; danach max_health vom Backend
 const hp = ref(300)
 const timeLeft = ref(300)
 const rebootDigits = ref([null, null, null])
@@ -106,10 +133,11 @@ const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
 const gameOverScore = ref(0)
 const gameOverSurvived = ref(0)
+const gameOverBoard = ref(null)   // Top 5 + eigener Platz aus game_over.leaderboard
 
+// Spielende entscheidet allein das Backend (game_over / status), nicht hp oder Zeit hier.
 const istSpielVorbei = computed(
-  () => isGameOver.value || hp.value <= 0 || timeLeft.value <= 0
-    || status.value === 'game_over' || status.value === 'won'
+  () => isGameOver.value || status.value === 'game_over' || status.value === 'won'
 )
 
 // Sieg: der Tresor bleibt sichtbar und öffnet sich, statt im Overlay zu verschwinden.
@@ -123,7 +151,7 @@ const statusLabel = computed(() => {
   return 'Wartet'
 })
 
-const hpPercent = computed(() => Math.max(0, Math.min(100, (hp.value / 300) * 100)))
+const hpPercent = computed(() => Math.max(0, Math.min(100, (hp.value / maxHp.value) * 100)))
 
 const zeit = computed(() => {
   const t = Math.max(0, timeLeft.value)
@@ -147,31 +175,48 @@ function handleMessage(msg) {
   const event = msg?.event || msg?.type
   const payload = msg?.payload || msg
 
+  // Beamer mit vertippter ?game_id=…: keine ID anzeigen, die es nicht gibt.
+  if (event === 'error' && payload.code === 'unknown_game') {
+    bootError.value = `Sitzung „${gameId.value.toUpperCase()}" gibt es nicht. Seite ohne ?game_id= neu laden.`
+    gameId.value = ''
+    return
+  }
+
+  if (event === 'error' && payload.code === 'dev_denied') {
+    devError.value = payload.message || 'DEV-Aktion abgelehnt'
+    skipping.value = false
+    setTimeout(() => { devError.value = '' }, 4000)
+    return
+  }
+
   if (event === 'lobby_update') {
     playerList.value = payload.players || []
     status.value = payload.status || 'waiting'
     readyToStart.value = !!payload.ready_to_start
+    devMode.value = !!payload.dev_mode
     if (status.value === 'waiting' || status.value === 'ready') {
-      hp.value = 300
+      hp.value = maxHp.value
       timeLeft.value = 300
       rebootDigits.value = [null, null, null]
       isGameOver.value = false
       gameOverResult.value = 'meltdown'
       gameOverScore.value = 0
       gameOverSurvived.value = 0
+      gameOverBoard.value = null
     }
   }
 
   if (event === 'game_tick') {
+    skipping.value = false
     if (typeof payload.health === 'number') hp.value = payload.health
     timeLeft.value = payload.time_left ?? timeLeft.value
     if (Array.isArray(payload.reboot_digits)) {
       rebootDigits.value = [0, 1, 2].map((i) => payload.reboot_digits[i] ?? null)
     }
+    if (typeof payload.max_health === 'number') maxHp.value = payload.max_health
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
       status.value = 'running'
     }
-    if (hp.value <= 0) isGameOver.value = true
   }
 
   if (event === 'game_over') {
@@ -179,11 +224,26 @@ function handleMessage(msg) {
     gameOverResult.value = payload.result || 'meltdown'
     gameOverScore.value = payload.score || 0
     gameOverSurvived.value = payload.survived_seconds || 0
+    gameOverBoard.value = payload.leaderboard || null
     status.value = gameOverResult.value === 'victory' ? 'won' : 'game_over'
   }
 }
 
 const { sendEvent, connect } = useGameSocket({ onMessage: handleMessage })
+
+// DEV-Modus: Stand kommt immer vom Server (lobby_update), hier nur anfragen
+function toggleDevMode() {
+  devError.value = ''
+  sendEvent('dev_mode', { enabled: !devMode.value })
+}
+
+function skipTask() {
+  if (skipping.value) return
+  skipping.value = true
+  sendEvent('dev_skip_task', {})
+  // Falls kein Tick kommt (z. B. Verbindung weg): nicht dauerhaft gesperrt
+  setTimeout(() => { skipping.value = false }, 3000)
+}
 
 async function resolveGameId() {
   // Optional: ?game_id=xxxx — gleiche Sitzung wie create-game / force-start
@@ -317,6 +377,72 @@ onMounted(async () => {
   color: var(--red);
   margin: 0;
 }
+
+/* DEV-Modus (Bernstein = bewusst anders als das Spiel-Grün) */
+.dev-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.dev-toggle,
+.dev-skip {
+  background: none;
+  border: 1px dashed var(--border-2);
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.dev-toggle:hover,
+.dev-toggle.on {
+  color: var(--amber);
+  border-color: var(--amber-border);
+  border-style: solid;
+  background: var(--amber-bg);
+}
+
+.dev-note,
+.dev-badge {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--amber);
+}
+
+.dev-error {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--red);
+  margin: 0;
+}
+
+.dev-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border: 1px solid var(--amber-border);
+  background: var(--amber-bg);
+}
+
+.dev-skip {
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+.dev-skip:hover:not(:disabled) { background: var(--amber-bg); }
+.dev-skip:disabled { opacity: 0.4; cursor: wait; }
 
 .slots {
   display: grid;

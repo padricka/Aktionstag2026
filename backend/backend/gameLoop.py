@@ -2,9 +2,33 @@ import asyncio
 import uuid
 from channels.layers import get_channel_layer
 from backend.redis_handler import RedisHandler
-from backend.dataCenter import DataCenter   # ← Modul-Ebene (Test kann patchen)
+from backend.dataCenter import DataCenter, tick_payload   # ← Modul-Ebene (Test kann patchen)
 
 games: dict[str, "GameLoop"] = {}
+
+
+async def announce_game_over(data_center, game_id: str, result: str, snap: dict) -> bool:
+    """game_over an alle, aber nur einmal pro Runde (Consumer und Spielschleife melden beide)."""
+    if not await asyncio.to_thread(data_center.claim_game_over):
+        return False
+    # Genau hier einmal pro Runde: ins Leaderboard eintragen. Ein Fehler dort
+    # (z. B. Datei nicht schreibbar) darf das Spielende nicht verhindern.
+    try:
+        board = await asyncio.to_thread(data_center.record_result, result, snap)
+    except Exception as e:
+        print(f"[GAMELOOP] Leaderboard nicht gespeichert: {e}")
+        board = None
+    await get_channel_layer().group_send(f"game_{game_id}", {
+        "type": "game.over",
+        "payload": {
+            "result": result,
+            "score": snap["score"],
+            "survived_seconds": snap["survived_seconds"],
+            "leaderboard": board,
+        },
+    })
+    print(f"[GAMELOOP] Game over: {result}")
+    return True
 
 
 class GameLoop:
@@ -32,15 +56,7 @@ class GameLoop:
         group = f"game_{self.game_id}"
 
         async def send_game_over(result, snap):
-            await channel_layer.group_send(group, {
-                "type": "game.over",
-                "payload": {
-                    "result": result,
-                    "score": snap["score"],
-                    "survived_seconds": snap["survived_seconds"],
-                },
-            })
-            print(f"[GAMELOOP] Game over: {result}")
+            await announce_game_over(self.data_center, self.game_id, result, snap)
 
         try:
             while True:
@@ -62,12 +78,7 @@ class GameLoop:
                 await channel_layer.group_send(group, {
                     "type": "game.tick",
                     "status": "alive",
-                    "payload": {
-                        "health": snap["health"],
-                        "time_left": snap["time_left"],
-                        "tasks": snap["tasks"],
-                        "reboot_digits": snap.get("reboot_digits", [None, None, None]),
-                    },
+                    "payload": tick_payload(snap),
                 })
 
                 if snap["health"] <= 0:

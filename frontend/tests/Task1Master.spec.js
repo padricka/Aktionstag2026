@@ -19,6 +19,9 @@ const alarmView = {
   slots: 4,
   burning_slot: 3,
   color_order: ['GELB', 'ROT', 'BLAU', 'GRÜN'],
+  // Tastatur kommt vom Backend (gemischt pro Aufgabe)
+  keyboard: ['herz', 'stern', 'plus', 'kreuz', 'ring', 'dreieck-runter',
+    'blitz', 'sechseck', 'dreieck-runter-voll', 'pfeil', 'fuenfeck', 'dreieck-voll'],
   p_done: false,
 }
 
@@ -66,6 +69,16 @@ describe('Task1Master.vue (alarm_leds)', () => {
     expect(solved).toHaveLength(1)
     expect(solved[0][0].code).toHaveLength(4)
     expect(solved[0][0].target).toBe('shutdown_cmd')
+  })
+
+  it('zeigt genau die Tastatur aus view.keyboard in dieser Reihenfolge', () => {
+    const wrapper = mount(Task1Master, {
+      props: { view: alarmView },
+      global: { stubs },
+    })
+
+    const namen = wrapper.findAll('.key .sym').map((k) => k.attributes('data-name'))
+    expect(namen).toEqual(alarmView.keyboard)
   })
 
   it('zeigt Erledigt-Zustand bei view.p_done', () => {

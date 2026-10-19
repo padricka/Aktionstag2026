@@ -8,6 +8,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 - `GET /create-game/` → `{"status": "success", "game_id": "<uuid>"}`
 - `GET /force-start/?game_id=<id>` → startet das Spiel
   - 200 gestartet, 404 unbekannte ID, 409 läuft bereits oder beendet
+- `GET /leaderboard/?page=1&per_page=20` → alle Runden, höchste Punktzahl zuerst
+  (Gleichstand: ältere Runde vorn). `per_page` 1–100, Seite wird auf 1…pages begrenzt.
+  ```
+  {"entries": [{"rank": 1, "players": ["Anna", "Ben", "Cem"], "score": 900,
+                "result": "victory", "survived_seconds": 200,
+                "created_at": "2026-10-19T12:30:00+00:00", "id": "…", "game_id": "…"}],
+   "page": 1, "per_page": 20, "total": 45, "pages": 3}
+  ```
+  Gespeichert in `backend/data/leaderboard.json` (Docker-Volume `leaderboard`).
 
 ---
 
@@ -52,6 +61,22 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {}
 }
 
+// 6. DEV-Modus umschalten (nur Host-Verbindung = nach host_register, nur vor dem Start)
+// Im DEV-Modus steht die Zeit (kein Tick-Verlust), Fehler kosten keine HP.
+// Der Stand kommt per lobby_update ("dev_mode") an alle und übersteht den Neustart.
+{
+  "event": "dev_mode",
+  "payload": { "enabled": true }
+}
+
+// 7. Aktuelle Aufgabe für alle überspringen (nur Host, nur im DEV-Modus, Spiel läuft)
+// Wie gelöst, aber ohne Punkte und ohne HP-Bonus; die Ziffer fürs Finale wird aufgedeckt.
+// Danach game_tick mit der nächsten Aufgabe, beim Finale game_over "victory".
+{
+  "event": "dev_skip_task",
+  "payload": {}
+}
+
 ---
 
 ## Server -> Client
@@ -63,16 +88,22 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {
     "status": "waiting",
     "players": ["Patrick", "Bene"],
-    "ready_to_start": true
+    "ready_to_start": true,
+    "dev_mode": false
   }
 }
 
 // 2. Regelmäßiges Game-State Update (Broadcast, jede Sekunde und sofort nach player_input)
+// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits.
+// Spielregeln (Max-HP, Spielende, Aufgabenreihenfolge) kennt nur das Backend: Das Frontend
+// zeigt health/max_health an, wählt die Ansicht über tasks[].kind und beendet das Spiel
+// erst bei game_over, nicht selbst bei health 0 oder time_left 0.
 {
   "event": "game_tick",
   "status": "alive",
   "payload": {
     "health": 85,
+    "max_health": 300,
     "time_left": 120,
     "tasks": [
       {
@@ -80,7 +111,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
         "kind": "alarm",
         "instruction": "Alarm verifizieren!",
         "view": { "type": "alarm_leds", "slots": 4, "burning_slot": 3,
-                  "color_order": ["GELB", "ROT", "BLAU", "GRÜN"], "p_done": false }
+                  "color_order": ["GELB", "ROT", "BLAU", "GRÜN"],
+                  "keyboard": ["herz", "stern", "plus", "kreuz", "…12 Symbole, gemischt"],
+                  "p_done": false }
       }
     ],
     "reboot_digits": [4, null, null]
@@ -104,7 +137,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {
     "result": "meltdown",
     "score": 450,
-    "survived_seconds": 85
+    "survived_seconds": 85,
+    // Diese Runde wurde ins Leaderboard eingetragen (genau einmal pro Runde).
+    // rank: Platz dieser Runde; null im DEV-Modus (wird nicht gewertet).
+    // top: die besten 5 Runden. leaderboard ist null, falls Speichern fehlschlug.
+    "leaderboard": {
+      "rank": 7,
+      "total": 23,
+      "top": [{"rank": 1, "players": ["Anna", "Ben", "Cem"], "score": 900, "result": "victory"}]
+    }
   }
 }
 
@@ -128,10 +169,17 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 }
 
 // 6. Fehler (nur an den Absender)
+// "code" ist optional und maschinenlesbar. Bisher:
+//   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
+//                    Kommt direkt nach dem Verbinden; danach schließt der Server die
+//                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
+//   "dev_denied"   = dev_mode / dev_skip_task abgelehnt (nicht Host, DEV-Modus aus,
+//                    Spiel läuft schon bzw. noch nicht, enabled kein true/false).
 {
   "event": "error",
   "payload": {
-    "message": "Lobby ist voll!"
+    "message": "Unbekannte Sitzungs-ID",
+    "code": "unknown_game"
   }
 }
 

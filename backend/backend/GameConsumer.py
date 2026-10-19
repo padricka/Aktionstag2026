@@ -4,37 +4,57 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from backend.redis_handler import ROLES
 from backend.hostManager import HostManager
 from backend.multiplayerManager import MultiplayerManager
-from backend.gameLoop import games
+from backend.dataCenter import tick_payload
+from backend.gameLoop import announce_game_over, games
+
+# Close-Code, wenn die Sitzungs-ID nicht existiert (4000-4999 = anwendungsspezifisch)
+CLOSE_UNKNOWN_GAME = 4404
+
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.game_id = self.scope["url_route"]["kwargs"]["game_id"]
+        # IDs werden klein erzeugt, der Beamer zeigt sie groß: Schreibweise egal
+        self.game_id = self.scope["url_route"]["kwargs"]["game_id"].lower()
         self.room_group_name = f"game_{self.game_id}"
         self.lobby = MultiplayerManager(self.game_id)
         self.host = HostManager()
         self.data_center = None
         self.player_name = None
         self.role = None
+        self.is_host = False
+        self.closed = False
+
+        await self.accept()
+        # Vertippte ID: nicht still eine leere Lobby anlegen. Erst annehmen, dann
+        # schließen, damit der Browser die Fehlermeldung noch lesen kann.
+        if not await self.lobby.exists():
+            self.closed = True
+            await self.send_error("Unbekannte Sitzungs-ID", code="unknown_game")
+            await self.close(code=CLOSE_UNKNOWN_GAME)
+            return
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()
         payload = await self.lobby.lobby_payload()
         await self.send_event("lobby_update", payload)
         if payload["status"] == "running":
             from backend.dataCenter import DataCenter
             self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
             snap = await asyncio.to_thread(self.data_center.snapshot)
-            await self.send_event("game_tick", {
-                "health": snap["health"],
-                "time_left": snap["time_left"],
-                "tasks": self._tasks_for_me(snap["tasks"]),
-                "reboot_digits": snap.get("reboot_digits", [None, None, None]),
-            }, status="alive")
+            await self._send_own_tick(snap)
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        # Wer noch keine Rolle hat, blockiert sonst einen der 3 Plätze (z. B. Tab geschlossen)
+        if self.player_name and not self.role:
+            if await self.lobby.release_player(self.player_name, self.channel_name):
+                payload = await self.lobby.lobby_payload()
+                await self.channel_layer.group_send(
+                    self.room_group_name, {"type": "lobby_update", "payload": payload}
+                )
 
     async def receive(self, text_data=None, bytes_data=None):
+        if self.closed:
+            return
         try:
             data = json.loads(text_data)
         except (json.JSONDecodeError, TypeError):
@@ -66,12 +86,52 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.handle_start_game()
         elif event in ("reset_game", "new_lobby"):
             await self.handle_reset_lobby()
+        elif event == "dev_mode":
+            await self.handle_dev_mode(payload)
+        elif event == "dev_skip_task":
+            await self.handle_dev_skip_task()
         else:
             await self.send_error(f"unknown event: {event}")
 
     async def handle_host_register(self):
+        self.is_host = True
         payload = await self.lobby.lobby_payload()
         await self.send_event("lobby_update", payload)
+
+    # ------------------------------------------------------------ DEV-Modus (nur Host)
+    async def handle_dev_mode(self, payload):
+        enabled = payload.get("enabled")
+        if not self.is_host or not isinstance(enabled, bool):
+            await self.send_error("DEV-Modus nur vom Host (enabled: true/false)", code="dev_denied")
+            return
+        result = await asyncio.to_thread(self.lobby.redis.set_dev_mode, self.game_id, enabled)
+        if result["event"] == "error":
+            await self.send_error(result["payload"]["message"], code="dev_denied")
+            return
+        await self.channel_layer.group_send(
+            self.room_group_name, {"type": "lobby_update", "payload": result["payload"]}
+        )
+
+    async def handle_dev_skip_task(self):
+        if not self.is_host:
+            await self.send_error("Überspringen nur vom Host", code="dev_denied")
+            return
+        if self.data_center is None:
+            from backend.dataCenter import DataCenter
+            self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
+
+        result = await asyncio.to_thread(self.data_center.skip_task)
+        if result["result"] == "error":
+            await self.send_error(result["message"], code="dev_denied")
+            return
+        if result["result"] == "ignored":
+            return
+
+        snap = await asyncio.to_thread(self.data_center.snapshot)
+        if result["won"]:
+            await announce_game_over(self.data_center, self.game_id, "victory", snap)
+            return
+        await self._broadcast_tick(snap)
 
     async def handle_reset_lobby(self):
         game = games.pop(self.game_id, None)
@@ -89,7 +149,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error("player_name required")
             return
 
-        result = await self.lobby.register_player(name)
+        result = await self.lobby.register_player(name, self.channel_name)
         if result["event"] == "error":
             await self.send_error(result["payload"]["message"])
             return
@@ -114,12 +174,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 from backend.dataCenter import DataCenter
                 self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
             snap = await asyncio.to_thread(self.data_center.snapshot)
-            await self.send_event("game_tick", {
-                "health": snap["health"],
-                "time_left": snap["time_left"],
-                "tasks": self._tasks_for_me(snap["tasks"]),
-                "reboot_digits": snap.get("reboot_digits", [None, None, None]),
-            }, status="alive")
+            await self._send_own_tick(snap)
 
     async def handle_choose_role(self, payload):
         if not self.player_name:
@@ -173,39 +228,14 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         await self.send_event("input_result", {"result": result["result"]})
 
-        if result.get("won"):
-            snap = await asyncio.to_thread(self.data_center.snapshot)
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game.over",
-                "payload": {
-                    "result": "victory",
-                    "score": snap["score"],
-                    "survived_seconds": snap["survived_seconds"],
-                },
-            })
-            return
-
         snap = await asyncio.to_thread(self.data_center.snapshot)
 
-        if snap["health"] <= 0 or self.data_center.status == "game_over":
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game.over",
-                "payload": {
-                    "result": "meltdown",
-                    "score": snap["score"],
-                    "survived_seconds": snap["survived_seconds"],
-                },
-            })
+        if result.get("won"):
+            await announce_game_over(self.data_center, self.game_id, "victory", snap)
+        elif snap["health"] <= 0 or self.data_center.status == "game_over":
+            await announce_game_over(self.data_center, self.game_id, "meltdown", snap)
         else:
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game.tick",
-                "status": "alive",
-                "payload": {
-                    "health": snap["health"],
-                    "time_left": snap["time_left"],
-                    "tasks": snap["tasks"],
-                },
-            })
+            await self._broadcast_tick(snap)
 
     async def handle_start_game(self):
         payload = await self.lobby.lobby_payload()
@@ -216,6 +246,20 @@ class GameConsumer(AsyncWebsocketConsumer):
         result = await self.host.start(self.game_id)
         if result != "started":
             await self.send_error(f"start failed: {result}")
+
+    async def _send_own_tick(self, snap):
+        """Aktueller Stand nur an diese Verbindung (später Beitritt / Reconnect)."""
+        payload = tick_payload(snap)
+        payload["tasks"] = self._tasks_for_me(payload["tasks"])
+        await self.send_event("game_tick", payload, status="alive")
+
+    async def _broadcast_tick(self, snap):
+        """Sofort-Tick an alle; die Ansichten filtert jede Verbindung in game_tick selbst."""
+        await self.channel_layer.group_send(self.room_group_name, {
+            "type": "game.tick",
+            "status": "alive",
+            "payload": tick_payload(snap),
+        })
 
     def _tasks_for_me(self, tasks):
         out = []
@@ -230,8 +274,11 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def send_event(self, event, payload, **extra):
         await self.send(text_data=json.dumps({"event": event, **extra, "payload": payload}))
 
-    async def send_error(self, message):
-        await self.send_event("error", {"message": message})
+    async def send_error(self, message, code=None):
+        payload = {"message": message}
+        if code:
+            payload["code"] = code
+        await self.send_event("error", payload)
 
     async def lobby_update(self, event):
         await self.send_event("lobby_update", event["payload"])

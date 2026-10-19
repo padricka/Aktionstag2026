@@ -54,6 +54,20 @@ def test_start_sets_status_running(data_center):
     assert data_center.status == "running"
 
 
+def test_claim_game_over_only_once(data_center):
+    """Spielende darf nur einmal gemeldet werden (Consumer und Spielschleife)."""
+    data_center.start()
+    assert data_center.claim_game_over() is True
+    assert data_center.claim_game_over() is False
+
+
+def test_start_resets_game_over_claim(data_center):
+    data_center.start()
+    data_center.claim_game_over()
+    data_center.start()
+    assert data_center.claim_game_over() is True
+
+
 def test_register_mistake_reduces_health(data_center):
     data_center.register_mistake()
     assert data_center.health == 240
@@ -87,12 +101,15 @@ def test_tick_reduces_health_in_redis(data_center):
 
 
 def test_tick_snapshot_matches_contract(button_game):
-    """Snapshot: health, time_left, tasks. Button-Task ohne target/value/state/views."""
+    """Snapshot: health, time_left, tasks. Button-Task ohne target/value/state/views.
+
+    "kind" gehört laut JSON_Vertrag.md (game_tick-Beispiel) dazu und verrät keine Lösung.
+    """
     snap = button_game.tick()
 
     assert {"health", "time_left", "tasks"} <= set(snap)
     assert snap["time_left"] == 299
-    assert set(snap["tasks"][0]) == {"task_id", "assigned_to_player", "instruction"}
+    assert set(snap["tasks"][0]) == {"task_id", "kind", "assigned_to_player", "instruction"}
 
 
 def test_tick_to_zero_health_sets_game_over(data_center):
@@ -233,3 +250,162 @@ def test_solving_an_already_replaced_task_is_ignored(button_game, monkeypatch):
 
     assert res["result"] == "ignored"
     assert button_game.health == 100
+
+# ---------------------------------------------------------------- DEV-Modus
+@pytest.fixture
+def dev_game(data_center):
+    data_center.redis.r.hset(_state_key(data_center), "dev_mode", "1")
+    data_center.start()
+    return data_center
+
+
+def test_dev_mode_tick_freezes_time_and_health(dev_game):
+    snap = dev_game.tick()
+    assert snap["health"] == dev_game.max_health
+    assert snap["time_left"] == 300
+    assert dev_game.status == "running"
+
+
+def test_dev_mode_mistake_costs_no_health(dev_game):
+    res = _druecke(dev_game, "penalty", "wrong")
+    assert res["result"] == "wrong"
+    assert dev_game.health == dev_game.max_health
+    # Falsche Eingabe ohne aktive Aufgabe zählt sonst als Fehler (−60 HP)
+    dev_game.redis.r.hdel(_state_key(dev_game), "task")
+    assert _druecke(dev_game, "reactor_vent", "open")["result"] == "wrong"
+    assert dev_game.health == dev_game.max_health
+
+
+def test_without_dev_mode_tick_and_mistake_still_hurt(data_center):
+    data_center.start()
+    data_center.tick()
+    _druecke(data_center, "penalty", "wrong")
+    assert data_center.health == data_center.max_health - 1 - 60
+
+
+def test_skip_task_moves_to_next_task_without_score(dev_game):
+    assert dev_game.current_task()["kind"] == "alarm"
+    res = dev_game.skip_task()
+    assert res == {"result": "skipped", "won": False}
+    assert dev_game.current_task()["kind"] == "fire_protocol"
+    assert dev_game.score == 0
+    assert dev_game.health == dev_game.max_health        # kein HP-Bonus
+    assert dev_game.snapshot()["reboot_digits"][0] is not None   # Ziffer fürs Finale aufgedeckt
+
+
+def test_skip_all_tasks_wins(dev_game):
+    for _ in range(3):
+        assert dev_game.skip_task()["won"] is False
+    assert dev_game.current_task()["kind"] == "reboot"
+    assert dev_game.skip_task() == {"result": "skipped", "won": True}
+    assert dev_game.status == "won"
+
+
+def test_skip_task_requires_dev_mode(data_center):
+    data_center.start()
+    assert data_center.skip_task()["result"] == "error"
+    assert data_center.current_task()["kind"] == "alarm"
+
+
+def test_skip_task_requires_running_game(data_center):
+    data_center.redis.r.hset(_state_key(data_center), "dev_mode", "1")
+    assert data_center.skip_task()["result"] == "error"
+
+
+def test_skip_task_without_task_is_ignored(dev_game):
+    dev_game.redis.r.hdel(_state_key(dev_game), "task")
+    assert dev_game.skip_task() == {"result": "ignored"}
+
+
+# ---------------------------------------------------------------- Leaderboard
+def _drei_spieler(dc):
+    # absichtlich nicht in Rollen-Reihenfolge registriert
+    for name, role in (("Cem", ROLE_P2), ("Anna", ROLE_M), ("Ben", ROLE_P1)):
+        _register(dc, name, role)
+
+
+def test_record_result_adds_entry_with_team_in_role_order(data_center):
+    _drei_spieler(data_center)
+    data_center.start()
+    snap = {**data_center.snapshot(), "score": 420, "survived_seconds": 150}
+    lb = data_center.record_result("victory", snap)
+    assert lb["rank"] == 1 and lb["total"] == 1
+    assert lb["top"][0]["players"] == ["Anna", "Ben", "Cem"]
+    assert lb["top"][0]["score"] == 420
+
+
+def test_record_result_in_dev_mode_adds_nothing(data_center):
+    _drei_spieler(data_center)
+    data_center.redis.r.hset(_state_key(data_center), "dev_mode", "1")
+    data_center.start()
+    lb = data_center.record_result("victory", data_center.snapshot())
+    assert lb["rank"] is None
+    assert lb["total"] == 0
+
+
+# ---------------------------------------------------------------- Tick-Payload aus einer Hand
+def test_snapshot_sends_max_health_and_task_kind(data_center):
+    data_center.start()
+    snap = data_center.snapshot()
+    assert snap["max_health"] == 300
+    assert snap["tasks"][0]["kind"] == "alarm"
+
+
+def test_tick_payload_has_all_contract_fields(data_center):
+    from backend.dataCenter import tick_payload
+    data_center.start()
+    payload = tick_payload(data_center.snapshot())
+    assert set(payload) == {"health", "max_health", "time_left", "tasks", "reboot_digits"}
+    assert payload["reboot_digits"] == [None, None, None]
+
+
+def test_tick_payload_fills_defaults():
+    from backend.dataCenter import tick_payload
+    payload = tick_payload({"health": 5, "time_left": 7, "tasks": []})
+    assert payload["max_health"] == 300
+    assert payload["reboot_digits"] == [None, None, None]
+
+
+# ---------------------------------------------------------------- Eingaben nacheinander
+def test_input_lock_not_acquired_is_retry_error(button_game, monkeypatch):
+    """Kommt die Sperre nicht (z. B. Redis hängt), lieber 'nochmal' als Fortschritt verlieren."""
+    from contextlib import contextmanager
+
+    @contextmanager
+    def kein_lock(*a, **k):
+        yield False
+
+    monkeypatch.setattr(button_game.redis, "lock", kein_lock)
+    task = button_game.current_task()
+    res = _druecke(button_game, task["state"]["target"], task["state"]["value"])
+    assert res["result"] == "error"
+    assert "erneut" in res["message"]
+    assert button_game.current_task()["task_id"] == task["task_id"]   # nichts verändert
+
+
+def test_input_lock_is_per_game(button_game):
+    """Die Sperre gilt pro Sitzung – andere Spiele warten nicht mit."""
+    namen = []
+    original = button_game.redis.lock
+
+    def merken(name, *a, **k):
+        namen.append(name)
+        return original(name, *a, **k)
+
+    button_game.redis.lock = merken
+    task = button_game.current_task()
+    _druecke(button_game, task["state"]["target"], task["state"]["value"])
+    assert f"input:{GAME}" in namen
+
+
+def test_skip_task_lock_not_acquired_changes_nothing(dev_game, monkeypatch):
+    from contextlib import contextmanager
+
+    @contextmanager
+    def kein_lock(*a, **k):
+        yield False
+
+    monkeypatch.setattr(dev_game.redis, "lock", kein_lock)
+    vorher = dev_game.current_task()["task_id"]
+    assert dev_game.skip_task()["result"] == "error"
+    assert dev_game.current_task()["task_id"] == vorher

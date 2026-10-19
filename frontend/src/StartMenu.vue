@@ -39,6 +39,13 @@
               Als Host
             </button>
           </div>
+
+          <button class="btn-leaderboard" @click="emit('open-leaderboard')">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 4h8v5a4 4 0 0 1-8 0V4zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4" />
+            </svg>
+            Leaderboard
+          </button>
         </div>
       </div>
 
@@ -53,7 +60,7 @@
 import { ref } from 'vue'
 
 const name = ref('')
-const emit = defineEmits(['spiel-starten', 'open-settings'])
+const emit = defineEmits(['spiel-starten', 'open-settings', 'open-leaderboard'])
 
 function starten(role) {
   if (role === 'player' && !name.value.trim()) return
@@ -227,6 +234,40 @@ function openSettings() {
 .btn-host:hover {
   color: var(--green);
   border-color: var(--green-border);
+}
+
+.btn-leaderboard {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  background: transparent;
+  color: var(--fg-2);
+  border: 1px dashed var(--border-2);
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.btn-leaderboard svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn-leaderboard:hover {
+  color: var(--amber, #ffb830);
+  border-color: var(--amber-border, rgba(255, 184, 48, 0.4));
+  border-style: solid;
+  background: var(--amber-bg, rgba(255, 184, 48, 0.1));
 }
 
 .bottom {

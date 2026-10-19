@@ -55,6 +55,12 @@ def test_create_game_sets_state_and_ttl(handler, env):
     assert env.ttl("game:g:state") > 0
 
 
+def test_waiting_lobby_lives_longer_than_an_hour(handler, env):
+    """Beamer morgens geöffnet, Spieler kommen später: die Sitzungs-ID muss noch gelten."""
+    handler.create_game("g")
+    assert env.ttl("game:g:state") > 3600
+
+
 def test_refresh_ttl_covers_all_keys(handler, env):
     """Cover-Zeile: refresh_ttl pipeline.execute()."""
     handler.create_game("g")
@@ -62,6 +68,13 @@ def test_refresh_ttl_covers_all_keys(handler, env):
     handler.save_role_hints("g", ROLES[0], {"hint": "x"})
     handler.refresh_ttl("g")
     assert env.ttl("game:g:hints:master") > 0
+
+
+# ---------------------------------------------------------------- game_exists
+def test_game_exists_after_create(handler):
+    assert handler.game_exists("g") is False
+    handler.create_game("g")
+    assert handler.game_exists("g") is True
 
 
 # ---------------------------------------------------------------- register_player
@@ -107,6 +120,59 @@ def test_register_fourth_player_is_rejected(handler):
     assert res["event"] == "error" and "voll" in res["payload"]["message"]
     # Counter zurückgerollt
     assert int(handler.r.hget("game:g:state", "player_counter")) == 3
+
+
+# ---------------------------------------------------------------- release_player
+def test_release_player_without_role_frees_slot(handler):
+    for n in ("A", "B", "C"):
+        handler.register_player("g", n, conn="c-" + n)
+    assert handler.release_player("g", "A", conn="c-A") is True
+    names = [p["name"] for p in handler.get_lobby_payload("g")["players"]]
+    assert names == ["B", "C"]
+    # Der Platz ist wieder frei
+    assert handler.register_player("g", "D")["event"] == "registered"
+
+
+def test_release_player_with_role_keeps_player(handler):
+    """Wer eine Rolle hat, behält den Platz (Reconnect)."""
+    handler.register_player("g", "A", conn="c1")
+    handler.choose_role("g", "A", "MASTER")
+    assert handler.release_player("g", "A", conn="c1") is False
+    assert handler.register_player("g", "A")["role"] == "MASTER"
+
+
+def test_release_player_ignored_after_newer_connection(handler):
+    """Reload: das verspätete disconnect der alten Verbindung wirft den Spieler nicht raus."""
+    handler.register_player("g", "A", conn="alt")
+    handler.register_player("g", "A", conn="neu")
+    assert handler.release_player("g", "A", conn="alt") is False
+    assert handler.choose_role("g", "A", "FI-SI")["event"] == "role_assigned"
+
+
+def test_release_player_ignored_while_running(handler, env):
+    handler.register_player("g", "A", conn="c1")
+    env.hset("game:g:state", "status", "running")
+    assert handler.release_player("g", "A", conn="c1") is False
+
+
+def test_release_player_lock_not_acquired(handler):
+    handler.register_player("g", "A", conn="c1")
+    with patch.object(handler, "lock") as mock_lock:
+        mock_lock.return_value.__enter__ = lambda self: False
+        mock_lock.return_value.__exit__ = lambda *_: None
+        assert handler.release_player("g", "A", conn="c1") is False
+    assert "A" in handler._load_players("g")
+
+
+def test_release_unknown_player(handler):
+    handler.create_game("g")
+    assert handler.release_player("g", "X", conn="c1") is False
+
+
+def test_choose_role_keeps_connection(handler):
+    handler.register_player("g", "A", conn="c1")
+    handler.choose_role("g", "A", "MASTER")
+    assert handler._load_players("g")["A"] == {"role": "MASTER", "conn": "c1"}
 
 
 # ---------------------------------------------------------------- choose_role
@@ -270,3 +336,32 @@ def test_lock_ignores_release_error(handler):
         with handler.lock("x") as acq:
             assert acq is True
         # Kein Raise nach oben
+
+# ---------------------------------------------------------------- DEV-Modus
+def test_lobby_payload_dev_mode_default_off(handler):
+    handler.create_game("g")
+    assert handler.get_lobby_payload("g")["dev_mode"] is False
+
+
+def test_set_dev_mode_in_lobby(handler):
+    handler.create_game("g")
+    res = handler.set_dev_mode("g", True)
+    assert res["event"] == "lobby_update"
+    assert res["payload"]["dev_mode"] is True
+    assert handler.set_dev_mode("g", False)["payload"]["dev_mode"] is False
+
+
+def test_set_dev_mode_rejected_while_running(handler, env):
+    handler.create_game("g")
+    env.hset("game:g:state", "status", "running")
+    res = handler.set_dev_mode("g", True)
+    assert res["event"] == "error"
+    assert handler.get_lobby_payload("g")["dev_mode"] is False
+
+
+def test_create_game_keeps_dev_mode(handler):
+    """Neustart (reset_game → create_game) behält den DEV-Modus der Sitzung."""
+    handler.create_game("g")
+    handler.set_dev_mode("g", True)
+    handler.create_game("g")
+    assert handler.get_lobby_payload("g")["dev_mode"] is True

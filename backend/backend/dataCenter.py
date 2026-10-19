@@ -2,11 +2,16 @@ import json
 import random
 import time
 from pydantic import ValidationError
-from .redis_handler import RedisHandler, _s, DEFAULT_TIME
+from . import leaderboard
+from .redis_handler import RedisHandler, _s, DEFAULT_TIME, ROLES
 from .schemas import PlayerInput
 from .playableObject import TASK_TYPES, Outcome
 
+MAX_HEALTH = 300
 HEALTH_BONUS = 15
+
+# Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
+INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
 MISTAKE_DAMAGE = 60
 TOTAL_TASKS = 4
 
@@ -27,11 +32,23 @@ TASK_MULTIPLIER = {
 }
 
 
+def tick_payload(snap: dict) -> dict:
+    """game_tick-Payload laut JSON_Vertrag – die einzige Stelle, die ihn zusammenbaut
+    (Spielschleife und Consumer), damit kein Weg ein Feld vergisst."""
+    return {
+        "health": snap["health"],
+        "max_health": snap.get("max_health", MAX_HEALTH),
+        "time_left": snap["time_left"],
+        "tasks": snap["tasks"],
+        "reboot_digits": snap.get("reboot_digits") or [None] * REBOOT_CODE_LEN,
+    }
+
+
 class DataCenter:
     def __init__(self, game_id: str = "test_game"):
         self.game_id = game_id
         self.redis = RedisHandler()
-        self.max_health = 300
+        self.max_health = MAX_HEALTH
 
         state_key = self.redis._k_state(self.game_id)
         if not self.redis.r.exists(state_key):
@@ -97,6 +114,7 @@ class DataCenter:
             "survived_seconds": int(time.time()) - started,
             "tasks": [self._public(task)] if task else [],
             "score": int(state.get("score", 0)),
+            "max_health": self.max_health,
             "reboot_digits": self._reboot_digits(state),
         }
 
@@ -111,7 +129,7 @@ class DataCenter:
             "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
             "reboot_revealed": json.dumps([]),
         })
-        self.redis.r.hdel(self._key, "task")
+        self.redis.r.hdel(self._key, "task", "over_announced")
         self.new_task(kind="alarm")
         self.redis.refresh_ttl(self.game_id)
 
@@ -122,7 +140,14 @@ class DataCenter:
             return 0
         return new_hp
 
+    @property
+    def dev_mode(self) -> bool:
+        """DEV-Modus (vom Host in der Lobby gesetzt): Zeit steht, Fehler kosten nichts."""
+        return _s(self.redis.r.hget(self._key, "dev_mode")) == "1"
+
     def tick(self) -> dict:
+        if self.dev_mode:
+            return self.snapshot()
         self.apply_tick(1)
         self.redis.r.hincrby(self._key, "time_left", -1)
         return self.snapshot()
@@ -130,15 +155,62 @@ class DataCenter:
     def finish(self):
         self.redis.r.hset(self._key, "status", "game_over")
 
+    def claim_game_over(self) -> bool:
+        """True nur beim ersten Aufruf pro Runde: wer True bekommt, meldet das Spielende."""
+        return bool(self.redis.r.hsetnx(self._key, "over_announced", 1))
+
+    def record_result(self, result: str, snap: dict) -> dict:
+        """Runde ins Leaderboard eintragen (nicht im DEV-Modus).
+
+        Rückgabe für game_over: eigener Platz (None im DEV-Modus), Top 5, Anzahl Runden.
+        """
+        if self.dev_mode:
+            return {**leaderboard.top(), "rank": None}
+        players = self.redis._load_players(self.game_id)
+        rolle = {r: i for i, r in enumerate(ROLES)}
+        team = sorted(players, key=lambda n: rolle.get(players[n].get("role"), len(ROLES)))
+        rec = leaderboard.add_entry(team, snap["score"], result, snap["survived_seconds"], self.game_id)
+        return {"rank": rec["entry"]["rank"], "top": rec["top"], "total": rec["total"]}
+
     def register_mistake(self) -> int:
         if self.health <= 0:
             return 0
+        if self.dev_mode:
+            return self.health
         return self.apply_tick(MISTAKE_DAMAGE)
+
+    def skip_task(self) -> dict:
+        """DEV-Modus: aktuelle Aufgabe für alle überspringen (ohne Punkte und HP-Bonus)."""
+        if not self.dev_mode:
+            return {"result": "error", "message": "DEV-Modus ist aus"}
+        if self.status != "running":
+            return {"result": "error", "message": "game not running"}
+        # Gleiche Sperre wie bei Eingaben: sonst schreibt eine gleichzeitige
+        # Eingabe den alten Aufgabenstand über die neue Aufgabe
+        with self.redis.lock(self._input_lock_name) as acquired:
+            if not acquired:
+                return dict(INPUT_BUSY)
+            task = self.current_task()
+            if not task or self.redis.r.hdel(self._key, "task") != 1:
+                return {"result": "ignored"}
+            won = self._advance(task)
+        return {"result": "skipped", "won": won}
+
+    def _advance(self, task: dict) -> bool:
+        """Nach gelöster/übersprungener Aufgabe: Ziffer aufdecken, nächste Aufgabe. True = gewonnen."""
+        self._reveal_digit(task.get("kind", ""))
+        solved = self.redis.r.hincrby(self._key, "solved_count", 1)
+        if solved >= TOTAL_TASKS:
+            self.redis.r.hset(self._key, "status", "won")
+            return True
+        self.new_task()
+        return False
 
     @staticmethod
     def _public(task: dict) -> dict:
         out = {
             "task_id": task.get("task_id"),
+            "kind": task.get("kind"),
             "assigned_to_player": task.get("assigned_to_player"),
             "instruction": task.get("instruction"),
         }
@@ -197,6 +269,20 @@ class DataCenter:
             self.register_mistake()
             return {"result": "wrong", "health": self.health}
 
+        # Eingaben einer Sitzung nacheinander: Lesen → Prüfen → Schreiben des
+        # Aufgabenstands darf sich nicht überlappen, sonst überschreibt z. B. beim
+        # gleichzeitigen Sync-Knopf der zweite Druck den ersten.
+        with self.redis.lock(self._input_lock_name) as acquired:
+            if not acquired:
+                return dict(INPUT_BUSY)
+            return self._apply_input(player_name, data)
+
+    @property
+    def _input_lock_name(self) -> str:
+        return f"input:{self.game_id}"
+
+    def _apply_input(self, player_name: str, data: PlayerInput) -> dict:
+        """Eine Eingabe auf die aktuelle Aufgabe anwenden. Nur unter der Eingabe-Sperre aufrufen."""
         task = self.current_task()
         if task:
             task_cls = TASK_TYPES.get(task.get("kind"))
@@ -226,14 +312,9 @@ class DataCenter:
                 # Score = Restzeit × Multiplikator der gerade gelösten Aufgabe
                 gain = self._score_for_solve(task.get("kind", ""))
                 self.redis.r.hincrby(self._key, "score", gain)
-                self._reveal_digit(task.get("kind", ""))
 
-                solved = self.redis.r.hincrby(self._key, "solved_count", 1)
-                if solved >= TOTAL_TASKS:
-                    self.redis.r.hset(self._key, "status", "won")
+                if self._advance(task):
                     return {"result": "correct", "won": True, "score_gain": gain}
-
-                self.new_task()
                 return {"result": "correct", "score_gain": gain}
 
         self.register_mistake()

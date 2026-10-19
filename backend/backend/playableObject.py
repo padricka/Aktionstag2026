@@ -89,6 +89,9 @@ class AlarmTask(PlayableObject):
 
     # Pool für den Shutdown-Code. Wird bei jedem Task neu gemischt.
     CODE_POOL = ['dreieck-runter', 'kreuz', 'dreieck-runter-voll', 'stern']
+    # Ablenker auf der Tastatur des Leitstands. Die Tastatur wird pro Aufgabe gemischt,
+    # sonst stünden die echten Code-Symbole immer vorne.
+    KEYBOARD_DECOYS = ['dreieck-voll', 'plus', 'sechseck', 'herz', 'blitz', 'fuenfeck', 'pfeil', 'ring']
     # Aufkleber-Farben. Ihre Reihenfolge (nur der Leitstand kennt sie) ordnet den Code.
     STICKER_COLORS = ["ROT", "GELB", "GRÜN", "BLAU"]
 
@@ -109,8 +112,11 @@ class AlarmTask(PlayableObject):
         stickers = [{"symbol": s, "color": c} for s, c in zip(code, color_order)]
         # ... die Rückseite sieht die Aufkleber aber gemischt.
         random.shuffle(stickers)
+        keyboard = cls.CODE_POOL + cls.KEYBOARD_DECOYS
+        random.shuffle(keyboard)
 
         return {
+            "keyboard": keyboard,
             "burning_slot": slot + 1,
             "broken_id": broken["id"],
             "broken_symbol": broken["symbol"],
@@ -129,6 +135,7 @@ class AlarmTask(PlayableObject):
                 "slots": len(cls.COMPONENTS),
                 "burning_slot": state["burning_slot"],
                 "color_order": state["color_order"],
+                "keyboard": state.get("keyboard") or cls.CODE_POOL + cls.KEYBOARD_DECOYS,
                 "p_done": state["cmd_ok"],
             },
             ROLE_P1: {

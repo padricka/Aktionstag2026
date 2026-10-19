@@ -10,71 +10,40 @@
     </p>
 
     <div class="body">
-      <aside class="side">
-        <span class="panel-label">Fortschritt</span>
-        <div class="pips">
-          <span
-            v-for="i in sequenceLen"
-            :key="i"
-            class="pip"
-            :class="{ done: (i - 1) < step, current: (i - 1) === step && !pDone }"
-          />
-        </div>
-        <span class="count">{{ step }} / {{ sequenceLen }}</span>
+      <section class="desk">
+        <ControlDesk
+          :valves="valves"
+          :colors="colors"
+          :step="step"
+          :sequence-len="sequenceLen"
+          :state="panelState"
+          @submit="ausloesen"
+        />
+      </section>
 
+      <aside class="side">
         <span class="panel-label">Dein Notizzettel</span>
         <div class="clue">
           <span>Schritt {{ clue.step }}</span>
           <strong>{{ clue.valve }} · {{ clue.color }}</strong>
         </div>
-      </aside>
 
-      <section class="panel">
-        <template v-if="!pDone">
-          <span class="panel-label">Nächster Schritt</span>
-          <div class="inputs">
-            <label class="field">
-              <span class="field-label">Ventil</span>
-              <select v-model="selectedValve" class="select valve" :disabled="busy">
-                <option disabled value="">– wählen –</option>
-                <option v-for="v in valves" :key="v" :value="v">{{ v }}</option>
-              </select>
-            </label>
-            <label class="field">
-              <span class="field-label">Farbe</span>
-              <select v-model="selectedColor" class="select color" :disabled="busy">
-                <option disabled value="">– wählen –</option>
-                <option v-for="c in colors" :key="c" :value="c">{{ c }}</option>
-              </select>
-            </label>
-          </div>
-        </template>
-
-        <div v-else class="result">
+        <div v-if="pDone" class="result">
           <span class="panel-label">Letztes Passwort-Fragment</span>
           <span class="fragment-dots">{{ dotsLabel(lastFragment?.dots) }}</span>
           <p class="fragment-text">{{ lastFragment?.text || '–' }}</p>
           <p class="result-hint">Der Rückseite mitteilen (Punkte = Reihenfolge).</p>
         </div>
-      </section>
+      </aside>
     </div>
 
-    <div class="foot">
-      <button
-        v-if="!pDone"
-        class="btn-action"
-        :disabled="!selectedValve || !selectedColor || busy"
-        @click="submitStep"
-      >
-        {{ busy ? 'Sende …' : `Schritt ${step + 1} ausführen` }}
-      </button>
-      <p v-if="serverError && !pDone" class="msg-err">{{ serverError }}</p>
-    </div>
+    <p v-if="serverError && panelState === 'error'" class="msg-err">{{ serverError }}</p>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
+import ControlDesk from '../../ControlDesk.vue'
 
 const props = defineProps({
   view: { type: Object, default: null },
@@ -86,15 +55,15 @@ const props = defineProps({
   lastFragment: { type: [Object, String], default: null },
   p1Done: { type: Boolean, default: false },
   serverError: { type: String, default: '' },
-  inputResultNonce: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['solved'])
 
-const selectedValve = ref('')
-const selectedColor = ref('')
-const busy = ref(false)
-let busyTimer = null
+const FEHLER_MS = 1200
+
+const lokalGesendet = ref(false)
+const fehlerAktiv = ref(false)
+let fehlerTimer = null
 
 const valves = computed(() => props.view?.valves || props.valves)
 const colors = computed(() => props.view?.colors || props.colors)
@@ -109,31 +78,61 @@ const lastFragment = computed(() => {
   return lf
 })
 
+// Panel ist reine Darstellung: "checking" hält es gesperrt, bis der Server antwortet.
+const panelState = computed(() => {
+  if (pDone.value) return 'done'
+  if (fehlerAktiv.value) return 'error'
+  if (lokalGesendet.value) return 'checking'
+  return 'idle'
+})
+
 function dotsLabel(n) {
   const count = Math.max(0, Number(n) || 0)
   return '●'.repeat(count) || '–'
 }
 
-function releaseBusy() {
-  busy.value = false
-  if (busyTimer) { clearTimeout(busyTimer); busyTimer = null }
+function fehlerZeigen() {
+  fehlerAktiv.value = true
+  if (fehlerTimer) clearTimeout(fehlerTimer)
+  fehlerTimer = setTimeout(() => {
+    fehlerAktiv.value = false
+    fehlerTimer = null
+  }, FEHLER_MS)
 }
 
-watch(() => props.inputResultNonce, () => releaseBusy())
-watch(step, () => {
-  selectedValve.value = ''
-  selectedColor.value = ''
-  releaseBusy()
-})
-watch(pDone, () => releaseBusy())
-onUnmounted(() => { if (busyTimer) clearTimeout(busyTimer) })
+function fehlerBeenden() {
+  if (fehlerTimer) { clearTimeout(fehlerTimer); fehlerTimer = null }
+  fehlerAktiv.value = false
+}
 
-function submitStep() {
-  if (!selectedValve.value || !selectedColor.value || busy.value || pDone.value) return
-  busy.value = true
-  emit('solved', { valve: selectedValve.value, color: selectedColor.value })
-  if (busyTimer) clearTimeout(busyTimer)
-  busyTimer = setTimeout(() => { busy.value = false }, 2000)
+watch(() => props.serverError, (e) => {
+  if (e && !pDone.value) {
+    lokalGesendet.value = false
+    fehlerZeigen()
+  }
+})
+
+// Nächster Schritt vom Server = die Prüfung ist durch, wieder freigeben.
+watch(step, () => { lokalGesendet.value = false })
+
+watch(pDone, (done) => {
+  if (done) {
+    lokalGesendet.value = true
+    fehlerBeenden()
+  }
+})
+
+onUnmounted(() => {
+  if (fehlerTimer) { clearTimeout(fehlerTimer); fehlerTimer = null }
+})
+
+// "V-32:RED" vom Steuerpult -> { valve, color } wie bisher.
+function ausloesen(wert) {
+  const [valve, color] = String(wert || '').split(':')
+  if (!valve || !color || pDone.value || lokalGesendet.value) return
+  fehlerBeenden()
+  lokalGesendet.value = true
+  emit('solved', { valve, color })
 }
 </script>
 
@@ -176,11 +175,21 @@ function submitStep() {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 20px;
+  align-items: center;
+  overflow: auto;
 }
 
-.side, .panel {
+.desk {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.side {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -189,34 +198,12 @@ function submitStep() {
   border: 1px solid var(--border-2);
 }
 
-.panel { justify-content: center; }
-
 .panel-label {
   font-size: 11px;
   color: var(--fg-3);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   font-weight: 600;
-}
-
-.pips { display: flex; gap: 10px; }
-
-.pip {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--border-3);
-}
-
-.pip.done { background: var(--green); border-color: var(--green); }
-.pip.current { border-color: var(--green); box-shadow: 0 0 0 5px var(--green-bg); }
-
-.count {
-  font-family: var(--mono);
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--fg);
-  letter-spacing: 0.1em;
 }
 
 .clue {
@@ -237,46 +224,14 @@ function submitStep() {
   letter-spacing: 0.06em;
 }
 
-.inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  max-width: 560px;
-}
-
-.field { display: flex; flex-direction: column; gap: 6px; }
-
-.field-label {
-  font-size: 11px;
-  color: var(--fg-3);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.select {
-  padding: 14px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-  font-size: 16px;
-  cursor: pointer;
-  outline: none;
-}
-
-.select:focus { border-color: var(--green-border); }
-
 .result {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 24px;
+  padding: 18px;
   background: var(--green-bg);
   border: 1px solid var(--green-border);
-  max-width: 400px;
-  margin: 0 auto;
 }
 
 .fragment-dots {
@@ -287,38 +242,27 @@ function submitStep() {
 
 .fragment-text {
   font-family: var(--mono);
-  font-size: 40px;
+  font-size: 34px;
   font-weight: 700;
   color: var(--green);
   margin: 0;
   letter-spacing: 0.12em;
 }
 
-.result-hint { font-size: 12px; color: var(--fg-3); margin: 0; }
+.result-hint { font-size: 12px; color: var(--fg-3); margin: 0; text-align: center; }
 
-.foot {
-  padding-top: 20px;
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+.msg-err {
+  font-size: 12px;
+  color: var(--red);
+  margin: 10px 0 0 0;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.btn-action {
-  padding: 14px 56px;
-  background: var(--green);
-  color: #050a08;
-  border: none;
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  cursor: pointer;
+@media (max-width: 860px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
 }
-
-.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.msg-err { font-size: 12px; color: var(--red); margin: 0; }
 </style>

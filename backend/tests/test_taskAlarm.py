@@ -197,3 +197,27 @@ def test_wrong_attempts_do_not_block_solution(dc):
     res = _text(dc, MASTER_NAME, "shutdown_cmd", code)
     assert res["result"] == "correct"
     assert dc.current_task()["task_id"] != task_id
+
+
+# ------------------------------------------------------------------ Tastatur kommt vom Backend
+def test_leitstand_keyboard_contains_the_code_symbols(dc):
+    """Die Tastatur gehört zum Rätsel: kommt aus dem Backend, enthält den Code plus Ablenker."""
+    tastatur = _view(dc, ROLE_M)["keyboard"]
+    code = dc.current_task()["state"]["code"]
+    assert set(code) <= set(tastatur)
+    assert len(tastatur) == 12 and len(set(tastatur)) == 12
+
+
+def test_keyboard_does_not_reveal_the_code_by_position():
+    """Die echten Symbole stehen nicht immer an denselben Stellen (sonst Lösung ablesbar)."""
+    from backend.playableObject import AlarmTask
+    vorne = set()
+    for _ in range(30):
+        state = AlarmTask.create({})
+        vorne.add(frozenset(state["keyboard"][:4]))
+    assert len(vorne) > 1
+
+
+def test_solution_from_views_still_typeable_on_keyboard(dc):
+    _, code = _loesung_aus_ansichten(dc)
+    assert set(code.split(",")) <= set(_view(dc, ROLE_M)["keyboard"])

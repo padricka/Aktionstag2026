@@ -2,10 +2,16 @@
   <div class="app">
 
     <!-- Startmenü -->
+    <LeaderboardScreen
+      v-if="!gestartet && showLeaderboard"
+      @back="showLeaderboard = false"
+    />
+
     <StartMenu
-      v-if="!gestartet"
+      v-else-if="!gestartet"
       @spiel-starten="onStart"
       @open-settings="showStartMenuSettings = true"
+      @open-leaderboard="showLeaderboard = true"
     />
 
     <!-- Host (Beamer) -->
@@ -40,8 +46,10 @@ import StartMenu from './StartMenu.vue'
 import HostScreen from './components/HostScreen.vue'
 import PlayerScreen from './components/PlayerScreen.vue'
 import SettingsScreen from './components/SettingsScreen.vue'
+import LeaderboardScreen from './components/LeaderboardScreen.vue'
 
 const gestartet = ref(false)
+const showLeaderboard = ref(false)
 const role = ref(null)
 const playerName = ref('')
 const showStartMenuSettings = ref(false)
