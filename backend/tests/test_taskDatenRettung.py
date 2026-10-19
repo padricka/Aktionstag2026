@@ -262,3 +262,59 @@ def test_jedes_wort_braucht_beide_tabellenhaelften():
 def test_jeder_binaerwert_braucht_die_oberen_stellenwerte():
     # Alle Werte liegen über 15, also reichen 8-4-2-1 allein nie aus.
     assert min(DataRescueTask.LETTER_CODES) > 15
+
+
+# ---------------------------------------------------------------- Gleichzeitig drücken
+def _gleichzeitig(*aufrufe):
+    """Startet alle Aufrufe in eigenen Threads und wartet; Rückgabe in Aufruf-Reihenfolge."""
+    import threading
+    ergebnisse = [None] * len(aufrufe)
+
+    def lauf(i, f):
+        ergebnisse[i] = f()
+
+    threads = [threading.Thread(target=lauf, args=(i, f)) for i, f in enumerate(aufrufe)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    return ergebnisse
+
+
+@pytest.fixture
+def langsame_pruefung(monkeypatch):
+    """Verbreitert das Fenster zwischen Lesen und Schreiben – wie echtes gleichzeitiges Drücken."""
+    import time
+    from backend.playableObject import DataRescueTask
+    original = DataRescueTask.handle_input.__func__
+
+    def langsam(cls, *args, **kwargs):
+        res = original(cls, *args, **kwargs)
+        time.sleep(0.05)
+        return res
+
+    monkeypatch.setattr(DataRescueTask, "handle_input", classmethod(langsam))
+
+
+def test_sync_button_gleichzeitig_gedrueckt_rettet(dc, langsame_pruefung):
+    """Vorher: der zweite Druck überschrieb den ersten, keiner galt als Partner → nie gelöst."""
+    st = _state(dc)
+    task_id = dc.current_task()["task_id"]
+    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
+    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
+
+    _gleichzeitig(
+        lambda: _press(dc, P1_NAME, "sync_button", "press"),
+        lambda: _press(dc, P2_NAME, "sync_button", "press"),
+    )
+
+    assert dc.current_task()["task_id"] != task_id
+    assert int(dc.redis.r.hget(dc.redis._k_state(GAME), "solved_count")) == 1
+
+
+def test_beide_antworten_gleichzeitig_schalten_beide_frei(dc, langsame_pruefung):
+    st = _state(dc)
+    _gleichzeitig(
+        lambda: _press(dc, P1_NAME, "ascii_answer", st["p1_word"]),
+        lambda: _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"])),
+    )
+    neu = _state(dc)
+    assert neu["p1_unlocked"] and neu["p2_unlocked"]

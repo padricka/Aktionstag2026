@@ -9,6 +9,9 @@ from .playableObject import TASK_TYPES, Outcome
 
 MAX_HEALTH = 300
 HEALTH_BONUS = 15
+
+# Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
+INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
 MISTAKE_DAMAGE = 60
 TOTAL_TASKS = 4
 
@@ -182,10 +185,15 @@ class DataCenter:
             return {"result": "error", "message": "DEV-Modus ist aus"}
         if self.status != "running":
             return {"result": "error", "message": "game not running"}
-        task = self.current_task()
-        if not task or self.redis.r.hdel(self._key, "task") != 1:
-            return {"result": "ignored"}
-        won = self._advance(task)
+        # Gleiche Sperre wie bei Eingaben: sonst schreibt eine gleichzeitige
+        # Eingabe den alten Aufgabenstand über die neue Aufgabe
+        with self.redis.lock(self._input_lock_name) as acquired:
+            if not acquired:
+                return dict(INPUT_BUSY)
+            task = self.current_task()
+            if not task or self.redis.r.hdel(self._key, "task") != 1:
+                return {"result": "ignored"}
+            won = self._advance(task)
         return {"result": "skipped", "won": won}
 
     def _advance(self, task: dict) -> bool:
@@ -261,6 +269,20 @@ class DataCenter:
             self.register_mistake()
             return {"result": "wrong", "health": self.health}
 
+        # Eingaben einer Sitzung nacheinander: Lesen → Prüfen → Schreiben des
+        # Aufgabenstands darf sich nicht überlappen, sonst überschreibt z. B. beim
+        # gleichzeitigen Sync-Knopf der zweite Druck den ersten.
+        with self.redis.lock(self._input_lock_name) as acquired:
+            if not acquired:
+                return dict(INPUT_BUSY)
+            return self._apply_input(player_name, data)
+
+    @property
+    def _input_lock_name(self) -> str:
+        return f"input:{self.game_id}"
+
+    def _apply_input(self, player_name: str, data: PlayerInput) -> dict:
+        """Eine Eingabe auf die aktuelle Aufgabe anwenden. Nur unter der Eingabe-Sperre aufrufen."""
         task = self.current_task()
         if task:
             task_cls = TASK_TYPES.get(task.get("kind"))

@@ -364,3 +364,48 @@ def test_tick_payload_fills_defaults():
     payload = tick_payload({"health": 5, "time_left": 7, "tasks": []})
     assert payload["max_health"] == 300
     assert payload["reboot_digits"] == [None, None, None]
+
+
+# ---------------------------------------------------------------- Eingaben nacheinander
+def test_input_lock_not_acquired_is_retry_error(button_game, monkeypatch):
+    """Kommt die Sperre nicht (z. B. Redis hängt), lieber 'nochmal' als Fortschritt verlieren."""
+    from contextlib import contextmanager
+
+    @contextmanager
+    def kein_lock(*a, **k):
+        yield False
+
+    monkeypatch.setattr(button_game.redis, "lock", kein_lock)
+    task = button_game.current_task()
+    res = _druecke(button_game, task["state"]["target"], task["state"]["value"])
+    assert res["result"] == "error"
+    assert "erneut" in res["message"]
+    assert button_game.current_task()["task_id"] == task["task_id"]   # nichts verändert
+
+
+def test_input_lock_is_per_game(button_game):
+    """Die Sperre gilt pro Sitzung – andere Spiele warten nicht mit."""
+    namen = []
+    original = button_game.redis.lock
+
+    def merken(name, *a, **k):
+        namen.append(name)
+        return original(name, *a, **k)
+
+    button_game.redis.lock = merken
+    task = button_game.current_task()
+    _druecke(button_game, task["state"]["target"], task["state"]["value"])
+    assert f"input:{GAME}" in namen
+
+
+def test_skip_task_lock_not_acquired_changes_nothing(dev_game, monkeypatch):
+    from contextlib import contextmanager
+
+    @contextmanager
+    def kein_lock(*a, **k):
+        yield False
+
+    monkeypatch.setattr(dev_game.redis, "lock", kein_lock)
+    vorher = dev_game.current_task()["task_id"]
+    assert dev_game.skip_task()["result"] == "error"
+    assert dev_game.current_task()["task_id"] == vorher
