@@ -34,13 +34,25 @@ const rebootStub = {
   `,
 }
 
-// Aufgabe 3: Antwort und Sync-Knopf melden beide über `solved`.
+// Aufgabe 3: Platte (Rückseite), Login und Wort (Vorderseite) melden über `solved`.
 const datenrettungStub = {
   name: 'Task3Stub',
   template: `
     <div class="task3-stub">
-      <button class="task3-answer" @click="$emit('solved', { player: 'P1', answer: 'FALSCH' })">answer</button>
-      <button class="task3-sync" @click="$emit('solved', { target: 'sync_button' })">sync</button>
+      <button class="task3-answer" @click="$emit('solved', { target: 'rescue_word', answer: 'FALSCH' })">answer</button>
+      <button class="task3-login" @click="$emit('solved', { target: 'terminal_login', answer: 'REHA' })">login</button>
+      <button class="task3-disk" @click="$emit('solved', { target: 'mount_disk', value: 'SN-4471' })">disk</button>
+    </div>
+  `,
+}
+
+// Aufgabe 2: Löschen (Vorderseite) und Vier-Augen-Freigabe (Leitstand, Rückseite).
+const loeschStub = {
+  name: 'Task2Stub',
+  template: `
+    <div class="task2-stub">
+      <button class="task2-loeschen" @click="$emit('solved', { valve: 'B-02', color: 'CO2' })">löschen</button>
+      <button class="task2-freigabe" @click="$emit('solved', { target: 'release' })">freigabe</button>
     </div>
   `,
 }
@@ -49,9 +61,9 @@ const stubs = {
   Task1P1: taskStub,
   Task1P2: taskStub,
   Task1Master: taskStub,
-  Task2P1: taskStub,
-  Task2P2: taskStub,
-  Task2Master: taskStub,
+  Task2P1: loeschStub,
+  Task2P2: loeschStub,
+  Task2Master: loeschStub,
   Task3P1: datenrettungStub,
   Task3P2: datenrettungStub,
   Task3Master: datenrettungStub,
@@ -285,101 +297,87 @@ describe('PlayerScreen.vue', () => {
     })
   })
 
-  it('sendet in Aufgabe 3 die ascii_answer der Vorderseite', async () => {
-    const wrapper = mount(PlayerScreen, {
-      props: { playerName: 'Patrick' },
-      global: { stubs },
-    })
+  async function inAufgabe3(rolle, type) {
+    const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
     await joinAs(wrapper)
-    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
+    simulateMessage({ event: 'role_assigned', payload: { role: rolle } })
     simulateMessage({
       event: 'game_tick',
-      payload: {
-        health: 240,
-        time_left: 180,
-        tasks: [{
-          view: {
-            type: 'ascii_puzzle',
-            ascii_codes: [83, 69, 82, 86, 69, 82],
-            ascii_half: { N: 78, Z: 90 },
-            button_unlocked: false,
-          },
-        }],
-      },
+      payload: { health: 240, time_left: 180, tasks: [{ kind: 'data_rescue', view: { type } }] },
     })
     await wrapper.vm.$nextTick()
+    return wrapper
+  }
 
+  it('sendet in Aufgabe 3 das Wort der Vorderseite als rescue_word', async () => {
+    const wrapper = await inAufgabe3('FI-SI', 'rescue_terminal')
     await wrapper.find('.task3-answer').trigger('click')
-
     expect(getSentEvents().at(-1)).toEqual({
       event: 'player_input',
-      payload: { action_type: 'text_input', target: 'ascii_answer', value: 'FALSCH' },
+      payload: { action_type: 'text_input', target: 'rescue_word', value: 'FALSCH' },
     })
   })
 
-  it('sendet in Aufgabe 3 die binary_answer der Rückseite', async () => {
-    const wrapper = mount(PlayerScreen, {
-      props: { playerName: 'Patrick' },
-      global: { stubs },
+  it('sendet in Aufgabe 3 den Login der Vorderseite als terminal_login', async () => {
+    const wrapper = await inAufgabe3('FI-SI', 'rescue_terminal')
+    await wrapper.find('.task3-login').trigger('click')
+    expect(getSentEvents().at(-1)).toEqual({
+      event: 'player_input',
+      payload: { action_type: 'text_input', target: 'terminal_login', value: 'REHA' },
     })
+  })
+
+  it('sendet in Aufgabe 3 die Platte der Rückseite als mount_disk', async () => {
+    const wrapper = await inAufgabe3('FI-AE', 'packet_dump')
+    await wrapper.find('.task3-disk').trigger('click')
+    expect(getSentEvents().at(-1)).toEqual({
+      event: 'player_input',
+      payload: { action_type: 'button_press', target: 'mount_disk', value: 'SN-4471' },
+    })
+  })
+
+  it.each([['MASTER', 'rescue_log', '.task3-answer'], ['MASTER', 'rescue_log', '.task3-disk'], ['FI-AE', 'packet_dump', '.task3-answer']])(
+    'in Aufgabe 3 sendet %s über %s/%s nichts',
+    async (rolle, type, knopf) => {
+      const wrapper = await inAufgabe3(rolle, type)
+      const vorher = getSentEvents().length
+      await wrapper.find(knopf).trigger('click')
+      expect(getSentEvents()).toHaveLength(vorher)
+    },
+  )
+
+  async function inAufgabe2(rolle, type) {
+    const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
     await joinAs(wrapper)
-    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-AE' } })
+    simulateMessage({ event: 'role_assigned', payload: { role: rolle } })
     simulateMessage({
       event: 'game_tick',
-      payload: {
-        health: 240,
-        time_left: 180,
-        tasks: [{
-          view: {
-            type: 'binary_puzzle',
-            binary_codes: ['01001000'],
-            place_values: [8, 4, 2, 1],
-            button_unlocked: false,
-          },
-        }],
-      },
+      payload: { health: 240, time_left: 180, tasks: [{ kind: 'fire_protocol', view: { type } }] },
     })
     await wrapper.vm.$nextTick()
+    return wrapper
+  }
 
-    await wrapper.find('.task3-answer').trigger('click')
-
+  it('sendet in Aufgabe 2 das Löschen der Vorderseite als valve_action RACK:MITTEL', async () => {
+    const wrapper = await inAufgabe2('FI-SI', 'valve_panel')
+    await wrapper.find('.task2-loeschen').trigger('click')
     expect(getSentEvents().at(-1)).toEqual({
       event: 'player_input',
-      payload: { action_type: 'text_input', target: 'binary_answer', value: 'FALSCH' },
+      payload: { action_type: 'button_press', target: 'valve_action', value: 'B-02:CO2' },
     })
   })
 
-  it('sendet den Sync-Knopf aus Aufgabe 3 als button_press', async () => {
-    const wrapper = mount(PlayerScreen, {
-      props: { playerName: 'Patrick' },
-      global: { stubs },
-    })
-    await joinAs(wrapper)
-    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
-    simulateMessage({
-      event: 'game_tick',
-      payload: {
-        health: 240,
-        time_left: 180,
-        tasks: [{
-          view: {
-            type: 'ascii_puzzle',
-            ascii_codes: [83, 69, 82, 86, 69, 82],
-            ascii_half: { N: 78, Z: 90 },
-            button_unlocked: true,
-          },
-        }],
-      },
-    })
-    await wrapper.vm.$nextTick()
-
-    await wrapper.find('.task3-sync').trigger('click')
-
-    expect(getSentEvents().at(-1)).toEqual({
-      event: 'player_input',
-      payload: { action_type: 'button_press', target: 'sync_button', value: 'press' },
-    })
-  })
+  it.each([['MASTER', 'fire_log'], ['FI-AE', 'rack_rear']])(
+    'sendet in Aufgabe 2 die Freigabe von %s als button_press release',
+    async (rolle, type) => {
+      const wrapper = await inAufgabe2(rolle, type)
+      await wrapper.find('.task2-freigabe').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({
+        event: 'player_input',
+        payload: { action_type: 'button_press', target: 'release', value: 'press' },
+      })
+    },
+  )
 
   it('zeigt das Finale auch der Vorderseite, ohne reboot_code zu senden', async () => {
     const wrapper = mount(PlayerScreen, {

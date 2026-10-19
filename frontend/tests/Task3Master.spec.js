@@ -1,77 +1,62 @@
 /**
- * Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "ascii_binary_tables").
- *
- * Der Leitstand hat keine Eingabe. Er zeigt seine Tabellenhälfte A–M, die
- * oberen Stellenwerte 128/64/32/16 und ob P1/P2 ihren Knopf freigeschaltet haben.
+ * Task3Master — Leitstand, view.type rescue_log (GAME_DESIGN Aufgabe 3).
+ * Log mit Login-Name (Hex), Backup-Jobs und Schlüsselbund, Teil 1/3 der Anleitung.
+ * Keine Eingabe – der Leitstand liest vor, rechnet um und entschlüsselt.
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Task3Master from '../src/components/tasks/task3/Task3Master.vue'
 
-const masterView = {
-  type: 'ascii_binary_tables',
-  ascii_half: { A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77 },
-  place_values: [128, 64, 32, 16],
-  p1_status: 'GESPERRT',
-  p2_status: 'GESPERRT',
+const view = {
+  type: 'rescue_log',
+  login_hex: ['0x52', '0x45', '0x48', '0x41'],
+  backups: [
+    { date: '03.04.', serial: 'SN-9083', status: 'OK' },
+    { date: '27.03.', serial: 'SN-4471', status: 'OK' },
+    { date: '07.04.', serial: 'SN-2210', status: 'FEHLER' },
+    { date: '22.03.', serial: 'SN-1356', status: 'OK' },
+  ],
+  keys: [
+    { id: 2, key: '0101', status: 'abgelaufen' },
+    { id: 6, key: '0111', status: 'REVOKED' },
+    { id: 6, key: '0011', status: 'aktiv' },
+    { id: 11, key: '1000', status: 'aktiv' },
+  ],
+  note: { id: 'rescue', title: 'Datenrettung', part: 1, of: 3, torn: ['right'], lines: [{ row: 3, style: 'rule', text: '④ Binär → Dezimal:' }] },
 }
 
-describe('Task3Master.vue (ascii_binary_tables)', () => {
-  it('zeigt die Tabelle A–M vollständig und sortiert', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const buchstaben = w.findAll('.cell-key').map((el) => el.text())
-    expect(buchstaben).toHaveLength(13)
-    expect(buchstaben[0]).toBe('A')
-    expect(buchstaben[12]).toBe('M')
-    expect(w.findAll('.cell-val').map((el) => el.text())[0]).toBe('65')
-    expect(w.findAll('.cell-val').map((el) => el.text()).at(-1)).toBe('77')
+describe('Task3Master.vue (rescue_log)', () => {
+  it('zeigt den Login-Namen nur als Hex-Codes', () => {
+    const w = mount(Task3Master, { props: { view } })
+    expect(w.findAll('.login-hex').map((h) => h.text())).toEqual(['0x52', '0x45', '0x48', '0x41'])
+    expect(w.text()).not.toContain('REHA')
   })
 
-  it('zeigt die oberen Stellenwerte 128/64/32/16 gross', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
+  it('listet die Backup-Jobs mit Datum, Platte und Status', () => {
+    const w = mount(Task3Master, { props: { view } })
+    const jobs = w.findAll('.backup-row')
+    expect(jobs).toHaveLength(4)
+    expect(jobs[2].text()).toContain('07.04.')
+    expect(jobs[2].text()).toContain('SN-2210')
+    expect(jobs[2].text()).toContain('FEHLER')
+    expect(jobs[2].classes()).toContain('is-bad')
+  })
 
-    expect(w.findAll('.place-value').map((el) => el.text())).toEqual(['128', '64', '32', '16'])
+  it('listet den Schlüsselbund mit Key-ID, Schlüssel (binär) und Status', () => {
+    const w = mount(Task3Master, { props: { view } })
+    const keys = w.findAll('.key-row')
+    expect(keys).toHaveLength(4)
+    expect(keys[1].text()).toContain('6')
+    expect(keys[1].text()).toContain('0111')
+    expect(keys[1].text()).toContain('REVOKED')
+    expect(w.find('.keyring').text()).not.toMatch(/k\s*=\s*\d/)
+  })
+
+  it('zeigt Teil 1 der Anleitung, hat keine Eingabe und heißt Leitstand', () => {
+    const w = mount(Task3Master, { props: { view } })
+    expect(w.find('.tn').attributes('aria-label')).toBe('Teil 1 von 3: Datenrettung')
+    expect(w.find('input').exists()).toBe(false)
+    expect(w.find('button').exists()).toBe(false)
     expect(w.find('.role').text()).toBe('Leitstand')
-  })
-
-  it('zeigt den Status beider Seiten', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const zeilen = w.findAll('.status-row').map((el) => el.text())
-    expect(zeilen[0]).toContain('Vorderseite')
-    expect(zeilen[0]).toContain('GESPERRT')
-    expect(zeilen[1]).toContain('Rückseite')
-    expect(w.find('.status-hint').exists()).toBe(false)
-  })
-
-  it('meldet, wenn beide Knöpfe frei sind', () => {
-    const w = mount(Task3Master, {
-      props: { view: { ...masterView, p1_status: 'FREIGESCHALTET', p2_status: 'FREIGESCHALTET' } },
-    })
-
-    expect(w.findAll('.status-value').map((el) => el.text())).toEqual([
-      'FREIGESCHALTET',
-      'FREIGESCHALTET',
-    ])
-    expect(w.find('.status-hint').text()).toMatch(/3 Sekunden/)
-  })
-
-  it('erklärt, dass die Tabellenhälfte sein Beitrag fürs Team ist', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const hint = w.find('.hint').text()
-    expect(hint).toContain('Vorderseite')
-    expect(hint).toContain('Rückseite')
-    expect(hint).toContain('N–Z')
-  })
-
-  it('ordnet die oberen Stellenwerte den ersten vier Spalten der Rückseite zu', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const spalten = w.findAll('.bits-head .bit-cell').map((el) => el.text())
-    expect(spalten).toEqual(['128', '64', '32', '16', '·', '·', '·', '·'])
-    expect(w.find('.bits-note').text()).toMatch(/ersten vier Spalten/)
-    expect(w.find('.bits-note').text()).toMatch(/Rückseite/)
   })
 })

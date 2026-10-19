@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 import random
 
+from . import notes
+
 ROLE_M = "MASTER"
 ROLE_P1 = "FI-SI"
 ROLE_P2 = "FI-AE"
@@ -90,19 +92,28 @@ class AlarmTask(PlayableObject):
     # Pool für den Shutdown-Code. Wird bei jedem Task neu gemischt.
     CODE_POOL = ['dreieck-runter', 'kreuz', 'dreieck-runter-voll', 'stern']
     # Ablenker auf der Tastatur des Leitstands. Die Tastatur wird pro Aufgabe gemischt,
-    # sonst stünden die echten Code-Symbole immer vorne.
-    KEYBOARD_DECOYS = ['dreieck-voll', 'plus', 'sechseck', 'herz', 'blitz', 'fuenfeck', 'pfeil', 'ring']
+    # sonst stünden die echten Code-Symbole immer vorne. Die Kabel-Symbole gehören
+    # dazu, weil Regel ③ eins davon in den Code setzen kann.
+    KEYBOARD_DECOYS = ['dreieck-voll', 'herz', 'sechseck', 'blitz']
     # Aufkleber-Farben. Ihre Reihenfolge (nur der Leitstand kennt sie) ordnet den Code.
     STICKER_COLORS = ["ROT", "GELB", "GRÜN", "BLAU"]
+    # Wie oft die LED blinkt bzw. ein Aufkleber zerkratzt ist (jede Runde neu gewürfelt)
+    BLINK_CHANCE = 0.5
+    SCRATCH_CHANCE = 0.6
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 1):
-    #   Leitstand  sieht, WELCHER Steckplatz brennt, und die Farb-Reihenfolge -> tippt den Code
-    #   Vorderseite sieht die Schalter (Symbole in Steckplatz-Reihenfolge)    -> drückt den Schalter
-    #   Rückseite  sieht die Code-Symbole auf farbigen Aufklebern, gemischt   -> keine Eingabe
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 1) + zerrissene Wartungsnotiz:
+    #   Leitstand  sieht WELCHER Steckplatz brennt, ob die LED blinkt, die Farbfolge -> Code
+    #   Vorderseite sieht die Kabel (Symbole in Steckplatz-Reihenfolge)           -> kappt eins
+    #   Rückseite  sieht die Code-Symbole auf farbigen Aufklebern, evtl. zerkratzt
+    # Regeln auf der Notiz (notes.ALARM_NOTE):
+    #   ① nie das Kabel am Brandplatz: gerade Nummer → links daneben, ungerade → rechts
+    #   ② Code = Farbfolge; blinkt die LED → rückwärts
+    #   ③ zerkratzter Aufkleber → dort gilt das Symbol vom Kabel am Brandplatz
     @classmethod
     def create(cls, players):
         slot = random.randrange(len(cls.COMPONENTS))
         broken = cls.COMPONENTS[slot]
+        target = cls.COMPONENTS[cls._cut_index(slot)]
 
         code = list(cls.CODE_POOL)
         random.shuffle(code)
@@ -112,20 +123,39 @@ class AlarmTask(PlayableObject):
         stickers = [{"symbol": s, "color": c} for s, c in zip(code, color_order)]
         # ... die Rückseite sieht die Aufkleber aber gemischt.
         random.shuffle(stickers)
-        keyboard = cls.CODE_POOL + cls.KEYBOARD_DECOYS
+        keyboard = cls.CODE_POOL + [c["symbol"] for c in cls.COMPONENTS] + cls.KEYBOARD_DECOYS
         random.shuffle(keyboard)
+
+        led = "blinkt" if random.random() < cls.BLINK_CHANCE else "leuchtet"
+        scratched = random.choice(color_order) if random.random() < cls.SCRATCH_CHANCE else None
+
+        # Lösung nach den Regeln der Notiz
+        order = list(reversed(color_order)) if led == "blinkt" else list(color_order)
+        by_color = {s["color"]: s["symbol"] for s in stickers}
+        solution = [broken["symbol"] if c == scratched else by_color[c] for c in order]
 
         return {
             "keyboard": keyboard,
             "burning_slot": slot + 1,
             "broken_id": broken["id"],
             "broken_symbol": broken["symbol"],
+            "target_id": target["id"],
+            "target_symbol": target["symbol"],
+            "led": led,
+            "scratched": scratched,
             "code": code,
+            "solution": solution,
             "color_order": color_order,
             "stickers": stickers,
             "switch_ok": False,
             "cmd_ok": False,
         }
+
+    @staticmethod
+    def _cut_index(slot):
+        """Regel ①: Steckplatz-Nummer = slot + 1; gerade → links daneben, ungerade → rechts."""
+        nummer = slot + 1
+        return nummer - 2 if nummer % 2 == 0 else nummer
 
     @classmethod
     def views(cls, state):
@@ -135,17 +165,26 @@ class AlarmTask(PlayableObject):
                 "slots": len(cls.COMPONENTS),
                 "burning_slot": state["burning_slot"],
                 "color_order": state["color_order"],
-                "keyboard": state.get("keyboard") or cls.CODE_POOL + cls.KEYBOARD_DECOYS,
+                "led": state["led"],
+                "keyboard": state["keyboard"],
                 "p_done": state["cmd_ok"],
+                "note": notes.piece(notes.ALARM_NOTE, ROLE_M),
             },
             ROLE_P1: {
                 "type": "main_switches",
                 "switches": [c["symbol"] for c in cls.COMPONENTS],
                 "p_done": state["switch_ok"],
+                "note": notes.piece(notes.ALARM_NOTE, ROLE_P1),
             },
             ROLE_P2: {
                 "type": "code_stickers",
-                "stickers": state["stickers"],
+                # zerkratzt: Farbe noch erkennbar, das Symbol nicht mehr
+                "stickers": [
+                    {"symbol": None, "color": s["color"], "scratched": True}
+                    if s["color"] == state["scratched"] else s
+                    for s in state["stickers"]
+                ],
+                "note": notes.piece(notes.ALARM_NOTE, ROLE_P2),
             },
         }
 
@@ -154,12 +193,12 @@ class AlarmTask(PlayableObject):
         value = str(data.value).strip().lower()
 
         if data.target == "main_switch" and role == ROLE_P1:
-            if value not in (state["broken_symbol"].lower(), state["broken_id"].lower()):
+            if value not in (state["target_symbol"].lower(), state["target_id"].lower()):
                 return StepResult(Outcome.WRONG, state)
             state["switch_ok"] = True
 
         elif data.target == "shutdown_cmd" and role == ROLE_M:
-            expected = ",".join(state["code"]).lower()
+            expected = ",".join(state["solution"]).lower()
             if value.replace(" ", "") != expected:
                 return StepResult(Outcome.WRONG, state)
             state["cmd_ok"] = True
@@ -176,114 +215,144 @@ class FireProtocolTask(PlayableObject):
     kind = "fire_protocol"
     instruction = "Löschprotokoll ausführen!"
 
-    VALVES = ["V-31", "V-32", "V-33"]
-    COLORS = ["ORANGE", "RED", "GREEN"]
-    FRAGMENT_POOL = ["DRV", "AK26", "SYS", "BOX", "SEC", "FIRE"]
+    RACKS = ["A-01", "A-02", "B-01", "B-02"]
+    AGENTS = ["WASSER", "SCHAUM", "CO2", "INERTGAS", "ABSCHOTTEN"]
+    # Brandgut → Anzeige auf der Rückseite und Löschmittel laut Löschplan ①
+    MATERIALS = {
+        "PAPIER": {"label": "Papierarchiv", "agent": "WASSER"},
+        "KABEL": {"label": "Kabelbaum", "agent": "SCHAUM"},
+        "SERVER": {"label": "Server", "agent": "INERTGAS"},
+        "AKKU": {"label": "USV-Akku (Lithium)", "agent": "ABSCHOTTEN"},
+    }
+    AKKU_CHANCE = 0.5
+    RM_OFFSET = 120          # Rauchmelder zeigen Ortszeit = UTC + 2 h (Löschplan ③)
+    RELEASE_WINDOW = 3       # Sekunden für die Vier-Augen-Freigabe (Löschplan ④)
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 2):
-    #   Jede Rolle kennt genau EINEN Schritt der Sequenz -> nur gemeinsam kann die
-    #   Vorderseite fluten. Passwort-Fragmente tragen 1–3 Punkte, sortiert ergeben sie
-    #   das Passwort. Fragment 0 = Leitstand, 1 = Rückseite, 2 = erst nach dem Fluten.
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 2): Log nur am Leitstand,
+    # Strom nur vorne, Brandgut nur hinten; die Regeln stehen auf dem Löschplan
+    # jeweils bei dem, der die Fakten dazu NICHT sieht.
     @classmethod
     def create(cls, players):
-        sequence = [
-            {"valve": random.choice(cls.VALVES), "color": random.choice(cls.COLORS)}
-            for _ in range(FIRE_SEQUENCE_LEN)
-        ]
+        fires = random.sample(cls.RACKS, FIRE_SEQUENCE_LEN)      # in Reihenfolge der Meldung
+        spare = next(r for r in cls.RACKS if r not in fires)
 
-        steps = list(range(FIRE_SEQUENCE_LEN))
-        random.shuffle(steps)
-        clue_steps = {ROLE_M: steps[0], ROLE_P1: steps[1], ROLE_P2: steps[2]}
+        power = {r: random.random() < 0.5 for r in cls.RACKS}
+        material = {spare: random.choice(list(cls.MATERIALS))}
+        # Strom-Regel kommt immer vor: ein Brand mit Papier/Kabel unter Strom
+        akku, override, *rest = random.sample(fires, len(fires))
+        material[override] = random.choice(["PAPIER", "KABEL"])
+        power[override] = True
+        material[akku] = "AKKU" if random.random() < cls.AKKU_CHANCE else random.choice(["PAPIER", "KABEL", "SERVER"])
+        for r in rest:
+            material[r] = random.choice(["PAPIER", "KABEL", "SERVER"])
 
-        dots = [1, 2, 3]
-        random.shuffle(dots)
-        texts = random.sample(cls.FRAGMENT_POOL, 3)
-        fragments = [{"dots": d, "text": t} for d, t in zip(dots, texts)]
+        sequence = [{"rack": r, "agent": cls._agent(material[r], power[r])} for r in fires]
 
         return {
+            "racks": [{"rack": r, "power": power[r], "material": material[r]} for r in cls.RACKS],
+            "log": cls._log(fires, spare),
             "sequence": sequence,
             "step": 0,
-            "clue_steps": clue_steps,
-            "fragments": fragments,
             "p1_done": False,
-            "p2_done": False,
+            "release": {},
         }
 
     @classmethod
-    def _clue(cls, state, role):
-        idx = state["clue_steps"][role]
-        step = state["sequence"][idx]
-        return {"step": idx + 1, "valve": step["valve"], "color": step["color"]}
+    def _agent(cls, material, power):
+        agent = cls.MATERIALS[material]["agent"]
+        if power and agent in ("WASSER", "SCHAUM"):
+            return "CO2"
+        return agent
+
+    @classmethod
+    def _log(cls, fires, spare):
+        """Brandmelde-Log: echte Meldungen + ein Probealarm, sortiert nach ANGEZEIGTER
+        Uhrzeit – wer die Zeitzonen (③) nicht beachtet, liest die falsche Reihenfolge."""
+        start = random.randint(7 * 60, 20 * 60)
+        utc = [start]
+        for _ in fires[1:]:
+            utc.append(utc[-1] + random.randint(3, 12))
+
+        while True:
+            sources = [random.choice(["BMZ", "RM"]) for _ in fires]
+            shown = [t + (cls.RM_OFFSET if s == "RM" else 0) for t, s in zip(utc, sources)]
+            if sorted(range(len(fires)), key=lambda i: shown[i]) != list(range(len(fires))):
+                break
+
+        entries = [
+            {"minutes": m, "source": s, "rack": r, "test": False}
+            for m, s, r in zip(shown, sources, fires)
+        ]
+        test_source = random.choice(["BMZ", "RM"])
+        test_rack = random.choice([spare, *fires])
+        test_utc = random.randint(start - 15, utc[-1] + 15)
+        entries.append({
+            "minutes": test_utc + (cls.RM_OFFSET if test_source == "RM" else 0),
+            "source": test_source, "rack": test_rack, "test": True,
+        })
+        entries.sort(key=lambda e: e["minutes"])
+        return [
+            {"time": f"{e['minutes'] // 60:02d}:{e['minutes'] % 60:02d}",
+             "source": e["source"], "rack": e["rack"], "test": e["test"]}
+            for e in entries
+        ]
 
     @classmethod
     def views(cls, state):
-        frags = state["fragments"]
-        last = frags[2] if state["p1_done"] else None
-
+        release = {"armed": state["p1_done"], "window": cls.RELEASE_WINDOW}
         return {
             ROLE_M: {
                 "type": "fire_log",
-                "clue": cls._clue(state, ROLE_M),
-                "fragment": frags[0],
+                "log": state["log"],
+                "release": release,
+                "note": notes.piece(notes.FIRE_NOTE, ROLE_M),
             },
             ROLE_P1: {
                 "type": "valve_panel",
-                "valves": cls.VALVES,
-                "colors": cls.COLORS,
+                "racks": cls.RACKS,
+                "agents": cls.AGENTS,
+                "power": {r["rack"]: r["power"] for r in state["racks"]},
                 "sequence_len": len(state["sequence"]),
                 "step": state["step"],
-                "clue": cls._clue(state, ROLE_P1),
-                "last_fragment": last,
                 "p_done": state["p1_done"],
+                "note": notes.piece(notes.FIRE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
-                "type": "password_input",
-                "clue": cls._clue(state, ROLE_P2),
-                "fragment": frags[1],
-                "last_fragment": last,
-                "p_done": state["p2_done"],
+                "type": "rack_rear",
+                "rear": [
+                    {"rack": r["rack"], "material": r["material"],
+                     "label": cls.MATERIALS[r["material"]]["label"]}
+                    for r in state["racks"]
+                ],
+                "release": release,
+                "note": notes.piece(notes.FIRE_NOTE, ROLE_P2),
             },
         }
 
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):
-        value = str(data.value).strip().upper()
-
         if data.target == "valve_action" and role == ROLE_P1:
             if state["p1_done"]:
                 return StepResult(Outcome.IGNORED, state)
-            step = state["step"]
-            if step >= len(state["sequence"]):
-                return StepResult(Outcome.IGNORED, state)
-
-            if ":" not in value:
+            rack, _, agent = str(data.value).strip().upper().partition(":")
+            expected = state["sequence"][state["step"]]
+            if rack != expected["rack"] or agent != expected["agent"]:
                 return StepResult(Outcome.WRONG, state)
-            valve_in, color_in = value.split(":", 1)
-            valve_map = {"ALPHA": "V-31", "BETA": "V-32", "GAMMA": "V-33"}
-            valve_norm = valve_map.get(valve_in, valve_in)
-
-            current = state["sequence"][step]
-            if valve_norm != current["valve"].upper() or color_in != current["color"].upper():
-                return StepResult(Outcome.WRONG, state)
-
-            state["step"] = step + 1
+            state["step"] += 1
             if state["step"] >= len(state["sequence"]):
                 state["p1_done"] = True
             return StepResult(Outcome.PROGRESS, state)
 
-        if data.target == "release_pw" and role == ROLE_P2:
+        if data.target == "release" and role in (ROLE_M, ROLE_P2):
             if not state["p1_done"]:
                 return StepResult(Outcome.IGNORED, state)
-
-            ordered = sorted(state["fragments"], key=lambda f: f["dots"])
-            expected = "".join(f["text"] for f in ordered).upper()
-
-            clean_in = value.replace("-", "").replace(" ", "").upper()
-            if clean_in != expected:
-                return StepResult(Outcome.WRONG, state)
-
-            state["p2_done"] = True
-            return StepResult(Outcome.SOLVED, state)
+            other = ROLE_P2 if role == ROLE_M else ROLE_M
+            pressed = state["release"].get(other)
+            if pressed is not None and now - pressed <= cls.RELEASE_WINDOW:
+                return StepResult(Outcome.SOLVED, state)
+            # zu spät oder als Erster: dieser Druck wartet auf den anderen
+            state["release"] = {role: now}
+            return StepResult(Outcome.PROGRESS, state)
 
         return StepResult(Outcome.IGNORED, state)
 
@@ -293,65 +362,111 @@ class DataRescueTask(PlayableObject):
     kind = "data_rescue"
     instruction = "Daten retten!"
 
-    WORDS = ["SERVER", "BACKUP", "DATEN", "RETTEN", "SICHERN", "CLOUD"]
-    # Binärwerte-Pool für die Rückseite: Einsen vorne (Leitstand: 128/64/32/16)
-    # UND hinten (Rückseite: 8/4/2/1), damit beide gebraucht werden. Werte wie
-    # 101 oder 110 fallen raus – die sähen selbst wie Binärzahlen aus.
-    # (Früher nur Buchstaben 65–90: immer 010xxxxx, 128 und 32 kamen nie vor.)
-    BINARY_VALUES = [
-        v for v in range(17, 256)
-        if v & 0b11110000 and v & 0b00001111 and set(str(v)) - {"0", "1"}
-    ]
+    WORD = "RENTE"
+    LOGINS = ["REHA", "BUND", "DRV"]     # Rentenversicherung, kurz – Hex soll machbar bleiben
+    PACKETS = len(WORD) + 1              # ein beschädigtes Paket dazu
+    DISKS = 4
+    ASCII_TABLE = {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
 
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3) – das Wort als Kette:
+    #   RENTE → Caesar um k VOR → ASCII-Code → Prüfbit + 7 Bit (gerade Anzahl Einsen)
+    #   Leitstand: Log (Login in Hex, Backup-Jobs, Schlüsselbund)
+    #   Vorderseite: ASCII-Tabelle, Terminal (erst Login, dann das Wort)
+    #   Rückseite: Backup-Platten, nach dem Einlegen Pakete + Key-ID im Paket-Kopf
+    #   Die Regeln dazu (notes.RESCUE_NOTE) stehen jeweils bei einem anderen.
     @classmethod
     def create(cls, players):
-        word = random.choice(cls.WORDS)
-        p1_codes = [ord(c) for c in word]
-
-        # Zwei unterschiedliche Werte zufällig ziehen
-        p2_values = random.sample(cls.BINARY_VALUES, 2)
-        p2_binary = [format(v, "08b") for v in p2_values]
-
+        login = random.choice(cls.LOGINS)
+        keys, key_id, k = cls._keyring()
+        cipher = "".join(chr((ord(c) - ord("A") + k) % 26 + ord("A")) for c in cls.WORD)
+        packets = [cls._packet(ord(c), healthy=True) for c in cipher]
+        corrupt = random.randrange(cls.PACKETS)
+        packets.insert(corrupt, cls._packet(random.choice(list(cls.ASCII_TABLE.values())), healthy=False))
+        backups, serial = cls._backups()
         return {
-            "p1_word": word,
-            "p1_codes": p1_codes,
-            "p2_values": p2_values,
-            "p2_binary": p2_binary,
-            "p1_unlocked": False,
-            "p2_unlocked": False,
+            "word": cls.WORD,
+            "login": login,
+            "keys": keys,
+            "key_id": key_id,
+            "k": k,
+            "cipher": cipher,
+            "packets": packets,
+            "corrupt": corrupt,
+            "backups": backups,
+            "serial": serial,
+            "disks": random.sample([b["serial"] for b in backups], cls.DISKS),
+            "mounted": False,
+            "logged_in": False,
         }
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3):
-    #   Leitstand   hat die ASCII-Tabelle A–M und die oberen Bit-Stellenwerte
-    #   Vorderseite hat die ASCII-Codes des Worts und die Tabelle N–Z
-    #   Rückseite   hat die Binärzahlen und die unteren Bit-Stellenwerte
-    # -> beide brauchen den Leitstand, um ihren Knopf freizuschalten.
-    ASCII_HALF_MASTER = {chr(c): c for c in range(ord("A"), ord("M") + 1)}
-    ASCII_HALF_P1 = {chr(c): c for c in range(ord("N"), ord("Z") + 1)}
-    PLACE_VALUES_MASTER = [128, 64, 32, 16]
-    PLACE_VALUES_P2 = [8, 4, 2, 1]
+    @staticmethod
+    def _packet(code, healthy):
+        """Prüfbit vorne + 7 Bit ASCII; heil = gerade Anzahl Einsen insgesamt."""
+        bits = format(code, "07b")
+        parity = bits.count("1") % 2
+        return f"{parity if healthy else 1 - parity}{bits}"
+
+    @staticmethod
+    def _keyring():
+        """Schlüsselbund: der richtige (aktiv), sein REVOKED-Zwilling mit gleicher ID,
+        ein anderer aktiver und ein abgelaufener. Schlüssel 1–9, alle verschieden."""
+        key_id, other_id, old_id = random.sample(range(1, 16), 3)
+        k, twin, other, old = random.sample(range(1, 10), 4)
+        keys = [
+            {"id": key_id, "key": format(k, "04b"), "status": "aktiv"},
+            {"id": key_id, "key": format(twin, "04b"), "status": "REVOKED"},
+            {"id": other_id, "key": format(other, "04b"), "status": "aktiv"},
+            {"id": old_id, "key": format(old, "04b"), "status": "abgelaufen"},
+        ]
+        random.shuffle(keys)
+        keys.sort(key=lambda s: s["id"])
+        return keys, key_id, k
+
+    @classmethod
+    def _backups(cls):
+        """Vier Backup-Jobs über einen Monatswechsel: zwei Ende Monat m, zwei Anfang m+1.
+        Das allerneueste ist FEHLER, das richtige das zweitneueste. Als Text verglichen
+        („28.03.“ > „03.04.“) sieht ein altes Backup neuer aus – die Falle zu ①."""
+        month = random.randint(1, 11)
+        early = sorted(random.sample(range(20, 29), 2))
+        late = sorted(random.sample(range(1, 10), 2))
+        dates = [(month, d) for d in early] + [(month + 1, d) for d in late]
+        serials = random.sample(range(1000, 10000), cls.DISKS)
+        status = ["OK", "OK", "OK", "FEHLER"]                  # chronologisch, neuestes kaputt
+        backups = [
+            {"date": f"{d:02d}.{m:02d}.", "serial": f"SN-{s}", "status": st}
+            for (m, d), s, st in zip(dates, serials, status)
+        ]
+        serial = backups[2]["serial"]
+        random.shuffle(backups)
+        return backups, serial
 
     @classmethod
     def views(cls, state):
+        mounted = state["mounted"]
         return {
             ROLE_M: {
-                "type": "ascii_binary_tables",
-                "ascii_half": cls.ASCII_HALF_MASTER,
-                "place_values": cls.PLACE_VALUES_MASTER,
-                "p1_status": "FREIGESCHALTET" if state["p1_unlocked"] else "GESPERRT",
-                "p2_status": "FREIGESCHALTET" if state["p2_unlocked"] else "GESPERRT",
+                "type": "rescue_log",
+                "login_hex": [f"0x{ord(c):02X}" for c in state["login"]],
+                "backups": state["backups"],
+                "keys": state["keys"],
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_M),
             },
             ROLE_P1: {
-                "type": "ascii_puzzle",
-                "ascii_codes": state["p1_codes"],
-                "ascii_half": cls.ASCII_HALF_P1,
-                "button_unlocked": state["p1_unlocked"],
+                "type": "rescue_terminal",
+                "ascii_table": cls.ASCII_TABLE,
+                "login_len": len(state["login"]),
+                "logged_in": state["logged_in"],
+                "word_len": len(state["word"]),
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
-                "type": "binary_puzzle",
-                "binary_codes": state["p2_binary"],
-                "place_values": cls.PLACE_VALUES_P2,
-                "button_unlocked": state["p2_unlocked"],
+                "type": "packet_dump",
+                "disks": state["disks"],
+                "mounted": mounted,
+                "key_id": format(state["key_id"], "04b") if mounted else None,
+                "packets": state["packets"] if mounted else None,
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_P2),
             },
         }
 
@@ -359,39 +474,28 @@ class DataRescueTask(PlayableObject):
     def handle_input(cls, state, player_name, role, data, now):
         value = str(data.value).strip().upper()
 
-        if data.target == "ascii_answer" and role == ROLE_P1:
-            if value != state["p1_word"]:
-                return StepResult(Outcome.WRONG, state)
-            state["p1_unlocked"] = True
-            return StepResult(Outcome.PROGRESS, state)
-
-        if data.target == "binary_answer" and role == ROLE_P2:
-            versuch = " ".join(value.split())
-            ziel = " ".join(str(v) for v in state["p2_values"])
-            if versuch != ziel:
-                return StepResult(Outcome.WRONG, state)
-            state["p2_unlocked"] = True
-            return StepResult(Outcome.PROGRESS, state)
-
-        if data.target == "sync_button":
-            if role == ROLE_M:
+        if data.target == "mount_disk" and role == ROLE_P2:
+            if state["mounted"]:
                 return StepResult(Outcome.IGNORED, state)
-            if not (state.get("p1_unlocked") and state.get("p2_unlocked")):
-                return StepResult(Outcome.IGNORED, state)
-
-            if role == ROLE_P1:
-                state["sync_p1_time"] = now
-            elif role == ROLE_P2:
-                state["sync_p2_time"] = now
-
-            t1 = state.get("sync_p1_time")
-            t2 = state.get("sync_p2_time")
-
-            if t1 is not None and t2 is not None:
-                if abs(t1 - t2) <= 3:
-                    return StepResult(Outcome.SOLVED, state)
-
+            if value != state["serial"]:
+                return StepResult(Outcome.WRONG, state)
+            state["mounted"] = True
             return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "terminal_login" and role == ROLE_P1:
+            if state["logged_in"] or not value:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["login"]:
+                return StepResult(Outcome.WRONG, state)
+            state["logged_in"] = True
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "rescue_word" and role == ROLE_P1:
+            if not state["logged_in"] or not value:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["word"]:
+                return StepResult(Outcome.WRONG, state)
+            return StepResult(Outcome.SOLVED, state)
 
         return StepResult(Outcome.IGNORED, state)
 

@@ -125,3 +125,12 @@ describe('Task1P1.vue (main_switches) — Kabelpanel', () => {
     expect(wrapper.find('.role').text()).toBe('Vorderseite')
   })
 })
+
+describe('Task1P1.vue — Zettel', () => {
+  it('zeigt das eigene Stück der Wartungsnotiz neben dem Kabelpanel', () => {
+    const note = { id: 'alarm', title: 'Wartungsnotiz', torn: ['left', 'bottom'], lines: [{ row: 3, style: 'rule', text: 'NIE sein eigenes Kabel kappen!' }] }
+    const wrapper = mountTask({ view: { type: 'main_switches', switches: WIRES, p_done: false, note } })
+    expect(wrapper.find('.tn').text()).toContain('NIE sein eigenes Kabel kappen!')
+    expect(wrapper.find('.wp').exists()).toBe(true)
+  })
+})

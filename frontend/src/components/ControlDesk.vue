@@ -31,11 +31,11 @@
       <div class="cd__body">
         <!-- ---------------------------------------------------------- Drehregler -->
         <div class="cd__unit">
-          <span class="cd__unit-label">VENTIL</span>
+          <span class="cd__unit-label">{{ valveLabel.toUpperCase() }}</span>
           <div
             class="cd__dial"
             role="slider"
-            aria-label="Ventil"
+            :aria-label="valveLabel"
             tabindex="0"
             aria-valuemin="0"
             :aria-valuemax="Math.max(0, valves.length - 1)"
@@ -65,11 +65,11 @@
 
         <!-- ------------------------------------------------------- Schieberegler -->
         <div class="cd__unit">
-          <span class="cd__unit-label">FARBE</span>
+          <span class="cd__unit-label">{{ colorLabel.toUpperCase() }}</span>
           <div
             class="cd__slider"
             role="slider"
-            aria-label="Farbe"
+            :aria-label="colorLabel"
             tabindex="0"
             aria-valuemin="0"
             :aria-valuemax="Math.max(0, colors.length - 1)"
@@ -153,6 +153,9 @@ const props = defineProps({
   colors: { type: Array, required: true },
   step: { type: Number, default: 0 },
   sequenceLen: { type: Number, default: 3 },
+  // Beschriftung der Regler (Aufgabe 2: "Rack" / "Löschmittel")
+  valveLabel: { type: String, default: 'Ventil' },
+  colorLabel: { type: String, default: 'Farbe' },
   state: {
     type: String,
     default: 'idle',
@@ -176,6 +179,12 @@ const COLOR_HEX = {
   BLUE: '#4a7dff',
   VIOLETT: '#8e5cf0',
   PURPLE: '#8e5cf0',
+  // Löschmittel (Aufgabe 2)
+  WASSER: '#4a9dff',
+  SCHAUM: '#efe6c8',
+  CO2: '#a8b2c0',
+  INERTGAS: '#00d4a0',
+  ABSCHOTTEN: '#ff3a4d',
 }
 
 const valveIdx = ref(0)

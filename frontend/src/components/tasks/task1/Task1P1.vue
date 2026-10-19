@@ -6,7 +6,8 @@
     </header>
 
     <p class="hint">
-      Frag den Leitstand, welcher Steckplatz brennt – kapp das Kabel mit diesem Symbol.
+      Welches Kabel du kappst, sagt Regel ① auf deinem Teil der Wartungsnotiz. Welcher
+      Steckplatz brennt, sieht nur der Leitstand – frag nach. Die Rückseite braucht danach dein Symbol.
     </p>
 
     <div class="body">
@@ -16,6 +17,10 @@
         :state="panelState"
         @cut="kappen"
       />
+      <aside v-if="view?.note" class="note-col">
+        <span class="note-label">Dein Teil der Wartungsnotiz</span>
+        <TornNote :note="view.note" :seed="noteSeed" />
+      </aside>
     </div>
 
     <p v-if="serverError && panelState === 'error'" class="msg-err">{{ serverError }}</p>
@@ -25,12 +30,14 @@
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
 import WirePanel from '../../WirePanel.vue'
+import TornNote from '../../TornNote.vue'
 
 const props = defineProps({
   symbole: { type: Array, default: () => ['raute', 'dreieck', 'quadrat', 'kreis'] },
   view: { type: Object, default: null },
   serverError: { type: String, default: '' },
   timeLeft: { type: Number, default: null },
+  noteSeed: { type: String, default: '' },
 })
 const emit = defineEmits(['solved', 'failed'])
 
@@ -137,10 +144,27 @@ function kappen({ symbol }) {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  gap: 28px;
   padding: 8px 0;
   overflow: auto;
+}
+
+.note-col {
+  flex: 0 1 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-label {
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
 .msg-err {

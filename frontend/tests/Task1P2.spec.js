@@ -52,3 +52,35 @@ describe('Task1P2.vue (code_stickers)', () => {
     expect(wrapper.find('.role').text()).toBe('Rückseite')
   })
 })
+
+describe('Task1P2.vue — zerkratzter Aufkleber und Zettel', () => {
+  const mitKratzer = [
+    { symbol: 'stern', color: 'ROT' },
+    { symbol: null, color: 'GELB', scratched: true },
+    { symbol: 'dreieck-runter', color: 'BLAU' },
+    { symbol: 'kreuz', color: 'GRÜN' },
+  ]
+  const note = { id: 'alarm', title: 'Wartungsnotiz', torn: ['top'], lines: [{ row: 12, style: 'rule', text: '③ Ein Aufkleber zerkratzt? Dann gilt dort' }] }
+
+  it('zeigt den zerkratzten Aufkleber mit Farbe, aber ohne Symbol', () => {
+    const wrapper = mount(Task1P2, {
+      props: { view: { type: 'code_stickers', stickers: mitKratzer, note } },
+      global: { stubs },
+    })
+    const kratzer = wrapper.find('.sticker.is-scratched')
+    expect(kratzer.exists()).toBe(true)
+    expect(kratzer.text()).toContain('GELB')
+    expect(kratzer.text()).toContain('zerkratzt')
+    expect(kratzer.find('.sym').exists()).toBe(false)
+    expect(wrapper.findAll('.sym')).toHaveLength(3)
+  })
+
+  it('zeigt das eigene Stück der Wartungsnotiz', () => {
+    const wrapper = mount(Task1P2, {
+      props: { view: { type: 'code_stickers', stickers: mitKratzer, note } },
+      global: { stubs },
+    })
+    expect(wrapper.find('.tn').exists()).toBe(true)
+    expect(wrapper.find('.tn').text()).toContain('③ Ein Aufkleber zerkratzt?')
+  })
+})

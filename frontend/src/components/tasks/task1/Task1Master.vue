@@ -6,13 +6,13 @@
     </header>
 
     <p class="hint">
-      Welcher Steckplatz blinkt? Sag der Vorderseite die Position.
-      Ordne die Aufkleber der Rückseite nach der Wartungsnotiz und tippe den Shutdown-Code.
+      Sag den anderen, welcher Steckplatz brennt. Wie der Code entsteht, sagt Regel ② auf deinem
+      Teil der Wartungsnotiz – die Aufkleber dazu kennt nur die Rückseite. Du tippst den Code.
     </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-    <div v-else class="body">
+    <div v-else class="body" :class="{ 'with-note': view.note }">
       <section class="panel">
         <span class="panel-label">LED-Leiste</span>
         <div class="led-row" :aria-label="`${slotCount} Steckplätze`">
@@ -20,13 +20,14 @@
             v-for="i in slotCount"
             :key="i"
             class="led"
-            :class="{ burning: i === burningSlot }"
+            :class="{ burning: i === burningSlot, blinking: i === burningSlot && blinkt }"
           />
         </div>
+        <p class="led-mode">{{ blinkt ? 'Die LED blinkt' : 'Die LED leuchtet dauerhaft' }}</p>
       </section>
 
       <section class="panel">
-        <span class="panel-label">Wartungsnotiz</span>
+        <span class="panel-label">Farbfolge laut Monitor</span>
         <p class="color-order">
           {{ colorOrderText }}
         </p>
@@ -78,6 +79,11 @@
           <p v-if="fehler || serverError" class="msg-err">{{ fehler || serverError }}</p>
         </template>
       </section>
+
+      <aside v-if="view.note" class="note-col">
+        <span class="panel-label">Dein Teil der Wartungsnotiz</span>
+        <TornNote :note="view.note" :seed="noteSeed" />
+      </aside>
     </div>
   </div>
 </template>
@@ -85,11 +91,14 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
+import TornNote from '../../TornNote.vue'
 
 const props = defineProps({
   view: { type: Object, default: null },
   serverError: { type: String, default: '' },
   inputResultNonce: { type: Number, default: 0 },
+  // gleiche Aufgabe → gleiche Risskante
+  noteSeed: { type: String, default: '' },
 })
 const emit = defineEmits(['solved', 'failed'])
 
@@ -99,6 +108,7 @@ const fehler = ref('')
 
 const slotCount = computed(() => props.view?.slots || 4)
 const burningSlot = computed(() => props.view?.burning_slot || null)
+const blinkt = computed(() => props.view?.led === 'blinkt')
 const colorOrder = computed(() => props.view?.color_order || [])
 const pDone = computed(() => !!props.view?.p_done)
 const colorOrderText = computed(() => colorOrder.value.join(' → '))
@@ -249,13 +259,50 @@ function ausfuehren() {
 .led.burning {
   background: var(--red);
   border-color: var(--red);
-  animation: led-blink 0.9s ease-in-out infinite;
   box-shadow: 0 0 16px rgba(255, 58, 77, 0.55);
 }
 
+/* Blinken ist Teil des Rätsels (Regel ② der Notiz): deutlich an/aus, kein Pulsieren */
+.led.burning.blinking {
+  animation: led-blink 0.9s steps(1) infinite;
+}
+
 @keyframes led-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
+
+.led-mode {
+  margin: 0;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--fg-2);
+}
+
+/* Mit Zettel: rechts eine eigene Spalte, wie bei Vorder- und Rückseite */
+.body.with-note {
+  grid-template-columns: 1fr 1fr minmax(300px, 400px);
+}
+
+.body.with-note .panel.terminal {
+  grid-column: 1 / 3;
+}
+
+.note-col {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+@media (max-width: 1100px) {
+  .body.with-note { grid-template-columns: 1fr 1fr; }
+  .body.with-note .panel.terminal { grid-column: 1 / -1; }
+  .note-col { grid-column: 1 / -1; grid-row: auto; }
 }
 
 .color-order {
@@ -368,6 +415,7 @@ function ausfuehren() {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .led.burning { animation: none; }
+  /* ohne Animation trägt die Beschriftung .led-mode die Information */
+  .led.burning.blinking { animation: none; }
 }
 </style>

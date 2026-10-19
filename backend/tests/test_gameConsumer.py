@@ -842,7 +842,9 @@ async def test_tick_after_player_input_is_complete(env):
             "action_type": "button_press", "target": "reactor_vent", "value": "open"
         }})
         await recv_until(b, "input_result")
-        tick = await recv_until(b, "game_tick", lambda p: p["time_left"] in (76, 77))
+        # gelöst: +TIME_BONUS; so unterscheidet sich der Sofort-Tick von den Loop-Ticks (300→…)
+        from backend.dataCenter import TIME_BONUS
+        tick = await recv_until(b, "game_tick", lambda p: p["time_left"] in (76 + TIME_BONUS, 77 + TIME_BONUS))
         assert set(tick["payload"]) == TICK_FELDER
     finally:
         await beenden(a, b, c, game_ids=[gid])
