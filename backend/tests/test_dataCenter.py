@@ -409,3 +409,32 @@ def test_skip_task_lock_not_acquired_changes_nothing(dev_game, monkeypatch):
     vorher = dev_game.current_task()["task_id"]
     assert dev_game.skip_task()["result"] == "error"
     assert dev_game.current_task()["task_id"] == vorher
+
+
+# ---------------------------------------------------------------- Zeitbonus
+def test_solving_a_task_gives_time_bonus(button_game):
+    from backend.dataCenter import TIME_BONUS
+    button_game.redis.r.hset(_state_key(button_game), "time_left", 100)
+    task = button_game.current_task()
+    _druecke(button_game, task["state"]["target"], task["state"]["value"])
+    assert button_game.time_left == 100 + TIME_BONUS
+
+
+def test_score_uses_time_before_bonus(button_game):
+    """Punkte = Restzeit beim Lösen × Multiplikator – der Bonus zählt erst ab danach."""
+    button_game.redis.r.hset(_state_key(button_game), "time_left", 100)
+    task = button_game.current_task()
+    res = _druecke(button_game, task["state"]["target"], task["state"]["value"])
+    assert res["score_gain"] == 100   # button-Aufgabe hat Multiplikator 1
+
+
+def test_wrong_input_gives_no_bonus(button_game):
+    button_game.redis.r.hset(_state_key(button_game), "time_left", 100)
+    _druecke(button_game, "falsch", "falsch")
+    assert button_game.time_left == 100
+
+
+def test_skipping_in_dev_mode_gives_no_bonus(dev_game):
+    vorher = dev_game.time_left
+    dev_game.skip_task()
+    assert dev_game.time_left == vorher

@@ -35,7 +35,7 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 ## 4. Die Aufgaben
 
 Ablauf: **Alarm → Löschprotokoll → Datenrettung → Neustart**. Danach ist das Spiel gewonnen (`status: "won"`).
-Unverändert gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP, Score = Restzeit × Multiplikator.
+Unverändert gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP, Score = Restzeit × Multiplikator. **Zeitbonus:** jede echt gelöste Aufgabe gibt +90 s (`TIME_BONUS`), gewertet wird die Restzeit davor; DEV-Überspringen gibt keinen Bonus.
 
 Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lösen wird sie für das Finale gespeichert und erscheint auf dem Beamer und bei der in der Tabelle genannten Rolle.
 
