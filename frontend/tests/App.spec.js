@@ -104,4 +104,20 @@ describe('App.vue', () => {
     expect(document.documentElement.classList.contains('theme-light')).toBe(true)
     expect(document.documentElement.style.filter).toBe('brightness(80%)')
   })
+
+  it('Leaderboard aus dem Hauptmenü öffnen und wieder zurück', async () => {
+    const lbStub = {
+      name: 'LeaderboardScreen',
+      template: '<div class="leaderboard-screen"><button class="fake-back" @click="$emit(\'back\')">zurück</button></div>',
+    }
+    const wrapper = mount(App, { global: { stubs: { ...stubs, LeaderboardScreen: lbStub } } })
+
+    await wrapper.find('.btn-leaderboard').trigger('click')
+    expect(wrapper.find('.leaderboard-screen').exists()).toBe(true)
+    expect(wrapper.findComponent(StartMenu).exists()).toBe(false)
+
+    await wrapper.find('.fake-back').trigger('click')
+    expect(wrapper.find('.leaderboard-screen').exists()).toBe(false)
+    expect(wrapper.findComponent(StartMenu).exists()).toBe(true)
+  })
 })

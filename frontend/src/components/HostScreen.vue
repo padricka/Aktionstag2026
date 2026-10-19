@@ -6,6 +6,7 @@
       :result="gameOverResult"
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
+      :leaderboard="gameOverBoard"
     />
 
     <template v-else>
@@ -131,6 +132,7 @@ const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
 const gameOverScore = ref(0)
 const gameOverSurvived = ref(0)
+const gameOverBoard = ref(null)   // Top 5 + eigener Platz aus game_over.leaderboard
 
 const istSpielVorbei = computed(
   () => isGameOver.value || hp.value <= 0 || timeLeft.value <= 0
@@ -199,6 +201,7 @@ function handleMessage(msg) {
       gameOverResult.value = 'meltdown'
       gameOverScore.value = 0
       gameOverSurvived.value = 0
+      gameOverBoard.value = null
     }
   }
 
@@ -220,6 +223,7 @@ function handleMessage(msg) {
     gameOverResult.value = payload.result || 'meltdown'
     gameOverScore.value = payload.score || 0
     gameOverSurvived.value = payload.survived_seconds || 0
+    gameOverBoard.value = payload.leaderboard || null
     status.value = gameOverResult.value === 'victory' ? 'won' : 'game_over'
   }
 }

@@ -60,3 +60,9 @@ it("Einstellungen-Link emittet open-settings", async () => {
 
   expect(wrapper.emitted("open-settings")).toHaveLength(1);
 });
+
+it("leaderboard-button öffnet das leaderboard (auch ohne namen)", async () => {
+  const wrapper = mount(StartMenu);
+  await wrapper.find(".btn-leaderboard").trigger("click");
+  expect(wrapper.emitted("open-leaderboard")).toHaveLength(1);
+});

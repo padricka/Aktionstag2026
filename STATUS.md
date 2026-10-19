@@ -7,8 +7,8 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **211** grün · 23 übersprungen · **0 rot** | `main` nach #40 (Docker, Python 3.13) |
-| Frontend-Tests | **156** grün | nach `feat/spielende-screen` (Docker, Node 22; #33/#34 noch offen) |
+| Backend-Tests | **225** grün · 23 übersprungen · **0 rot** | nach `feat/leaderboard` (Docker, Python 3.13) |
+| Frontend-Tests | **171** grün | nach `feat/leaderboard` (Docker, Node 22; #33/#34 noch offen) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
@@ -36,4 +36,4 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-Spielende-Bildschirm: Bild voll sichtbar, Punkte-Karte als Popup, Leiste mit Spiel beenden / Neustart (`feat/spielende-screen`) · #40 DEV-Modus am Beamer · #35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
+Leaderboard: jede Runde in `backend/data/leaderboard.json`, Top 5 im Punkte-Popup, Seite im Hauptmenü (20 pro Seite) · Spielende-Bildschirm: Bild voll sichtbar, Punkte-Karte als Popup, Leiste mit Spiel beenden / Neustart (`feat/spielende-screen`) · #40 DEV-Modus am Beamer · #35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.

@@ -120,3 +120,40 @@ describe('GameOver.vue — Popup über dem Bild', () => {
     expect(wrapper.find('.end-bild').attributes('alt')).toMatch(/Nachrichten|Niederlage/i)
   })
 })
+
+describe('GameOver.vue — Top 5 aus dem Leaderboard', () => {
+  const eintrag = (rank, score, players = ['Anna', 'Ben', 'Cem']) => ({ rank, score, players, result: 'victory' })
+  const top = [eintrag(1, 900), eintrag(2, 700), eintrag(3, 600), eintrag(4, 500), eintrag(5, 300)]
+
+  it('zeigt die Top 5 mit Team und Punkten, das eigene Team hervorgehoben', () => {
+    const wrapper = mount(GameOver, {
+      props: { result: 'victory', score: 600, leaderboard: { rank: 3, total: 9, top } },
+    })
+    const zeilen = wrapper.findAll('.end-board li')
+    expect(zeilen).toHaveLength(5)
+    expect(zeilen[0].text()).toContain('900')
+    expect(zeilen[0].text()).toContain('Anna · Ben · Cem')
+    expect(zeilen[2].classes()).toContain('is-own')
+    expect(wrapper.find('.end-board-own').exists()).toBe(false)   // eigener Platz steht schon in der Liste
+  })
+
+  it('außerhalb der Top 5: eigener Platz unter der Liste', () => {
+    const wrapper = mount(GameOver, {
+      props: { result: 'meltdown', score: 10, leaderboard: { rank: 12, total: 30, top } },
+    })
+    expect(wrapper.findAll('.end-board li.is-own')).toHaveLength(0)
+    expect(wrapper.find('.end-board-own').text()).toBe('Euer Platz: 12 von 30')
+  })
+
+  it('DEV-Modus: Hinweis, dass die Runde nicht gewertet wurde', () => {
+    const wrapper = mount(GameOver, {
+      props: { result: 'victory', score: 0, leaderboard: { rank: null, total: 5, top } },
+    })
+    expect(wrapper.find('.end-board-own').text()).toContain('nicht gewertet')
+  })
+
+  it('ohne Leaderboard-Daten kein Abschnitt', () => {
+    const wrapper = mount(GameOver, { props: { result: 'victory', score: 1 } })
+    expect(wrapper.find('.end-board').exists()).toBe(false)
+  })
+})

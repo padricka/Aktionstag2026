@@ -38,7 +38,27 @@
 
         <p class="end-meta">Überlebt · {{ survivedSeconds }}s</p>
 
-        <!-- Platz für Zusatzinhalte, z. B. das Leaderboard -->
+        <!-- Bestenliste: Top 5 kommen mit game_over vom Backend -->
+        <section v-if="leaderboard?.top?.length" class="end-board" aria-label="Bestenliste Top 5">
+          <h2 class="end-board-title">Bestenliste · Top 5</h2>
+          <ol>
+            <li
+              v-for="e in leaderboard.top"
+              :key="e.rank"
+              :class="{ 'is-own': e.rank === leaderboard.rank }"
+            >
+              <span class="end-board-rank" :class="`r${e.rank}`">{{ e.rank }}</span>
+              <span class="end-board-team">{{ (e.players || []).join(' · ') }}</span>
+              <span class="end-board-score">{{ e.score }}</span>
+            </li>
+          </ol>
+          <p v-if="leaderboard.rank === null" class="end-board-own">DEV-Modus · diese Runde wird nicht gewertet</p>
+          <p v-else-if="leaderboard.rank > leaderboard.top.length" class="end-board-own">
+            Euer Platz: {{ leaderboard.rank }} von {{ leaderboard.total }}
+          </p>
+        </section>
+
+        <!-- Platz für weitere Zusatzinhalte -->
         <slot />
 
         <div v-if="showExit || showRestart" class="end-actions">
@@ -103,6 +123,8 @@ const props = defineProps({
   showRestart: { type: Boolean, default: false },
   showExit: { type: Boolean, default: false },
   restarting: { type: Boolean, default: false },
+  // { rank, total, top: [{ rank, players, score }] } aus game_over.leaderboard
+  leaderboard: { type: Object, default: null },
 })
 
 defineEmits(['restart', 'exit'])
@@ -362,6 +384,81 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   font-size: 12px;
   color: var(--end-fg-2);
   letter-spacing: 0.06em;
+}
+
+/* ---------------------------------------------------------------- Bestenliste */
+.end-board {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.end-board-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--end-fg-3);
+}
+
+.end-board ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.end-board li {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: rgba(234, 244, 238, 0.03);
+  border: 1px solid transparent;
+}
+
+.end-board li.is-own {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+.end-board-rank {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--end-fg-2);
+  border: 1px solid var(--end-line);
+}
+.end-board-rank.r1 { color: #ffd66b; border-color: rgba(255, 214, 107, 0.5); }
+.end-board-rank.r2 { color: #d9e2ec; border-color: rgba(217, 226, 236, 0.45); }
+.end-board-rank.r3 { color: #e7a272; border-color: rgba(231, 162, 114, 0.45); }
+
+.end-board-team {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--end-fg);
+}
+
+.end-board-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--end-fg);
+}
+
+.end-board li.is-own .end-board-score { color: var(--accent); }
+
+.end-board-own {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--end-fg-2);
+  text-align: center;
+  letter-spacing: 0.04em;
 }
 
 .end-actions {

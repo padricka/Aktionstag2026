@@ -6,6 +6,7 @@
       :result="gameOverResult"
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
+      :leaderboard="gameOverBoard"
       :show-restart="true"
       :show-exit="true"
       :restarting="restarting"
@@ -198,6 +199,7 @@ const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
 const gameOverScore = ref(0)
 const gameOverSurvived = ref(0)
+const gameOverBoard = ref(null)   // Top 5 + eigener Platz aus game_over.leaderboard
 const lastError = ref('')
 const roleError = ref('')
 
@@ -384,6 +386,7 @@ const handleServerMessage = (msg) => {
     gameOverResult.value = payload.result || 'meltdown'
     gameOverScore.value = payload.score || 0
     gameOverSurvived.value = payload.survived_seconds || 0
+    gameOverBoard.value = payload.leaderboard || null
     status.value = gameOverResult.value === 'victory' ? 'won' : 'game_over'
   }
 
@@ -464,6 +467,7 @@ function resetRound() {
   gameOverResult.value = 'meltdown'
   gameOverScore.value = 0
   gameOverSurvived.value = 0
+  gameOverBoard.value = null
   myRole.value = null
   task.value = null
   currentTask.value = 1

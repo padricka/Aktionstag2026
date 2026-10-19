@@ -125,3 +125,27 @@ describe('PlayerScreen.vue — Neustart', () => {
     expect(wrapper.emitted('exit')).toHaveLength(1)
   })
 })
+
+describe('PlayerScreen.vue — Leaderboard im Spielende', () => {
+  beforeEach(() => {
+    resetGameSocketMock()
+    vi.stubGlobal('location', { protocol: 'http:', hostname: 'localhost' })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('reicht die Top 5 aus game_over an die Punkte-Karte weiter', async () => {
+    const wrapper = mount(PlayerScreen, { props: { playerName: NAME }, global: { stubs } })
+    await wrapper.find('.input').setValue('abcd')
+    await wrapper.find('.btn-main').trigger('click')
+    await flushPromises()
+    simulateMessage({
+      event: 'game_over',
+      payload: {
+        result: 'victory', score: 50, survived_seconds: 9,
+        leaderboard: { rank: 1, total: 1, top: [{ rank: 1, score: 50, players: [NAME, 'B', 'C'] }] },
+      },
+    })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.end-board li.is-own').text()).toContain('50')
+  })
+})
