@@ -132,7 +132,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //            Aufgabe 2 (fire_log / valve_panel / rack_rear, mit note; Eingaben
 //              target "valve_action" = "RACK:LÖSCHMITTEL" nur FI-SI, target "release"
 //              = Vier-Augen-Freigabe von MASTER + FI-AE innerhalb release.window s),
-//            Aufgabe 3 (ascii_binary_tables / ascii_puzzle / binary_puzzle),
+//            Aufgabe 3 (rescue_log / rescue_terminal / packet_dump, mit note; Eingaben
+//              "mount_disk" = Seriennummer nur FI-AE, "terminal_login" und danach
+//              "rescue_word" = das gerettete Wort nur FI-SI),
 //            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).
 // "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
 // Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.

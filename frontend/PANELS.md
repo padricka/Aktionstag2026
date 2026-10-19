@@ -10,7 +10,7 @@ Die Task-Komponente (`components/tasks/taskN/…`) reicht `view`-Daten als Props
 | Tresor | `VaultDoor.vue` | Finale: Beamer + Leitstand | fertig (PR #21) |
 | Kabelpanel | `WirePanel.vue` | Aufgabe 1, Vorderseite (`main_switches`) | fertig, **Mustervorlage** |
 | Steuerpult | `ControlDesk.vue` | Aufgabe 2, Vorderseite (`valve_panel`) | fertig |
-| Sync-Knopf | `SyncButton.vue` | Aufgabe 3, Vorder- + Rückseite | fertig |
+| Sync-Knopf | `SyncButton.vue` | derzeit in keiner Aufgabe (Aufgabe 3 ohne Sync-Knopf), nur PanelsDemo | fertig |
 
 ## Regeln für jedes Panel
 
@@ -57,7 +57,7 @@ Industriepult: **Drehregler** wählt das Rack (allgemein: Ventil), **Schieberegl
 - Nach `error` → `idle`: Regler bleiben stehen (der Spieler korrigiert nur), aber der Hebel federt zurück.
 - Ideen: Manometer-Nadel zittert leicht, springt pro Schritt ein Segment weiter; bei `done` rauscht Wasser (blaue Partikel) und das Pult leuchtet grün.
 
-### SyncButton (Aufgabe 3, Vorder- und Rückseite)
+### SyncButton (derzeit ungenutzt, früher Aufgabe 3)
 Großer roter **Pilz-Notknopf unter einer Klappe**. Erst Klappe öffnen, dann drücken.
 Ein **Ring** um den Knopf läuft die 3 Sekunden ab, in denen der Partner drücken muss.
 - Props:

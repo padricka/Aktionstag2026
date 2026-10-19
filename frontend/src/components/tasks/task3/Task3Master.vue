@@ -1,10 +1,9 @@
 <!--
-  Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "ascii_binary_tables").
+  Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "rescue_log").
 
-  Der Leitstand hat keine Eingabe. Sein Beitrag ist die Tabelle A–M und die
-  oberen Stellenwerte 128/64/32/16: die Vorderseite hat nur N–Z, die Rückseite
-  nur 8/4/2/1. Dazu sieht er, ob P1 und P2 ihren Sync-Knopf schon freigeschaltet
-  haben (p1_status / p2_status).
+  Der Leitstand hat das Log: Login-Name in Hex (für die Vorderseite), Backup-Jobs
+  (für die Rückseite) und den Schlüsselbund. Umgerechnet oder ausgewählt wird hier
+  nichts – das ist Teil des Rätsels.
 -->
 <template>
   <div class="task">
@@ -14,91 +13,81 @@
     </header>
 
     <p class="hint">
-      Du bist der Schlüssel für beide Seiten: Die Vorderseite braucht deine
-      Tabellenhälfte A–M (sie hat N–Z), die Rückseite deine Stellenwerte.
+      Lies den anderen dein Log vor: Login für die Vorderseite, Backups für die Rückseite.
+      Mit Regel ④ rechnest du die Pakete um, mit Regel ⑥ entschlüsselst du das Wort.
     </p>
 
-    <div class="body">
-      <section class="panel">
-        <span class="panel-label">ASCII-Tabelle · A–M</span>
-        <div class="grid ascii-table">
-          <div v-for="item in asciiHalf" :key="item.char" class="cell">
-            <span class="cell-key">{{ item.char }}</span>
-            <span class="cell-val">{{ item.dec }}</span>
-          </div>
-        </div>
-      </section>
+    <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-      <div class="side">
+    <div v-else class="body">
+      <div class="main-col">
         <section class="panel">
-          <span class="panel-label">Stellenwerte für die Rückseite</span>
-          <div class="bits-head" role="row" aria-label="Stellenwerte der acht Spalten">
-            <span
-              v-for="(wert, i) in spaltenWerte"
-              :key="i"
-              class="bit-cell"
-              :class="[wert === null ? 'is-theirs' : 'place-value', { 'nibble-start': i === placeValues.length }]"
-              :title="wert === null ? 'kennt die Rückseite' : undefined"
-            >{{ wert === null ? '·' : wert }}</span>
+          <span class="panel-label">Zugangsdaten Backup-Terminal</span>
+          <div class="login">
+            <span class="login-label">BENUTZER</span>
+            <span v-for="(h, i) in view.login_hex" :key="i" class="login-hex">{{ h }}</span>
           </div>
-          <p class="bits-note">
-            Die Rückseite sieht 8-stellige Binärzahlen, kennt aber nur die Werte der
-            letzten vier Spalten (8 4 2 1). Sag ihr die Werte der ersten vier Spalten an.
-          </p>
         </section>
 
         <section class="panel">
-          <span class="panel-label">Status</span>
-          <div class="status-row">
-            <span class="status-name">Vorderseite</span>
-            <span class="status-value" :class="statusClass(p1Status)">{{ p1Status }}</span>
-          </div>
-          <div class="status-row">
-            <span class="status-name">Rückseite</span>
-            <span class="status-value" :class="statusClass(p2Status)">{{ p2Status }}</span>
-          </div>
-          <p v-if="beideFrei" class="status-hint">
-            Beide Knöpfe sind frei – jetzt müssen Vorderseite und Rückseite
-            innerhalb von 3 Sekunden drücken.
-          </p>
+          <span class="panel-label">Backup-Jobs</span>
+          <table class="log-table">
+            <thead>
+              <tr><th>Datum</th><th>Platte</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="b in view.backups"
+                :key="b.serial"
+                class="backup-row"
+                :class="{ 'is-bad': b.status !== 'OK' }"
+              >
+                <td>{{ b.date }}</td>
+                <td>{{ b.serial }}</td>
+                <td class="status">{{ b.status }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel keyring">
+          <span class="panel-label">Schlüsselbund · Verschlüsselungs-Log</span>
+          <table class="log-table">
+            <thead>
+              <tr><th>Key-ID</th><th>Schlüssel (binär)</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(s, i) in view.keys"
+                :key="i"
+                class="key-row"
+                :class="{ 'is-bad': s.status !== 'aktiv' }"
+              >
+                <td>{{ s.id }}</td>
+                <td class="bits">{{ s.key }}</td>
+                <td class="status">{{ s.status }}</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
       </div>
+
+      <aside v-if="view.note" class="note-col">
+        <span class="panel-label">Dein Teil der Anleitung</span>
+        <TornNote :note="view.note" :seed="noteSeed" />
+      </aside>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import TornNote from '../../TornNote.vue'
 
-const props = defineProps({
+defineProps({
   view: { type: Object, default: null },
+  // gleiche Aufgabe → gleiche Risskante
+  noteSeed: { type: String, default: '' },
 })
-
-// Tabellenhälfte und Stellenwerte kommen fertig vom Server (nichts wird gerechnet).
-const asciiHalf = computed(() =>
-  Object.entries(props.view?.ascii_half || {})
-    .map(([char, dec]) => ({ char, dec }))
-    .sort((a, b) => a.dec - b.dec),
-)
-
-const placeValues = computed(() => props.view?.place_values || [])
-
-// Gleiche 8 Spalten wie bei der Rückseite: vorne die eigenen Werte, hinten "·"
-const spaltenWerte = computed(() => [
-  ...placeValues.value,
-  ...Array(Math.max(0, 8 - placeValues.value.length)).fill(null),
-])
-
-const p1Status = computed(() => props.view?.p1_status || 'GESPERRT')
-const p2Status = computed(() => props.view?.p2_status || 'GESPERRT')
-
-const beideFrei = computed(
-  () => p1Status.value === 'FREIGESCHALTET' && p2Status.value === 'FREIGESCHALTET',
-)
-
-function statusClass(wert) {
-  return wert === 'FREIGESCHALTET' ? 'is-open' : 'is-locked'
-}
 </script>
 
 <style scoped>
@@ -136,23 +125,37 @@ function statusClass(wert) {
 
 .hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-3);
+}
+
 .body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
   gap: 24px;
+  overflow: auto;
+}
+
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
+  gap: 12px;
+  padding: 18px 22px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .panel-label {
@@ -163,108 +166,58 @@ function statusClass(wert) {
   font-weight: 600;
 }
 
-.grid {
-  display: grid;
-  gap: 8px;
-  align-content: start;
-}
-
-.ascii-table { grid-template-columns: repeat(3, 1fr); }
-
-.cell {
+.login {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  background: var(--bg-1);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--bg);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
 }
 
-.cell-key { font-size: 24px; font-weight: 700; color: var(--fg); letter-spacing: 0.05em; }
-.cell-val { font-size: 22px; font-weight: 700; color: var(--green); letter-spacing: 0.05em; }
+.login-label { font-size: 13px; color: var(--fg-3); letter-spacing: 0.15em; }
+.login-hex { font-size: 26px; font-weight: 700; color: var(--green); letter-spacing: 0.05em; }
 
-.side {
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+  font-size: 16px;
+}
+
+.log-table th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-2);
+}
+
+.log-table td {
+  padding: 8px 14px;
+  color: var(--fg);
+  border-top: 1px dashed var(--border-2);
+}
+
+.log-table .bits { letter-spacing: 0.2em; color: var(--green); font-weight: 700; }
+.log-table .status { font-weight: 700; color: var(--green); }
+.log-table .is-bad .status { color: var(--red); }
+
+.note-col {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  min-height: 0;
-}
-
-/* Gleiche 8 Spalten wie die Rechenhilfe der Rückseite */
-.bits-head {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.bit-cell {
-  display: grid;
-  place-items: center;
-  min-height: 56px;
-  font-family: var(--mono);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  border: 1px solid var(--border-2);
-  background: var(--bg-1);
-}
-
-.bit-cell.nibble-start { margin-left: 10px; }
-
-.place-value {
-  font-size: 24px;
-  color: var(--amber);
-  border-color: var(--amber-border);
-  background: var(--amber-bg);
-}
-
-.is-theirs {
-  font-size: 20px;
-  color: var(--fg-4);
-  border-style: dashed;
-}
-
-.bits-note {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--fg-2);
-}
-
-.status-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-}
-
-.status-name { font-size: 14px; color: var(--fg-2); }
-
-.status-value {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
-.status-value.is-open { color: var(--green); }
-.status-value.is-locked { color: var(--fg-3); }
-
-.status-hint {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--green);
-  letter-spacing: 0.03em;
+  gap: 10px;
+  align-items: flex-start;
 }
 
 @media (max-width: 1100px) {
-  .body { grid-template-columns: 1fr; overflow-y: auto; }
-  .ascii-table { grid-template-columns: repeat(2, 1fr); }
-  .cell-key { font-size: 20px; }
-  .cell-val { font-size: 18px; }
-  .place-value { font-size: 30px; padding: 16px 8px; }
+  .body { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

@@ -68,9 +68,10 @@ def _loese_loeschprotokoll(dc):
 
 
 def _loese_datenrettung(dc):
-    # Der Sync-Knopf ist ein eigenes Paket (B3) – hier nur "gelöst" simulieren.
-    with patch.object(DataRescueTask, "handle_input", return_value=StepResult(Outcome.SOLVED, {})):
-        return _input(dc, P1_NAME, "ascii_answer", "egal")
+    st = _state(dc)
+    _input(dc, P2_NAME, "mount_disk", st["serial"])
+    _input(dc, P1_NAME, "terminal_login", st["login"])
+    return _input(dc, P1_NAME, "rescue_word", st["word"])
 
 
 def _bis_zum_finale(dc):

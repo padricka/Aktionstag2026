@@ -38,7 +38,7 @@ Nur wenn das Team schnell und effektiv zusammenarbeitet, kann der Server gerette
 
 1. **Alarm verifizieren:** Der Master findet die defekte Komponente und erfährt ihre Seriennummer. Spieler 1 betätigt den richtigen Hauptschalter, Spieler 2 tippt den Shutdown-Befehl mit der Seriennummer ein.
 2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (mit Zeitzonen und Probealarm), Spieler 1 sieht den Strom an den Racks und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
-3. **Datenrettung:** Der Master hat die ASCII-Tabelle und die binären Zahlen als Hilfsblatt. Spieler 1 löst ein ASCII-Rätsel, Spieler 2 ein Binär-Rätsel, jeder schaltet damit seinen Button frei. Beide drücken gleichzeitig und retten den Server.
+3. **Datenrettung:** Spieler 2 legt die richtige Backup-Platte ein und liest danach die Datenpakete vor (binär, eins beschädigt). Spieler 1 meldet sich mit einem Hex-codierten Namen am Backup-Terminal an und hat die ASCII-Tabelle. Der Master hat das Log mit Backups und Schlüsselbund. Mit der dreigeteilten Anleitung (mit Rechenbeispielen) entschlüsseln sie das Wort RENTE.
 
 ---
 

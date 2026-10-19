@@ -362,65 +362,111 @@ class DataRescueTask(PlayableObject):
     kind = "data_rescue"
     instruction = "Daten retten!"
 
-    WORDS = ["SERVER", "BACKUP", "DATEN", "RETTEN", "SICHERN", "CLOUD"]
-    # Binärwerte-Pool für die Rückseite: Einsen vorne (Leitstand: 128/64/32/16)
-    # UND hinten (Rückseite: 8/4/2/1), damit beide gebraucht werden. Werte wie
-    # 101 oder 110 fallen raus – die sähen selbst wie Binärzahlen aus.
-    # (Früher nur Buchstaben 65–90: immer 010xxxxx, 128 und 32 kamen nie vor.)
-    BINARY_VALUES = [
-        v for v in range(17, 256)
-        if v & 0b11110000 and v & 0b00001111 and set(str(v)) - {"0", "1"}
-    ]
+    WORD = "RENTE"
+    LOGINS = ["REHA", "BUND", "DRV"]     # Rentenversicherung, kurz – Hex soll machbar bleiben
+    PACKETS = len(WORD) + 1              # ein beschädigtes Paket dazu
+    DISKS = 4
+    ASCII_TABLE = {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
 
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3) – das Wort als Kette:
+    #   RENTE → Caesar um k VOR → ASCII-Code → Prüfbit + 7 Bit (gerade Anzahl Einsen)
+    #   Leitstand: Log (Login in Hex, Backup-Jobs, Schlüsselbund)
+    #   Vorderseite: ASCII-Tabelle, Terminal (erst Login, dann das Wort)
+    #   Rückseite: Backup-Platten, nach dem Einlegen Pakete + Key-ID im Paket-Kopf
+    #   Die Regeln dazu (notes.RESCUE_NOTE) stehen jeweils bei einem anderen.
     @classmethod
     def create(cls, players):
-        word = random.choice(cls.WORDS)
-        p1_codes = [ord(c) for c in word]
-
-        # Zwei unterschiedliche Werte zufällig ziehen
-        p2_values = random.sample(cls.BINARY_VALUES, 2)
-        p2_binary = [format(v, "08b") for v in p2_values]
-
+        login = random.choice(cls.LOGINS)
+        keys, key_id, k = cls._keyring()
+        cipher = "".join(chr((ord(c) - ord("A") + k) % 26 + ord("A")) for c in cls.WORD)
+        packets = [cls._packet(ord(c), healthy=True) for c in cipher]
+        corrupt = random.randrange(cls.PACKETS)
+        packets.insert(corrupt, cls._packet(random.choice(list(cls.ASCII_TABLE.values())), healthy=False))
+        backups, serial = cls._backups()
         return {
-            "p1_word": word,
-            "p1_codes": p1_codes,
-            "p2_values": p2_values,
-            "p2_binary": p2_binary,
-            "p1_unlocked": False,
-            "p2_unlocked": False,
+            "word": cls.WORD,
+            "login": login,
+            "keys": keys,
+            "key_id": key_id,
+            "k": k,
+            "cipher": cipher,
+            "packets": packets,
+            "corrupt": corrupt,
+            "backups": backups,
+            "serial": serial,
+            "disks": random.sample([b["serial"] for b in backups], cls.DISKS),
+            "mounted": False,
+            "logged_in": False,
         }
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3):
-    #   Leitstand   hat die ASCII-Tabelle A–M und die oberen Bit-Stellenwerte
-    #   Vorderseite hat die ASCII-Codes des Worts und die Tabelle N–Z
-    #   Rückseite   hat die Binärzahlen und die unteren Bit-Stellenwerte
-    # -> beide brauchen den Leitstand, um ihren Knopf freizuschalten.
-    ASCII_HALF_MASTER = {chr(c): c for c in range(ord("A"), ord("M") + 1)}
-    ASCII_HALF_P1 = {chr(c): c for c in range(ord("N"), ord("Z") + 1)}
-    PLACE_VALUES_MASTER = [128, 64, 32, 16]
-    PLACE_VALUES_P2 = [8, 4, 2, 1]
+    @staticmethod
+    def _packet(code, healthy):
+        """Prüfbit vorne + 7 Bit ASCII; heil = gerade Anzahl Einsen insgesamt."""
+        bits = format(code, "07b")
+        parity = bits.count("1") % 2
+        return f"{parity if healthy else 1 - parity}{bits}"
+
+    @staticmethod
+    def _keyring():
+        """Schlüsselbund: der richtige (aktiv), sein REVOKED-Zwilling mit gleicher ID,
+        ein anderer aktiver und ein abgelaufener. Schlüssel 1–9, alle verschieden."""
+        key_id, other_id, old_id = random.sample(range(1, 16), 3)
+        k, twin, other, old = random.sample(range(1, 10), 4)
+        keys = [
+            {"id": key_id, "key": format(k, "04b"), "status": "aktiv"},
+            {"id": key_id, "key": format(twin, "04b"), "status": "REVOKED"},
+            {"id": other_id, "key": format(other, "04b"), "status": "aktiv"},
+            {"id": old_id, "key": format(old, "04b"), "status": "abgelaufen"},
+        ]
+        random.shuffle(keys)
+        keys.sort(key=lambda s: s["id"])
+        return keys, key_id, k
+
+    @classmethod
+    def _backups(cls):
+        """Vier Backup-Jobs über einen Monatswechsel: zwei Ende Monat m, zwei Anfang m+1.
+        Das allerneueste ist FEHLER, das richtige das zweitneueste. Als Text verglichen
+        („28.03.“ > „03.04.“) sieht ein altes Backup neuer aus – die Falle zu ①."""
+        month = random.randint(1, 11)
+        early = sorted(random.sample(range(20, 29), 2))
+        late = sorted(random.sample(range(1, 10), 2))
+        dates = [(month, d) for d in early] + [(month + 1, d) for d in late]
+        serials = random.sample(range(1000, 10000), cls.DISKS)
+        status = ["OK", "OK", "OK", "FEHLER"]                  # chronologisch, neuestes kaputt
+        backups = [
+            {"date": f"{d:02d}.{m:02d}.", "serial": f"SN-{s}", "status": st}
+            for (m, d), s, st in zip(dates, serials, status)
+        ]
+        serial = backups[2]["serial"]
+        random.shuffle(backups)
+        return backups, serial
 
     @classmethod
     def views(cls, state):
+        mounted = state["mounted"]
         return {
             ROLE_M: {
-                "type": "ascii_binary_tables",
-                "ascii_half": cls.ASCII_HALF_MASTER,
-                "place_values": cls.PLACE_VALUES_MASTER,
-                "p1_status": "FREIGESCHALTET" if state["p1_unlocked"] else "GESPERRT",
-                "p2_status": "FREIGESCHALTET" if state["p2_unlocked"] else "GESPERRT",
+                "type": "rescue_log",
+                "login_hex": [f"0x{ord(c):02X}" for c in state["login"]],
+                "backups": state["backups"],
+                "keys": state["keys"],
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_M),
             },
             ROLE_P1: {
-                "type": "ascii_puzzle",
-                "ascii_codes": state["p1_codes"],
-                "ascii_half": cls.ASCII_HALF_P1,
-                "button_unlocked": state["p1_unlocked"],
+                "type": "rescue_terminal",
+                "ascii_table": cls.ASCII_TABLE,
+                "login_len": len(state["login"]),
+                "logged_in": state["logged_in"],
+                "word_len": len(state["word"]),
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
-                "type": "binary_puzzle",
-                "binary_codes": state["p2_binary"],
-                "place_values": cls.PLACE_VALUES_P2,
-                "button_unlocked": state["p2_unlocked"],
+                "type": "packet_dump",
+                "disks": state["disks"],
+                "mounted": mounted,
+                "key_id": format(state["key_id"], "04b") if mounted else None,
+                "packets": state["packets"] if mounted else None,
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_P2),
             },
         }
 
@@ -428,39 +474,28 @@ class DataRescueTask(PlayableObject):
     def handle_input(cls, state, player_name, role, data, now):
         value = str(data.value).strip().upper()
 
-        if data.target == "ascii_answer" and role == ROLE_P1:
-            if value != state["p1_word"]:
-                return StepResult(Outcome.WRONG, state)
-            state["p1_unlocked"] = True
-            return StepResult(Outcome.PROGRESS, state)
-
-        if data.target == "binary_answer" and role == ROLE_P2:
-            versuch = " ".join(value.split())
-            ziel = " ".join(str(v) for v in state["p2_values"])
-            if versuch != ziel:
-                return StepResult(Outcome.WRONG, state)
-            state["p2_unlocked"] = True
-            return StepResult(Outcome.PROGRESS, state)
-
-        if data.target == "sync_button":
-            if role == ROLE_M:
+        if data.target == "mount_disk" and role == ROLE_P2:
+            if state["mounted"]:
                 return StepResult(Outcome.IGNORED, state)
-            if not (state.get("p1_unlocked") and state.get("p2_unlocked")):
-                return StepResult(Outcome.IGNORED, state)
-
-            if role == ROLE_P1:
-                state["sync_p1_time"] = now
-            elif role == ROLE_P2:
-                state["sync_p2_time"] = now
-
-            t1 = state.get("sync_p1_time")
-            t2 = state.get("sync_p2_time")
-
-            if t1 is not None and t2 is not None:
-                if abs(t1 - t2) <= 3:
-                    return StepResult(Outcome.SOLVED, state)
-
+            if value != state["serial"]:
+                return StepResult(Outcome.WRONG, state)
+            state["mounted"] = True
             return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "terminal_login" and role == ROLE_P1:
+            if state["logged_in"] or not value:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["login"]:
+                return StepResult(Outcome.WRONG, state)
+            state["logged_in"] = True
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "rescue_word" and role == ROLE_P1:
+            if not state["logged_in"] or not value:
+                return StepResult(Outcome.IGNORED, state)
+            if value != state["word"]:
+                return StepResult(Outcome.WRONG, state)
+            return StepResult(Outcome.SOLVED, state)
 
         return StepResult(Outcome.IGNORED, state)
 
