@@ -786,3 +786,57 @@ async def test_dev_skip_without_task_is_silent(env):
         assert env.hget(state_key(gid), "solved_count") == b"0"
     finally:
         await beenden(host, a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Groß-/Kleinschreibung der ID
+@pytest.mark.asyncio
+async def test_game_id_is_case_insensitive(env):
+    """Der Beamer zeigt die ID groß (XVK2), erzeugt wird sie klein: beides muss gehen."""
+    RedisHandler().create_game("cov_case")
+    comm, ok = await verbinden_roh("COV_CASE")
+    assert ok is True
+    msg = await comm.receive_json_from()
+    assert msg["event"] == "lobby_update"
+    await registrieren(comm, "A")
+    await recv_until(comm, "lobby_update", lambda p: len(p["players"]) == 1)
+    assert env.hexists("game:cov_case:players", "A")
+    assert not env.exists("game:COV_CASE:state")
+    await comm.disconnect()
+# ---------------------------------------------------------------- game_tick vertragskonform
+TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits"}
+
+
+@pytest.mark.asyncio
+async def test_tick_after_player_input_is_complete(env):
+    """Auch der Tick direkt nach einer Eingabe hat alle Felder (vorher fehlte reboot_digits)."""
+    gid = "cov_tick_input"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        set_button_task(env, gid)
+        env.hset(state_key(gid), "time_left", 77)   # Loop-Ticks (300→…) davon unterscheiden
+        await b.send_json_to({"event": "player_input", "payload": {
+            "action_type": "button_press", "target": "reactor_vent", "value": "open"
+        }})
+        await recv_until(b, "input_result")
+        tick = await recv_until(b, "game_tick", lambda p: p["time_left"] in (76, 77))
+        assert set(tick["payload"]) == TICK_FELDER
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_tick_on_late_connect_is_complete_and_has_kind(env):
+    gid = "cov_tick_late"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        late = await verbinden_ohne_initial(gid)
+        tick = await recv_until(late, "game_tick")
+        assert set(tick["payload"]) == TICK_FELDER
+        assert tick["payload"]["tasks"][0]["kind"] == "alarm"
+        await late.disconnect()
+    finally:
+        await beenden(a, b, c, game_ids=[gid])

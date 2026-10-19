@@ -152,6 +152,38 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.lobby-error').text()).toContain('TEST')
   })
 
+  describe('Zustand kommt vom Backend', () => {
+    async function laufend() {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({
+        event: 'lobby_update',
+        payload: { players: [], status: 'running', ready_to_start: true },
+      })
+      return wrapper
+    }
+
+    it('nimmt die maximalen HP aus game_tick.max_health', async () => {
+      const wrapper = await laufend()
+      simulateMessage({ event: 'game_tick', payload: { health: 250, max_health: 500, time_left: 100, tasks: [] } })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.hp-value').text()).toBe('250 / 500')
+      expect(wrapper.find('.hp-fill').attributes('style')).toContain('width: 50%')
+    })
+
+    it('zeigt Game Over erst mit game_over, nicht schon bei 0 HP oder 0 Sekunden', async () => {
+      const wrapper = await laufend()
+      simulateMessage({ event: 'game_tick', payload: { health: 0, max_health: 300, time_left: 0, tasks: [] } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.end').exists()).toBe(false)
+
+      simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 0, survived_seconds: 300 } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.end').exists()).toBe(true)
+    })
+  })
+
   describe('DEV-Modus', () => {
     async function laufendesSpiel(devMode) {
       const wrapper = mount(HostScreen)

@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from channels.layers import get_channel_layer
 from backend.redis_handler import RedisHandler
-from backend.dataCenter import DataCenter   # ← Modul-Ebene (Test kann patchen)
+from backend.dataCenter import DataCenter, tick_payload   # ← Modul-Ebene (Test kann patchen)
 
 games: dict[str, "GameLoop"] = {}
 
@@ -70,12 +70,7 @@ class GameLoop:
                 await channel_layer.group_send(group, {
                     "type": "game.tick",
                     "status": "alive",
-                    "payload": {
-                        "health": snap["health"],
-                        "time_left": snap["time_left"],
-                        "tasks": snap["tasks"],
-                        "reboot_digits": snap.get("reboot_digits", [None, None, None]),
-                    },
+                    "payload": tick_payload(snap),
                 })
 
                 if snap["health"] <= 0:

@@ -101,12 +101,15 @@ def test_tick_reduces_health_in_redis(data_center):
 
 
 def test_tick_snapshot_matches_contract(button_game):
-    """Snapshot: health, time_left, tasks. Button-Task ohne target/value/state/views."""
+    """Snapshot: health, time_left, tasks. Button-Task ohne target/value/state/views.
+
+    "kind" gehört laut JSON_Vertrag.md (game_tick-Beispiel) dazu und verrät keine Lösung.
+    """
     snap = button_game.tick()
 
     assert {"health", "time_left", "tasks"} <= set(snap)
     assert snap["time_left"] == 299
-    assert set(snap["tasks"][0]) == {"task_id", "assigned_to_player", "instruction"}
+    assert set(snap["tasks"][0]) == {"task_id", "kind", "assigned_to_player", "instruction"}
 
 
 def test_tick_to_zero_health_sets_game_over(data_center):
@@ -312,3 +315,26 @@ def test_skip_task_requires_running_game(data_center):
 def test_skip_task_without_task_is_ignored(dev_game):
     dev_game.redis.r.hdel(_state_key(dev_game), "task")
     assert dev_game.skip_task() == {"result": "ignored"}
+
+
+# ---------------------------------------------------------------- Tick-Payload aus einer Hand
+def test_snapshot_sends_max_health_and_task_kind(data_center):
+    data_center.start()
+    snap = data_center.snapshot()
+    assert snap["max_health"] == 300
+    assert snap["tasks"][0]["kind"] == "alarm"
+
+
+def test_tick_payload_has_all_contract_fields(data_center):
+    from backend.dataCenter import tick_payload
+    data_center.start()
+    payload = tick_payload(data_center.snapshot())
+    assert set(payload) == {"health", "max_health", "time_left", "tasks", "reboot_digits"}
+    assert payload["reboot_digits"] == [None, None, None]
+
+
+def test_tick_payload_fills_defaults():
+    from backend.dataCenter import tick_payload
+    payload = tick_payload({"health": 5, "time_left": 7, "tasks": []})
+    assert payload["max_health"] == 300
+    assert payload["reboot_digits"] == [None, None, None]
