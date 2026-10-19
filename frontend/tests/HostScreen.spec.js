@@ -138,6 +138,39 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
+  describe('Hilfe-Notizen am Beamer', () => {
+    async function imSpiel(hints) {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 280, tasks: [], hints } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it('zeigt die Hilfe-Notizen der laufenden Aufgabe und öffnet die nächste per open_hint', async () => {
+      const wrapper = await imSpiel({ total: 4, opened: [], cost: 50 })
+      expect(wrapper.find('.hint-board').exists()).toBe(true)
+      await wrapper.find('button.hint-open').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'open_hint', payload: {} })
+
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 279, tasks: [], hints: { total: 4, opened: ['Lest euch eure Teile vor.'], cost: 50 } } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.hint-note').text()).toContain('Lest euch eure Teile vor.')
+    })
+
+    it('ohne Hilfen (z. B. Finale) kein Hilfe-Bereich', async () => {
+      const wrapper = await imSpiel({ total: 0, opened: [], cost: 50 })
+      expect(wrapper.find('.hint-board').exists()).toBe(false)
+    })
+
+    it('zeigt eine Ablehnung des Servers (hint_denied)', async () => {
+      const wrapper = await imSpiel({ total: 4, opened: [], cost: 50 })
+      simulateMessage({ event: 'error', payload: { code: 'hint_denied', message: 'Alle Hilfen sind schon offen' } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.hint-error').text()).toBe('Alle Hilfen sind schon offen')
+    })
+  })
+
   describe('Neustart vom Beamer', () => {
     async function nachNiederlage() {
       const wrapper = mount(HostScreen)

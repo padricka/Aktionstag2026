@@ -825,7 +825,7 @@ async def test_game_id_is_case_insensitive(env):
     assert not env.exists("game:COV_CASE:state")
     await comm.disconnect()
 # ---------------------------------------------------------------- game_tick vertragskonform
-TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits"}
+TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits", "hints"}
 
 
 @pytest.mark.asyncio
@@ -864,3 +864,44 @@ async def test_tick_on_late_connect_is_complete_and_has_kind(env):
         await late.disconnect()
     finally:
         await beenden(a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Hilfe-Notizen (Host)
+@pytest.mark.asyncio
+async def test_host_opens_a_hint_and_everyone_sees_it(env):
+    gid = "cov_hint"
+    host, a, b, c = await dev_spiel(env, gid, dev=False)
+    try:
+        await host.send_json_to({"event": "open_hint", "payload": {}})
+        tick = await recv_until(b, "game_tick", lambda p: len(p["hints"]["opened"]) == 1)
+        assert tick["payload"]["hints"]["total"] == 4
+        assert tick["payload"]["hints"]["cost"] == 50
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_only_the_host_opens_hints(env):
+    gid = "cov_hint_nohost"
+    host, a, b, c = await dev_spiel(env, gid, dev=False)
+    try:
+        await b.send_json_to({"event": "open_hint", "payload": {}})
+        msg = await recv_until(b, "error")
+        assert msg["payload"]["code"] == "hint_denied"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_hint_beyond_the_last_is_refused(env):
+    gid = "cov_hint_max"
+    host, a, b, c = await dev_spiel(env, gid, dev=True)
+    try:
+        for _ in range(4):
+            await host.send_json_to({"event": "open_hint", "payload": {}})
+        await recv_until(a, "game_tick", lambda p: len(p["hints"]["opened"]) == 4)
+        await host.send_json_to({"event": "open_hint", "payload": {}})
+        msg = await recv_until(host, "error")
+        assert msg["payload"]["code"] == "hint_denied"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])

@@ -118,6 +118,19 @@ Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Belohnungsziff
 
 Jeder kennt **eine** Ziffer, die Reihenfolge ist die der Aufgaben. Richtig → `status: "won"`, der Beamer zeigt den Sieg. Falsch → −60 HP wie überall.
 
+### Hilfe-Notizen (Beamer)
+
+Kommt ein Team nicht weiter, öffnet der **Host am Beamer** die nächste Hilfe-Notiz der laufenden Aufgabe (`open_hint`). Alle sehen sie am Beamer als gelbe Haftnotiz.
+- **Der Reihe nach, immer konkreter:** Hilfe 1 gibt nur die Richtung, die letzte verrät schon ein Stück der Lösung **dieser Runde**. Die Texte erzeugt das Backend aus dem Aufgabenstand (`PlayableObject.hints(state)`).
+- **Kosten:** jede geöffnete Hilfe **−50 Punkte** (`HINT_COST`), im DEV-Modus gratis. Der Abzug gilt fürs ganze Spiel (`hint_penalty`), die angezeigte Punktzahl fällt nie unter 0.
+- **Anzahl:** Aufgabe 1 → 4, Aufgabe 2 → 5, Aufgabe 3 → 6, Finale → keine.
+
+| Aufgabe | Hilfen (gekürzt, `…` = aus der Runde) |
+|---|---|
+| 1 Alarm | ① Notiz-Teile vorlesen, wer was sieht · ② „Es brennt Platz …, kappt das Kabel an Platz …“ · ③ „LED … → Farbfolge vorwärts/rückwärts: … → …“ · ④ „Der Code beginnt mit …“ (+ was der zerkratzte Aufkleber zählt) |
+| 2 Löschprotokoll | ① Vorgehen (Reihenfolge, dann Löschmittel, dann Freigabe) · ② welche Meldung der Probealarm ist · ③ „RM minus 2 h – Reihenfolge … → … → …“ · ④ „Rack … steht unter Strom → CO2“ · ⑤ alle Löschmittel je Rack |
+| 3 Datenrettung | ① Vorgehen (Platte, Login, Pakete, Schlüssel) · ② „richtige Platte ist …“ · ③ erster Login-Buchstabe: „0x52 = 82 = R“ · ④ „Paket … ist beschädigt“ · ⑤ „Key-ID … → k = …“ · ⑥ ein Paket komplett vorgerechnet |
+
 ## 5. Schnittstelle (für paralleles Arbeiten)
 
 Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` pro Aufgabe ein Feld `view`, **nur für seine Rolle**. Das Frontend wählt die Komponente über `view.type`. Eingaben gehen als `player_input` mit `target` und `value`.
@@ -140,8 +153,9 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 **Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
+`game_tick` enthält außerdem `hints: {total, cost, opened: [Texte]}` – die Hilfe-Notizen der laufenden Aufgabe (nur geöffnete Texte).
 
-Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `open_hint` (nur Host, nächste Hilfe-Notiz), `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

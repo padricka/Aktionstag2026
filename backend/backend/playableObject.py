@@ -28,6 +28,13 @@ class StepResult:
 class PlayableObject(ABC):
     kind: str
     instruction: str
+    # Hilfe-Notizen, die der Host am Beamer der Reihe nach öffnen kann (GAME_DESIGN.md)
+    HINTS = 0
+
+    @classmethod
+    def hints(cls, state: dict) -> list[str]:
+        """Alle Hilfe-Notizen dieser Runde, von „nur die Richtung“ bis „fast die Lösung“."""
+        return []
 
     @classmethod
     @abstractmethod
@@ -188,6 +195,35 @@ class AlarmTask(PlayableObject):
             },
         }
 
+    # ------------------------------------------------------------- Hilfe-Notizen
+    HINTS = 4
+    SYMBOL_NAMES = {
+        "raute": "Raute", "dreieck": "Dreieck (leer)", "quadrat": "Quadrat", "kreis": "Kreis",
+        "dreieck-runter": "Dreieck nach unten (leer)", "dreieck-runter-voll": "Dreieck nach unten (voll)",
+        "kreuz": "Kreuz", "stern": "Stern",
+    }
+
+    @classmethod
+    def hints(cls, state):
+        brand = state["burning_slot"]
+        kappen = cls._cut_index(brand - 1) + 1
+        order = list(reversed(state["color_order"])) if state["led"] == "blinkt" else state["color_order"]
+        erstes = cls.SYMBOL_NAMES[state["solution"][0]]
+        vierte = f"Der Code beginnt mit: {erstes}."
+        if state["scratched"]:
+            vierte += f" Der zerkratzte {state['scratched'].lower()}e Aufkleber zählt als " \
+                      f"{cls.SYMBOL_NAMES[state['broken_symbol']]}."
+        return [
+            "Lest euch eure Teile der Wartungsnotiz gegenseitig vor – jede Regel steht nur bei "
+            "einem von euch. Der Leitstand sieht, was brennt, die anderen kennen Kabel und Aufkleber.",
+            f"Kabel: Es brennt Platz {brand} ({'gerade' if brand % 2 == 0 else 'ungerade'}). "
+            f"Die Vorderseite kappt deshalb das Kabel an Platz {kappen} – nie das am brennenden Platz.",
+            f"Die LED {state['led']} – der Code ist die Farbfolge "
+            f"{'rückwärts' if state['led'] == 'blinkt' else 'vorwärts'}: {' → '.join(order)}. "
+            "Die Rückseite sagt, welches Symbol auf welcher Farbe klebt.",
+            vierte,
+        ]
+
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):
         value = str(data.value).strip().lower()
@@ -329,6 +365,31 @@ class FireProtocolTask(PlayableObject):
             },
         }
 
+    # ------------------------------------------------------------- Hilfe-Notizen
+    HINTS = 5
+
+    @classmethod
+    def hints(cls, state):
+        probe = next(e for e in state["log"] if e["test"])
+        reihenfolge = " → ".join(s["rack"] for s in state["sequence"])
+        racks = {r["rack"]: r for r in state["racks"]}
+        strom = next(
+            s["rack"] for s in state["sequence"]
+            if racks[s["rack"]]["power"] and racks[s["rack"]]["material"] in ("PAPIER", "KABEL")
+        )
+        return [
+            "Der Leitstand liest das Log vor. Klärt zuerst die Reihenfolge (Regeln ② und ③), dann "
+            "für jedes Rack das Löschmittel (Regel ①). Zum Schluss geben Leitstand und Rückseite frei.",
+            f"Die Meldung „{probe['time']} {probe['source']} Rack {probe['rack']}“ ist mit [TEST] markiert – "
+            "nur ein Probealarm, ignorieren.",
+            f"Rauchmelder (RM) zeigen Ortszeit: 2 Stunden abziehen. Gelöscht wird in dieser Reihenfolge: "
+            f"{reihenfolge}.",
+            f"Rack {strom} steht unter Strom und hat {cls.MATERIALS[racks[strom]['material']]['label']} – "
+            "dort kein Wasser und kein Schaum, sondern CO2.",
+            "Löschmittel: " + ", ".join(f"{s['rack']}: {s['agent']}" for s in state["sequence"])
+            + ". Danach drücken Leitstand und Rückseite gleichzeitig die Freigabe.",
+        ]
+
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):
         if data.target == "valve_action" and role == ROLE_P1:
@@ -469,6 +530,30 @@ class DataRescueTask(PlayableObject):
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_P2),
             },
         }
+
+    # ------------------------------------------------------------- Hilfe-Notizen
+    HINTS = 6
+
+    @classmethod
+    def hints(cls, state):
+        login = state["login"]
+        heil = next(i for i in range(len(state["packets"])) if i != state["corrupt"])
+        paket = state["packets"][heil]
+        zahl = int(paket[1:], 2)
+        return [
+            "Reihenfolge: Die Rückseite legt die richtige Platte ein (Regel ①), die Vorderseite meldet "
+            "sich am Terminal an (Regel ②). Danach Pakete prüfen, umrechnen, Schlüssel suchen, "
+            "entschlüsseln. Der Taschenrechner rechts hilft.",
+            "Das neueste Backup ist kaputt (FEHLER). Datum: erst Monat, dann Tag vergleichen – "
+            f"die richtige Platte ist {state['serial']}.",
+            f"Login: 0x{ord(login[0]):02X} = {ord(login[0])} = {login[0]}. "
+            f"Der Name hat {len(login)} Buchstaben – die anderen genauso umrechnen.",
+            f"Paket {state['corrupt'] + 1} ist beschädigt (ungerade Anzahl Einsen) – lasst es komplett weg.",
+            f"Key-ID {format(state['key_id'], '04b')} = {state['key_id']}. Der AKTIVE Schlüssel mit dieser ID "
+            f"ist {format(state['k'], '04b')}, also k = {state['k']}.",
+            f"Beispiel mit Paket {heil + 1}: {paket[0]} {paket[1:]} → {zahl} → {chr(zahl)} → "
+            f"{state['k']} zurück → {state['word'][0]}. So auch die anderen Pakete.",
+        ]
 
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):

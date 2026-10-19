@@ -88,6 +88,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.handle_reset_lobby()
         elif event == "dev_mode":
             await self.handle_dev_mode(payload)
+        elif event == "open_hint":
+            await self.handle_open_hint()
         elif event == "dev_skip_task":
             await self.handle_dev_skip_task()
         else:
@@ -132,6 +134,21 @@ class GameConsumer(AsyncWebsocketConsumer):
             await announce_game_over(self.data_center, self.game_id, "victory", snap)
             return
         await self._broadcast_tick(snap)
+
+    # ------------------------------------------------------------ Hilfe-Notizen (nur Host)
+    async def handle_open_hint(self):
+        if not self.is_host:
+            await self.send_error("Hilfen öffnet nur der Host", code="hint_denied")
+            return
+        if self.data_center is None:
+            from backend.dataCenter import DataCenter
+            self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
+
+        result = await asyncio.to_thread(self.data_center.open_hint)
+        if result["result"] != "opened":
+            await self.send_error(result["message"], code="hint_denied")
+            return
+        await self._broadcast_tick(await asyncio.to_thread(self.data_center.snapshot))
 
     async def handle_reset_lobby(self):
         game = games.pop(self.game_id, None)

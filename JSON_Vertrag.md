@@ -77,6 +77,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {}
 }
 
+// 8. Nächste Hilfe-Notiz der laufenden Aufgabe öffnen (nur Host, Spiel läuft)
+// Kostet 50 Punkte (DEV-Modus: gratis). Der Reihe nach, immer konkreter; Anzahl je Aufgabe
+// siehe game_tick.hints.total (Aufgabe 1: 4, 2: 5, 3: 6, Finale: 0). Danach game_tick an alle.
+// Abgelehnt (nicht Host, alle offen, keine Hilfen, Spiel läuft nicht) → error "hint_denied".
+{
+  "event": "open_hint",
+  "payload": {}
+}
+
 ---
 
 ## Server -> Client
@@ -94,7 +103,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 }
 
 // 2. Regelmäßiges Game-State Update (Broadcast, jede Sekunde und sofort nach player_input)
-// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits.
+// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits, hints.
 // Spielregeln (Max-HP, Spielende, Aufgabenreihenfolge) kennt nur das Backend: Das Frontend
 // zeigt health/max_health an, wählt die Ansicht über tasks[].kind und beendet das Spiel
 // erst bei game_over, nicht selbst bei health 0 oder time_left 0.
@@ -116,7 +125,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
                   "p_done": false }
       }
     ],
-    "reboot_digits": [4, null, null]
+    "reboot_digits": [4, null, null],
+    "hints": { "total": 4, "cost": 50,
+               "opened": ["Lest euch eure Teile der Wartungsnotiz gegenseitig vor – …"] }
   }
 }
 
@@ -136,6 +147,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //              "mount_disk" = Seriennummer nur FI-AE, "terminal_login" und danach
 //              "rescue_word" = das gerettete Wort nur FI-SI),
 //            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).
+// "hints": Hilfe-Notizen der laufenden Aufgabe für den Beamer: Anzahl, Kosten je Hilfe und die
+// Texte der schon geöffneten (in Reihenfolge). Ungeöffnete Texte schickt der Server nie mit.
 // "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
 // Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 
@@ -182,6 +195,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
 //                    Kommt direkt nach dem Verbinden; danach schließt der Server die
 //                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
+//   "hint_denied"  = open_hint abgelehnt (nicht Host, alle Hilfen offen, Aufgabe ohne
+//                    Hilfen, Spiel läuft nicht).
 //   "dev_denied"   = dev_mode / dev_skip_task abgelehnt (nicht Host, DEV-Modus aus,
 //                    Spiel läuft schon bzw. noch nicht, enabled kein true/false).
 {
