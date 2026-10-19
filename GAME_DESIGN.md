@@ -35,7 +35,7 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 ## 4. Die Aufgaben
 
 Ablauf: **Alarm → Löschprotokoll → Datenrettung → Neustart**. Danach ist das Spiel gewonnen (`status: "won"`).
-Unverändert gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP, Score = Restzeit × Multiplikator.
+Unverändert gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP, Score = Restzeit × Multiplikator. **Zeitbonus:** jede echt gelöste Aufgabe gibt +90 s (`TIME_BONUS`), gewertet wird die Restzeit davor; DEV-Überspringen gibt keinen Bonus.
 
 Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lösen wird sie für das Finale gespeichert und erscheint auf dem Beamer und bei der in der Tabelle genannten Rolle.
 
@@ -45,41 +45,69 @@ Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lö
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | LED-Leiste mit 4 Steckplätzen, **einer blinkt rot**. Keine Beschriftung. Außerdem eine Wartungsnotiz mit der **Farb-Reihenfolge** für den Code (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Hauptschalter, beschriftet mit **Symbolen**, in Steckplatz-Reihenfolge 1–4. | Die 4 **Code-Symbole**, jedes auf einem **farbigen** Aufkleber, in zufälliger Reihenfolge. |
-| **Eingabe** | `shutdown_cmd`: 4 Symbole in der richtigen Reihenfolge | `main_switch`: Symbol des brennenden Steckplatzes | – |
+| **Sieht** | LED-Leiste mit 4 Steckplätzen, einer ist rot – die LED **blinkt oder leuchtet dauerhaft** (jede Runde neu). Die **Farbfolge** vom Monitor (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Kabel, beschriftet mit **Symbolen**, in Steckplatz-Reihenfolge 1–4. | Die 4 **Code-Symbole** auf **farbigen** Aufklebern, gemischt. Manchmal ist **einer zerkratzt** (Farbe sichtbar, Symbol nicht). |
+| **Zettel** | Wartungsnotiz Teil 1/3: Regel ② + Falle | Wartungsnotiz Teil 2/3: Regel ① | Wartungsnotiz Teil 3/3: Regel ③ |
+| **Eingabe** | `shutdown_cmd`: 4 Symbole in der richtigen Reihenfolge | `main_switch`: Symbol des richtigen Kabels | – |
 
-**Lösung:**
-1. Leitstand sagt, welcher Steckplatz blinkt → Vorderseite drückt den Schalter an dieser Position.
-2. Rückseite beschreibt die farbigen Aufkleber, Leitstand ordnet sie nach der Farb-Reihenfolge (**Schlussfolgern**) und tippt den Code.
-Gelöst, wenn beide Eingaben stimmen. **Belohnungsziffer sichtbar für:** Rückseite.
+**Die zerrissene Wartungsnotiz** (`backend/notes.py`, `ALARM_NOTE`): Jede Rolle hat ein Stück, oben steht „TEIL x/3“. Das Stück **sieht** zerrissen aus, aber **kein Satz ist zerteilt**: Jedes Stück trägt eine vollständige Regel – genau die, die sein Spieler **nicht allein anwenden** kann, weil die nötigen Fakten bei den anderen stehen. „Ich kenne die Regel, du kennst die Fakten.“
+- **①** *(Vorderseite)* **Nie** das Kabel am brennenden Platz kappen! Gerade Platznummer → das Kabel **links** daneben, ungerade → **rechts** daneben. *Den brennenden Platz kennt nur der Leitstand.*
+- **②** *(Leitstand)* Shutdown-Code = die Farbfolge vom Monitor, Farbe für Farbe. **Blinkt die LED → rückwärts.** *Welches Symbol auf welcher Farbe klebt, kennt nur die Rückseite.*
+- **③** *(Rückseite)* Ist ein Aufkleber zerkratzt, gilt dort **das Symbol vom Kabel am brennenden Platz** – nicht vom gekappten. *Den Platz kennt der Leitstand, das Symbol dort die Vorderseite.*
+- **Falle** *(Leitstand)*: „Code fängt immer mit ★ an.“ – durchgestrichen, „stimmt nicht!“.
+
+**Lösung (Beispiel):** Platz 3 brennt, LED blinkt, GELB zerkratzt. ① 3 ist ungerade → Kabel von Platz 4. ② blinkt → Farbfolge rückwärts. ③ für GELB gilt das Symbol vom Kabel an Platz 3. Die Leitstand-Tastatur enthält deshalb auch die Kabel-Symbole.
+Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Belohnungsziffer sichtbar für:** Rückseite.
 
 ### Aufgabe 2 — Löschprotokoll (`kind: "fire_protocol"`)
 
-**Geschichte:** Die Löschanlage muss in genau einer Reihenfolge geflutet werden, danach wird sie mit einem Passwort freigegeben.
+**Geschichte:** Drei von vier Racks brennen. Jedes muss mit dem **richtigen Löschmittel** gelöscht werden, in der Reihenfolge der Brandmeldungen. Danach wird die Anlage im **Vier-Augen-Prinzip** freigegeben.
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | Logzeile mit **einem** Schritt der Sequenz (Schrittnummer, Ventil, Farbe). Ein **Passwort-Fragment** mit Punkt-Markierung (z. B. `●● SYS`). | Ventilpanel (3 Ventile × 3 Farben), Fortschritt. **Einen** Schritt der Sequenz auf einem Notizzettel. Nach dem Fluten: das letzte Passwort-Fragment. | **Einen** Schritt der Sequenz auf einem Aufkleber. Ein Passwort-Fragment mit Punkt-Markierung. Passwort-Eingabe. |
-| **Eingabe** | – | `valve_action`: `VENTIL:FARBE`, Schritt für Schritt | `release_pw`: Passwort |
+| **Sieht** | **Brandmelde-Log**: Uhrzeit, Quelle (BMZ/RM), Rack – 3 echte Meldungen + ein `[TEST]`-Probealarm, sortiert nach *angezeigter* Uhrzeit. | Steuerpult (Rack × Löschmittel), Fortschritt. **Welches Rack unter Strom steht.** | **Brandgut** hinter jedem Rack (Papierarchiv, Kabelbaum, Server, USV-Akku). |
+| **Zettel** | Löschplan Teil 1/3: Regel ① + Falle | Löschplan Teil 2/3: Regel ② | Löschplan Teil 3/3: Regeln ③ + ④ |
+| **Eingabe** | `release` (Freigabe-Knopf) | `valve_action`: `RACK:LÖSCHMITTEL`, Rack für Rack | `release` (Freigabe-Knopf) |
 
-**Lösung:**
-1. Alle drei lesen ihren Schritt vor (Schritt 1/2/3 ist auf drei Personen verteilt), die Vorderseite flutet in der Reihenfolge.
-2. Die Fragmente tragen 1–3 Punkte. Nach Punktzahl sortiert ergeben sie das Passwort (**Schlussfolgern**), die Rückseite gibt es ein.
-Das letzte Fragment erscheint erst nach erfolgreichem Fluten. **Belohnungsziffer sichtbar für:** Leitstand.
+**Der Löschplan** (`backend/notes.py`, `FIRE_NOTE`) – wie bei Aufgabe 1: jede Regel vollständig auf einem Stück, und zwar bei dem, der die Fakten dazu **nicht** sieht.
+- **①** *(Leitstand)* Papier → WASSER, Kabel → SCHAUM, Server → INERTGAS. **Rack unter Strom: nie Wasser oder Schaum → CO2.** **USV-Akku: nicht löschen → ABSCHOTTEN.** *Brandgut kennt die Rückseite, Strom die Vorderseite.*
+- **②** *(Vorderseite)* Gelöscht wird in der Reihenfolge der Meldungen, **älteste zuerst**. `[TEST]`-Meldungen sind Probealarme → ignorieren. *Das Log hat der Leitstand.*
+- **③** *(Rückseite)* BMZ (Brandmeldezentrale) zeigt **UTC**, Rauchmelder (RM) zeigen **Ortszeit = UTC + 2 h** → bei RM 2 Stunden abziehen. *Das Log hat der Leitstand.*
+- **④** *(Rückseite)* Freigabe nur zu zweit: Leitstand und Rückseite drücken **innerhalb von 3 Sekunden**.
+- **Falle** *(Leitstand)*: „Wasser geht immer.“ – durchgestrichen, „NEIN!“.
+
+**Garantiert in jeder Runde:** Wer die Uhrzeiten ohne ③ vergleicht, bekommt die falsche Reihenfolge. Mindestens ein brennendes Rack mit Papier/Kabel steht unter Strom (① Strom-Regel). Ein USV-Akku brennt in etwa jeder zweiten Runde.
+
+**Lösung (Beispiel):** Log: `09:41 BMZ A-02`, `09:44 BMZ [TEST] B-02`, `11:38 RM B-01`, `11:47 RM A-01`. Mit ③: B-01 = 09:38, A-01 = 09:47 UTC → Reihenfolge **B-01, A-02, A-01** (TEST ignoriert). Rückseite: B-01 Kabelbaum, A-02 USV-Akku, A-01 Papierarchiv. Vorderseite: B-01 Strom an, A-01 stromlos. ① → `B-01:CO2`, `A-02:ABSCHOTTEN`, `A-01:WASSER`. Danach drücken Leitstand und Rückseite auf „3, 2, 1“ die Freigabe.
+Falsches Rack/Löschmittel kostet Leben; wer zu spät drückt, wartet nur erneut (der andere muss nochmal). **Belohnungsziffer sichtbar für:** Leitstand.
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
-**Geschichte:** Zwei Datenblöcke sind verschlüsselt. Erst wenn beide entschlüsselt sind, kann die Rettung **gleichzeitig** ausgelöst werden.
+**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden. Dafür muss die richtige Platte eingelegt, das Backup-Terminal entsperrt und das Passwort aus den Datenpaketen entschlüsselt werden – als **Kette**: Platte → Login → Pakete prüfen → Binär → Dezimal → Buchstabe → zurückschieben. Das Ergebnis ist immer **RENTE**, der Login ein DRV-Begriff (REHA, BUND oder DRV).
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Halbe** ASCII-Tabelle (A–M) und die **oberen Bit-Stellenwerte** (128, 64, 32, 16). | Das Wort als ASCII-Zahlen (z. B. `83 69 82 86 69 82`). Die **andere Hälfte** der ASCII-Tabelle (N–Z). | Zwei 8-stellige Binärzahlen (z. B. `10100110`; Werte 17–255 mit Einsen in **beiden** Hälften, keine wie 101/110). Die **unteren Bit-Stellenwerte** (8, 4, 2, 1). |
-| **Eingabe** | – | `ascii_answer` (Wort), danach `sync_button` | `binary_answer` (Dezimalwerte), danach `sync_button` |
+| **Sieht** | **Log:** Login-Name als Hex-Codes, **Backup-Jobs** (Datum, Platte, Status), **Schlüsselbund** (Key-ID, Schlüssel binär, Status aktiv/REVOKED/abgelaufen) | **ASCII-Tabelle** A=65 … Z=90, **Backup-Terminal** (erst gesperrt) | 4 **Backup-Platten**; nach dem Einlegen **6 Datenpakete** à 8 Bit (Prüfbit P abgesetzt) und die **Key-ID** im Paket-Kopf (binär) |
+| **Zettel** | Anleitung Teil 1/3: Regeln ④ + ⑥ + Falle | Anleitung Teil 2/3: Regeln ② + ③ | Anleitung Teil 3/3: Regeln ① + ⑤ |
+| **Eingabe** | – | `terminal_login`, danach `rescue_word` | `mount_disk` |
 
-**Lösung:** Vorderseite und Rückseite brauchen jeweils auch die Tabellenhälfte des Leitstands. Beide schalten so ihren Button frei. **Dann drücken Vorderseite und Rückseite innerhalb eines Zeitfensters (3 Sekunden).**
-Die bestehenden Tests in `test_taskDatenRettung.py` beschreiben den Sync-Button bereits. **Belohnungsziffer sichtbar für:** Vorderseite.
+**Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, **mit Rechenbeispiel** (auch ohne Informatik-Vorwissen lösbar), und jeweils bei dem, der die Fakten dazu nicht sieht. Nummern in der Reihenfolge, in der man sie braucht:
+- **①** *(Rückseite)* Richtige Platte = das **neueste** Backup mit Status **OK**. Datum ist TAG.MONAT – erst Monat, dann Tag vergleichen. *Bsp: 03.04. ist neuer als 28.03.* *Die Backup-Jobs hat der Leitstand.*
+- **②** *(Vorderseite)* Login-Name in **Hex**: erste Ziffer · 16 + zweite, A=10 … F=15; dann Zahl → Buchstabe in der ASCII-Tabelle. *Bsp: 0x4E → 4 · 16 + 14 = 78 → N.* *Die Hex-Codes hat der Leitstand.*
+- **③** *(Vorderseite)* Pakete prüfen: Einsen zählen, **gerade** → heil, **ungerade** → weglassen. *Bsp: 1 1000011 → 4 Einsen → heil.* *Die Pakete hat die Rückseite.*
+- **④** *(Leitstand)* Binär → Dezimal: erstes Bit = Prüfbit, zählt nicht; 64 32 16 8 4 2 1. Key-ID und Schlüssel: 4 Bit = 8 4 2 1. *Bsp: 1 1000011 → 64 + 2 + 1 = 67; 0110 → 6.* *Die Pakete hat die Rückseite.*
+- **⑤** *(Rückseite)* Schlüssel k = der **aktive** Eintrag mit der Key-ID aus dem Paket-Kopf – nie REVOKED, nie abgelaufen. *Den Schlüsselbund hat der Leitstand.*
+- **⑥** *(Leitstand)* Jeden Buchstaben um k im Alphabet **zurück**, vor A kommt Z. *Bsp k = 3: F → C.* *Die Buchstaben kommen von der Vorderseite.*
+- **Fallen:** das allerneueste Backup ist immer FEHLER; Datum als Text verglichen („28.03.“ > „03.04.“) führt zur falschen Platte; zur Key-ID gibt es einen REVOKED-Zwilling; „Immer ROT13“ durchgestrichen (k ist 1–9).
 
-**Rückseite – Hinweis:** erklärt die Regel („Addiere die Stellenwerte aller Stellen mit einer 1“, Beispiel `0000 0101 = 4 + 1 = 5`) und dass die Werte der ersten vier Stellen nur der Leitstand kennt. Er nennt 128, 64, 32, 16 bewusst nicht. Der Leitstand sieht seine Werte den ersten vier der acht Stellen zugeordnet.
+**So entsteht die Runde** (Backend rechnet rückwärts): RENTE → um k **vor** → ASCII → Prüfbit so, dass jedes heile Paket eine gerade Anzahl Einsen hat; ein Paket mit falschem Prüfbit an zufälliger Stelle. Backups über einen Monatswechsel (zwei Ende Monat m, zwei Anfang m+1, das neueste FEHLER).
+
+**Lösung (Beispiel):**
+1. Backups: 22.03. SN-1356 OK, 27.03. SN-4471 OK, 03.04. SN-9083 OK, 07.04. SN-2210 FEHLER → ① **SN-9083** einlegen.
+2. Login `0x52 0x45 0x48 0x41` → ② 82 69 72 65 → **REHA**.
+3. Paket-Kopf `KEY-ID 0110` → ④ 6 → ⑤ aktiver Schlüssel mit ID 6 = `0011` → k = 3 (der REVOKED-Zwilling `0111` wäre falsch).
+4. Pakete `0 1010101`, `0 1001000`, `1 1001011`, `1 1010001`, `1 1010111`, `0 1001000` → ③ Paket 3 (5 Einsen) weg → ④ 85, 72, 81, 87, 72 → U H Q W H → ⑥ je 3 zurück → **RENTE**.
+
+Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Belohnungsziffer sichtbar für:** Vorderseite.
 
 ### Finale — Neustart (`kind: "reboot"`, neu)
 
@@ -98,20 +126,22 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 
 | Aufgabe | Rolle | `view.type` | Felder |
 |---|---|---|---|
-| 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code-Symbole + Ablenker, pro Aufgabe gemischt), `p_done` |
-| 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done` |
-| 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt) |
-| 2 | MASTER | `fire_log` | `clue: {step, valve, color}`, `fragment: {dots, text}` |
-| 2 | FI-SI | `valve_panel` | `valves`, `colors`, `sequence_len`, `step`, `clue: {step, valve, color}`, `last_fragment` (null bis gelöst, dann `{dots, text}`), `p_done` |
-| 2 | FI-AE | `password_input` | `clue: {step, valve, color}`, `fragment: {dots, text}`, `last_fragment` (null bis gelöst), `p_done` |
-| 3 | MASTER | `ascii_binary_tables` | `ascii_half: {"A":65,…"M":77}`, `place_values: [128,64,32,16]` |
-| 3 | FI-SI | `ascii_puzzle` | `ascii_codes`, `ascii_half: {"N":78,…"Z":90}`, `button_unlocked` |
-| 3 | FI-AE | `binary_puzzle` | `binary_codes`, `place_values: [8,4,2,1]`, `button_unlocked` |
+| 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `led: "blinkt" / "leuchtet"`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code- und Kabel-Symbole + Ablenker, pro Aufgabe gemischt), `p_done`, `note` |
+| 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done`, `note` |
+| 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt; zerkratzt: `{symbol: null, color, scratched: true}`), `note` |
+| 2 | MASTER | `fire_log` | `log: [{time: "HH:MM", source: "BMZ"/"RM", rack, test}]` (nach angezeigter Uhrzeit sortiert), `release: {armed, window}`, `note` |
+| 2 | FI-SI | `valve_panel` | `racks: [4 Rack-IDs]`, `agents: [WASSER, SCHAUM, CO2, INERTGAS, ABSCHOTTEN]`, `power: {rack: true/false}`, `sequence_len`, `step`, `p_done`, `note` |
+| 2 | FI-AE | `rack_rear` | `rear: [{rack, material, label} ×4]`, `release: {armed, window}`, `note` |
+| 3 | MASTER | `rescue_log` | `login_hex: ["0x52", …]`, `backups: [{date: "TT.MM.", serial, status: "OK"/"FEHLER"} ×4]`, `keys: [{id, key: "0011", status: "aktiv"/"REVOKED"/"abgelaufen"} ×4]`, `note` |
+| 3 | FI-SI | `rescue_terminal` | `ascii_table: {"A":65,…"Z":90}`, `login_len`, `logged_in`, `word_len: 5`, `note` |
+| 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_id: "0110"` / `packets: ["01010101", …]` (beide null bis eingelegt), `note` |
 | 4 | alle | `reboot` | `digit: 0..9` (eigene Ziffer), `terminal: true` nur bei MASTER |
+
+**Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
 
-Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`). Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

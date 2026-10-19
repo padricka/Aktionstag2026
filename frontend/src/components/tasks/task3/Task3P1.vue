@@ -1,77 +1,64 @@
 <!--
-  Task3P1 — Vorderseite, Aufgabe 3 „Datenrettung" (view.type "ascii_puzzle").
+  Task3P1 — Vorderseite, Aufgabe 3 „Datenrettung" (view.type "rescue_terminal").
 
-  Die Vorderseite sieht das Wort als ASCII-Zahlen und die Tabellenhälfte N–Z.
-  Die Hälfte A–M sowie die oberen Stellenwerte (128/64/32/16) stehen nur beim
-  Leitstand — deshalb ist die Lösung hier bewusst NICHT berechenbar:
-  jede Eingabe geht als `solved` an PlayerScreen, geprüft wird im Backend.
-  Erst `view.button_unlocked` schaltet den Sync-Knopf frei.
+  Die Vorderseite hat die ASCII-Tabelle und das Backup-Terminal: erst Login
+  (Name steht in Hex im Log des Leitstands), dann das gerettete Wort. Hier wird
+  nichts gerechnet oder geprüft: jede Eingabe geht als `solved` an PlayerScreen.
 -->
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">ASCII-Code entschlüsseln</h2>
+      <h2 class="title">Backup-Terminal</h2>
       <span class="role">Vorderseite</span>
     </header>
 
     <p class="hint">
-      Wandle die Zahlen in Buchstaben um und gib das Wort ein.
-      Die Tabelle A–M und die oberen Stellenwerte stehen beim Leitstand.
+      Das Terminal ist gesperrt. Den Benutzernamen hat der Leitstand – aber in Hex (Regel ②).
+      Welche Pakete heil sind, sagt Regel ③ – die Pakete hat die Rückseite. Die ASCII-Tabelle brauchen alle.
     </p>
 
     <div class="body">
-      <section class="col">
-        <div class="codes">
-          <div v-for="(code, i) in asciiCodes" :key="i" class="code">
-            <span class="code-value">{{ code }}</span>
-            <span class="code-label">Code {{ i + 1 }}</span>
+      <div class="main-col">
+        <section class="panel terminal" :class="{ 'is-locked': !loggedIn }">
+          <span class="panel-label">
+            {{ loggedIn ? `Angemeldet · Passwort der Backup-Platte (${wordLen} Buchstaben)` : `Gesperrt · BENUTZER (${loginLen} Buchstaben)` }}
+          </span>
+          <div class="foot">
+            <input
+              :key="loggedIn ? 'wort' : 'login'"
+              v-model="eingabe"
+              class="input-big"
+              :class="{ err: !!serverError }"
+              :placeholder="loggedIn ? 'WORT' : 'BENUTZER'"
+              :maxlength="loggedIn ? wordLen : loginLen"
+              :disabled="sending"
+              @keyup.enter="absenden"
+            />
+            <button
+              class="btn-action"
+              :disabled="!eingabe.trim() || sending"
+              @click="absenden"
+            >
+              {{ sending ? 'Prüfe …' : (loggedIn ? 'Daten retten' : 'Anmelden') }}
+            </button>
           </div>
-        </div>
+          <p v-if="serverError" class="msg-err">{{ serverError }}</p>
+        </section>
 
         <section class="panel">
-          <span class="panel-label">Deine Tabellenhälfte · N–Z</span>
-          <div class="grid ascii-table">
-            <div v-for="item in asciiHalf" :key="item.char" class="cell">
-              <span class="cell-key">{{ item.char }}</span>
+          <span class="panel-label">ASCII-Tabelle · Zahl → Buchstabe</span>
+          <div class="ascii-table">
+            <div v-for="item in tabelle" :key="item.char" class="cell">
               <span class="cell-val">{{ item.dec }}</span>
+              <span class="cell-key">{{ item.char }}</span>
             </div>
           </div>
         </section>
+      </div>
 
-        <div class="foot">
-          <input
-            v-model="eingabe"
-            class="input-big"
-            :class="inputClass"
-            placeholder="WORT"
-            :disabled="sending || unlocked"
-            @keyup.enter="absenden"
-          />
-          <button
-            class="btn-action"
-            :disabled="!eingabe.trim() || sending || unlocked"
-            @click="absenden"
-          >
-            {{ unlocked ? 'Akzeptiert' : (sending ? 'Prüfe …' : 'Antwort prüfen') }}
-          </button>
-          <p v-if="serverError && !unlocked" class="msg-err">{{ serverError }}</p>
-          <p v-if="unlocked" class="msg-ok">Wort akzeptiert – Sync-Knopf ist frei.</p>
-        </div>
-      </section>
-
-      <aside class="col sync-col">
-        <span class="panel-label">Gemeinsame Rettung</span>
-        <SyncButton
-          v-if="unlocked"
-          :unlocked="true"
-          :state="syncState"
-          :window-ms="SYNC_WINDOW_MS"
-          @press="drueckeSync"
-        />
-        <p v-else class="sync-locked">
-          Der Sync-Knopf ist verplombt. Erst das Wort lösen – dann drücken beide
-          Seiten innerhalb von 3 Sekunden.
-        </p>
+      <aside v-if="view?.note" class="note-col">
+        <span class="panel-label">Dein Teil der Anleitung</span>
+        <TornNote :note="view.note" :seed="noteSeed" />
       </aside>
     </div>
   </div>
@@ -79,36 +66,38 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import SyncButton from '../../SyncButton.vue'
-import { SYNC_WINDOW_MS, useSyncWindow } from '../../../composables/useSyncWindow.js'
+import TornNote from '../../TornNote.vue'
 
 const props = defineProps({
-  asciiCodes: { type: Array, default: () => [83, 69, 82, 86] },
   view: { type: Object, default: null },
   serverError: { type: String, default: '' },
+  // gleiche Aufgabe → gleiche Risskante
+  noteSeed: { type: String, default: '' },
 })
 const emit = defineEmits(['solved'])
 
 const eingabe = ref('')
 const sending = ref(false)
-const { state: syncState, begin: syncBegin } = useSyncWindow()
 
-// Codiertes Wort: kommt fertig vom Server.
-const asciiCodes = computed(() => props.view?.ascii_codes || props.asciiCodes)
+const wordLen = computed(() => props.view?.word_len || 5)
+const loginLen = computed(() => props.view?.login_len || 4)
+const loggedIn = computed(() => !!props.view?.logged_in)
 
-// Eigene Tabellenhälfte (N–Z) aus dem view; nichts wird hier gerechnet.
-const asciiHalf = computed(() =>
-  Object.entries(props.view?.ascii_half || {})
+// Login geschafft: Feld für das Wort ist frei
+watch(loggedIn, (ja) => {
+  if (ja) {
+    sending.value = false
+    eingabe.value = ''
+  }
+})
+
+const tabelle = computed(() =>
+  Object.entries(props.view?.ascii_table || {})
     .map(([char, dec]) => ({ char, dec }))
     .sort((a, b) => a.dec - b.dec),
 )
 
-// Erst der Server schaltet frei.
-const unlocked = computed(() => !!props.view?.button_unlocked)
-
-const inputClass = computed(() => ({ err: !!props.serverError && !unlocked.value }))
-
-// Falsche Antwort: Backend meldet serverError, Eingabe wieder frei.
+// Falsche Antwort: Backend meldet serverError, Eingabe leeren und wieder frei.
 watch(
   () => props.serverError,
   (e) => {
@@ -119,20 +108,11 @@ watch(
   },
 )
 
-watch(unlocked, (frei) => { if (frei) sending.value = false })
-
 function absenden() {
   const versuch = eingabe.value.trim()
-  if (!versuch || sending.value || unlocked.value) return
-  // Keine Prüfung im Browser: jede Antwort geht zum Backend.
+  if (!versuch || sending.value) return
   sending.value = true
-  emit('solved', { player: 'P1', answer: versuch })
-}
-
-function drueckeSync() {
-  if (!unlocked.value) return
-  if (!syncBegin()) return
-  emit('solved', { target: 'sync_button' })
+  emit('solved', { target: loggedIn.value ? 'rescue_word' : 'terminal_login', answer: versuch })
 }
 </script>
 
@@ -169,7 +149,7 @@ function drueckeSync() {
   letter-spacing: 0.15em;
 }
 
-.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 18px 0; }
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
 .body {
   flex: 1;
@@ -177,59 +157,23 @@ function drueckeSync() {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
   gap: 24px;
+  overflow: auto;
 }
 
-.col {
+.main-col {
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  gap: 16px;
-}
-
-.codes {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.code {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 16px 10px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-}
-
-.code-value {
-  font-family: var(--mono);
-  font-size: 40px;
-  font-weight: 700;
-  color: var(--fg);
-  letter-spacing: 0.05em;
-  line-height: 1;
-}
-
-.code-label {
-  font-size: 10px;
-  color: var(--fg-3);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  gap: 20px;
+  min-width: 0;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 14px;
+  padding: 22px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .panel-label {
@@ -240,93 +184,76 @@ function drueckeSync() {
   font-weight: 600;
 }
 
-.grid {
-  display: grid;
-  gap: 6px;
-  align-content: start;
+.foot {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.ascii-table { grid-template-columns: repeat(4, 1fr); }
+.input-big {
+  flex: 1;
+  min-width: 180px;
+  padding: 14px 18px;
+  background: var(--bg);
+  border: 1px solid var(--border-3);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+}
+
+.input-big.err { border-color: var(--red); }
+.input-big:disabled { opacity: 0.6; }
+
+.btn-action {
+  padding: 14px 24px;
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.msg-err { margin: 0; font-size: 13px; color: var(--red); }
+
+.terminal.is-locked { border-color: var(--amber-border); }
+.terminal.is-locked .panel-label { color: var(--amber); }
+
+.ascii-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 6px;
+}
 
 .cell {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 8px 10px;
+  gap: 2px;
+  padding: 8px 4px;
   background: var(--bg-1);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
 }
 
-.cell-key { font-size: 15px; font-weight: 700; color: var(--fg); }
-.cell-val { font-size: 14px; font-weight: 700; color: var(--green); }
+.cell-val { font-size: 13px; color: var(--fg-3); }
+.cell-key { font-size: 20px; font-weight: 700; color: var(--fg); }
 
-.foot {
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
+.note-col {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 10px;
-  flex-shrink: 0;
-}
-
-.input-big {
-  width: 100%;
-  max-width: 480px;
-  padding: 14px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-  font-size: 22px;
-  text-align: center;
-  letter-spacing: 0.3em;
-  font-weight: 700;
-  outline: none;
-}
-
-.input-big:focus { border-color: var(--green-border); }
-.input-big.err { border-color: var(--red); color: var(--red); }
-
-.btn-action {
-  padding: 14px 56px;
-  background: var(--green);
-  color: #050a08;
-  border: none;
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-}
-
-.btn-action:hover:not(:disabled) { background: #4dff8f; }
-.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.msg-err { font-size: 12px; color: var(--red); margin: 0; }
-.msg-ok { font-size: 12px; color: var(--green); margin: 0; letter-spacing: 0.05em; }
-
-.sync-col {
-  justify-content: center;
-  overflow-y: auto;
-  padding: 16px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-}
-
-.sync-locked {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--fg-3);
-  text-align: center;
-  letter-spacing: 0.03em;
+  align-items: flex-start;
 }
 
 @media (max-width: 1100px) {
-  .body { grid-template-columns: 1fr; overflow-y: auto; }
-  .sync-col { justify-content: flex-start; }
-  .code-value { font-size: 30px; }
+  .body { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

@@ -9,6 +9,9 @@ from .playableObject import TASK_TYPES, Outcome
 
 MAX_HEALTH = 300
 HEALTH_BONUS = 15
+# Sekunden extra pro echt gelöster Aufgabe (nicht beim DEV-Überspringen):
+# die Rätsel brauchen Absprache, 5 Minuten für alles wären zu knapp
+TIME_BONUS = 90
 
 # Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
 INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
@@ -312,6 +315,7 @@ class DataCenter:
                 # Score = Restzeit × Multiplikator der gerade gelösten Aufgabe
                 gain = self._score_for_solve(task.get("kind", ""))
                 self.redis.r.hincrby(self._key, "score", gain)
+                self.redis.r.hincrby(self._key, "time_left", TIME_BONUS)   # erst nach der Wertung
 
                 if self._advance(task):
                     return {"result": "correct", "won": True, "score_gain": gain}

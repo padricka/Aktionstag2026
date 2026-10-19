@@ -6,21 +6,41 @@
     </header>
 
     <p class="hint">
-      Beschreibe dem Leitstand die farbigen Aufkleber — du tippst nichts ein.
+      Beschreibe dem Leitstand die farbigen Aufkleber – du tippst nichts ein.
+      Ist einer zerkratzt? Dann gilt Regel ③ auf deinem Teil der Wartungsnotiz – dafür
+      brauchst du den brennenden Platz (Leitstand) und das Kabel-Symbol dort (Vorderseite).
     </p>
 
     <div v-if="!stickers.length" class="empty">Warte auf Aufkleber …</div>
 
-    <div v-else class="stickers">
-      <div
-        v-for="(s, i) in stickers"
-        :key="`${s.symbol}-${s.color}-${i}`"
-        class="sticker"
-        :style="{ borderColor: colorHex(s.color), background: colorBg(s.color) }"
-      >
-        <span class="sticker-color">{{ s.color }}</span>
-        <SymbolIcon :name="s.symbol" :farbe="colorHex(s.color)" :size="96" />
+    <div v-else class="p2-body">
+      <div class="stickers">
+        <div
+          v-for="(s, i) in stickers"
+          :key="`${s.symbol}-${s.color}-${i}`"
+          class="sticker"
+          :class="{ 'is-scratched': s.scratched }"
+          :style="{ borderColor: colorHex(s.color), background: colorBg(s.color) }"
+        >
+          <span class="sticker-color">{{ s.color }}</span>
+          <svg
+            v-if="s.scratched"
+            class="scratch"
+            viewBox="0 0 40 40"
+            role="img"
+            aria-label="Symbol zerkratzt, nicht lesbar"
+          >
+            <path d="M4 8l32 24M8 4l26 32M3 20h34M10 36L31 3M6 28l14-22" />
+          </svg>
+          <SymbolIcon v-else :name="s.symbol" :farbe="colorHex(s.color)" :size="96" />
+          <span v-if="s.scratched" class="scratch-label">zerkratzt</span>
+        </div>
       </div>
+
+      <aside v-if="view?.note" class="note-col">
+        <span class="note-label">Dein Teil der Wartungsnotiz</span>
+        <TornNote :note="view.note" :seed="noteSeed" />
+      </aside>
     </div>
   </div>
 </template>
@@ -28,9 +48,11 @@
 <script setup>
 import { computed } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
+import TornNote from '../../TornNote.vue'
 
 const props = defineProps({
   view: { type: Object, default: null },
+  noteSeed: { type: String, default: '' },
 })
 
 const COLOR_MAP = {
@@ -104,13 +126,54 @@ function colorBg(name) {
   color: var(--fg-3);
 }
 
-.stickers {
+.p2-body {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 28px;
+  overflow: auto;
+}
+
+.stickers {
+  flex: 1 1 480px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   min-height: 0;
   align-content: center;
+}
+
+.note-col {
+  flex: 0 1 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-label {
+  font-size: 11px;
+  color: var(--fg-3);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.scratch {
+  width: 96px;
+  height: 96px;
+  fill: none;
+  stroke: var(--fg-3);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.scratch-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--fg-2);
 }
 
 .sticker {
@@ -119,7 +182,7 @@ function colorBg(name) {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  min-height: 260px;
+  min-height: 190px;
   padding: 24px;
   border: 3px solid;
   background: var(--bg-2);

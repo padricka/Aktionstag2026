@@ -138,6 +138,47 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
+  describe('Neustart vom Beamer', () => {
+    async function nachNiederlage() {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'game_tick', payload: { health: 10, time_left: 100, tasks: [] } })
+      simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 42, survived_seconds: 123 } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it('nach einer Niederlage startet der Host neu: reset_game, dann wieder Lobby', async () => {
+      const wrapper = await nachNiederlage()
+      await wrapper.find('.restart-btn').trigger('click')
+
+      expect(getSentEvents().at(-1)).toEqual({ event: 'reset_game', payload: {} })
+      expect(wrapper.find('.restart-btn').text()).toContain('Neustart …')
+
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'waiting' } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.end').exists()).toBe(false)
+      expect(wrapper.find('.lobby').exists()).toBe(true)
+      expect(wrapper.find('.id-value').text()).toBe('TEST')     // gleiche Sitzung
+    })
+
+    it('nach einer Niederlage führt „Spiel beenden“ ins Hauptmenü', async () => {
+      const wrapper = await nachNiederlage()
+      await wrapper.find('.end-exit').trigger('click')
+      expect(wrapper.emitted('exit')).toHaveLength(1)
+    })
+
+    it('nach einem Sieg gibt es neben dem offenen Tresor eine neue Runde', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 60, survived_seconds: 200 } })
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('.host-restart').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'reset_game', payload: {} })
+    })
+  })
+
   it('zeigt einen Fehler statt der ID, wenn die Sitzung unbekannt ist (?game_id=…)', async () => {
     const wrapper = mount(HostScreen)
     await new Promise((r) => setTimeout(r, 10))

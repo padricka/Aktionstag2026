@@ -10,7 +10,7 @@ Die Task-Komponente (`components/tasks/taskN/…`) reicht `view`-Daten als Props
 | Tresor | `VaultDoor.vue` | Finale: Beamer + Leitstand | fertig (PR #21) |
 | Kabelpanel | `WirePanel.vue` | Aufgabe 1, Vorderseite (`main_switches`) | fertig, **Mustervorlage** |
 | Steuerpult | `ControlDesk.vue` | Aufgabe 2, Vorderseite (`valve_panel`) | fertig |
-| Sync-Knopf | `SyncButton.vue` | Aufgabe 3, Vorder- + Rückseite | fertig |
+| Sync-Knopf | `SyncButton.vue` | derzeit in keiner Aufgabe (Aufgabe 3 ohne Sync-Knopf), nur PanelsDemo | fertig |
 
 ## Regeln für jedes Panel
 
@@ -43,20 +43,21 @@ Die Task-Komponente (`components/tasks/taskN/…`) reicht `view`-Daten als Props
 - Kabelfarben bewusst nicht rot/gelb/grün/blau (das sind in Aufgabe 1 die Code-Farben).
 
 ### ControlDesk (Aufgabe 2, Vorderseite)
-Industriepult: **Drehregler** wählt das Ventil, **Schieberegler** wählt die Farbe,
+Industriepult: **Drehregler** wählt das Rack (allgemein: Ventil), **Schieberegler** wählt das Löschmittel (allgemein: Farbe),
 **Manometer** zeigt den Fortschritt, **Hebel/Knopf „AUSLÖSEN"** schickt den Schritt.
 - Props:
-  - `valves: string[]` (= `view.valves`, z. B. `["V-31","V-32","V-33"]`)
-  - `colors: string[]` (= `view.colors`, z. B. `["ORANGE","RED","GREEN"]`)
+  - `valves: string[]` (= `view.racks`, z. B. `["A-01","A-02","B-01","B-02"]`)
+  - `colors: string[]` (= `view.agents`, z. B. `["WASSER","SCHAUM","CO2","INERTGAS","ABSCHOTTEN"]`)
   - `step: number` (bereits erledigte Schritte, = `view.step`)
   - `sequenceLen: number` (= `view.sequence_len`)
   - `state: "idle"|"checking"|"error"|"done"`
-- Event: `submit("V-32:RED")` → `player_input { target: "valve_action", value }`
+  - `valveLabel` / `colorLabel` (Standard „Ventil“ / „Farbe“; Aufgabe 2: „Rack“ / „Löschmittel“) – Beschriftung und aria-label der Regler
+- Event: `submit("B-02:CO2")` → `player_input { target: "valve_action", value }`
 - Startstellung: erstes Ventil, erste Farbe. Drehregler per Klick/Pfeiltasten, Schieberegler per Klick/Pfeiltasten.
 - Nach `error` → `idle`: Regler bleiben stehen (der Spieler korrigiert nur), aber der Hebel federt zurück.
 - Ideen: Manometer-Nadel zittert leicht, springt pro Schritt ein Segment weiter; bei `done` rauscht Wasser (blaue Partikel) und das Pult leuchtet grün.
 
-### SyncButton (Aufgabe 3, Vorder- und Rückseite)
+### SyncButton (derzeit ungenutzt, früher Aufgabe 3)
 Großer roter **Pilz-Notknopf unter einer Klappe**. Erst Klappe öffnen, dann drücken.
 Ein **Ring** um den Knopf läuft die 3 Sekunden ab, in denen der Partner drücken muss.
 - Props:

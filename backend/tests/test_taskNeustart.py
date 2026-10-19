@@ -54,23 +54,24 @@ def _views(dc):
 
 def _loese_alarm(dc):
     st = _state(dc)
-    _input(dc, P1_NAME, "main_switch", st["broken_symbol"])
-    return _input(dc, MASTER_NAME, "shutdown_cmd", ",".join(st["code"]))
+    # Lösung direkt aus dem State (Regeln der Wartungsnotiz: test_taskAlarm.py)
+    _input(dc, P1_NAME, "main_switch", st["target_symbol"])
+    return _input(dc, MASTER_NAME, "shutdown_cmd", ",".join(st["solution"]))
 
 
 def _loese_loeschprotokoll(dc):
     st = _state(dc)
     for step in st["sequence"]:
-        _input(dc, P1_NAME, "valve_action", f"{step['valve']}:{step['color']}")
-    alle = _state(dc)["fragments"]
-    pw = "".join(f["text"] for f in sorted(alle, key=lambda f: f["dots"]))
-    return _input(dc, P2_NAME, "release_pw", pw)
+        _input(dc, P1_NAME, "valve_action", f"{step['rack']}:{step['agent']}")
+    _input(dc, MASTER_NAME, "release", "press")          # Vier-Augen-Freigabe
+    return _input(dc, P2_NAME, "release", "press")
 
 
 def _loese_datenrettung(dc):
-    # Der Sync-Knopf ist ein eigenes Paket (B3) – hier nur "gelöst" simulieren.
-    with patch.object(DataRescueTask, "handle_input", return_value=StepResult(Outcome.SOLVED, {})):
-        return _input(dc, P1_NAME, "ascii_answer", "egal")
+    st = _state(dc)
+    _input(dc, P2_NAME, "mount_disk", st["serial"])
+    _input(dc, P1_NAME, "terminal_login", st["login"])
+    return _input(dc, P1_NAME, "rescue_word", st["word"])
 
 
 def _bis_zum_finale(dc):
