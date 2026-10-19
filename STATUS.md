@@ -7,8 +7,8 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **235** grün · 23 übersprungen · **0 rot** | nach #41–#43 + `feat/leaderboard` (Docker, Python 3.13) |
-| Frontend-Tests | **183** grün | nach #41–#43 + `feat/leaderboard` (Docker, Node 22; #33/#34 noch offen) |
+| Backend-Tests | **240** grün · 23 übersprungen · **0 rot** | nach #41–#44 + `fix/gleichzeitige-eingaben` (Docker, Python 3.13) |
+| Frontend-Tests | **183** grün | nach #41–#44 + `fix/gleichzeitige-eingaben` (Docker, Node 22; #33/#34 noch offen) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
@@ -36,4 +36,4 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-Leaderboard: jede Runde in `backend/data/leaderboard.json`, Top 5 im Punkte-Popup, Seite im Hauptmenü (20 pro Seite) · Spielende-Bildschirm: Bild voll sichtbar, Punkte-Karte als Popup, Leiste mit Spiel beenden / Neustart (`feat/spielende-screen`) · Neustart mit groß getippter Sitzungs-ID wirft nicht mehr raus (`fix/neustart-sitzungs-id`) · Spielregeln nur im Backend: vollständiger `game_tick` (`max_health`, `kind`, `reboot_digits`), Spielende nur per `game_over`, Tastatur Aufgabe 1 vom Backend · #40 DEV-Modus am Beamer · #35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
+Gleichzeitige Eingaben (z. B. Sync-Knopf) gehen nicht mehr verloren (`fix/gleichzeitige-eingaben`) · Leaderboard: jede Runde in `backend/data/leaderboard.json`, Top 5 im Punkte-Popup, Seite im Hauptmenü (20 pro Seite) · Spielende-Bildschirm: Bild voll sichtbar, Punkte-Karte als Popup, Leiste mit Spiel beenden / Neustart (`feat/spielende-screen`) · Neustart mit groß getippter Sitzungs-ID wirft nicht mehr raus (`fix/neustart-sitzungs-id`) · Spielregeln nur im Backend: vollständiger `game_tick` (`max_health`, `kind`, `reboot_digits`), Spielende nur per `game_over`, Tastatur Aufgabe 1 vom Backend · #40 DEV-Modus am Beamer · #35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
