@@ -85,11 +85,16 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 }
 
 // 2. Regelmäßiges Game-State Update (Broadcast, jede Sekunde und sofort nach player_input)
+// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits.
+// Spielregeln (Max-HP, Spielende, Aufgabenreihenfolge) kennt nur das Backend: Das Frontend
+// zeigt health/max_health an, wählt die Ansicht über tasks[].kind und beendet das Spiel
+// erst bei game_over, nicht selbst bei health 0 oder time_left 0.
 {
   "event": "game_tick",
   "status": "alive",
   "payload": {
     "health": 85,
+    "max_health": 300,
     "time_left": 120,
     "tasks": [
       {
@@ -97,7 +102,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
         "kind": "alarm",
         "instruction": "Alarm verifizieren!",
         "view": { "type": "alarm_leds", "slots": 4, "burning_slot": 3,
-                  "color_order": ["GELB", "ROT", "BLAU", "GRÜN"], "p_done": false }
+                  "color_order": ["GELB", "ROT", "BLAU", "GRÜN"],
+                  "keyboard": ["herz", "stern", "plus", "kreuz", "…12 Symbole, gemischt"],
+                  "p_done": false }
       }
     ],
     "reboot_digits": [4, null, null]

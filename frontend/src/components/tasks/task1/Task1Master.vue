@@ -85,7 +85,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import SymbolIcon from '../graphic-symbols/SymbolIcon.vue'
-import { CODE_SYMBOLE } from '../graphic-symbols/Symbole.js'
 
 const props = defineProps({
   view: { type: Object, default: null },
@@ -103,7 +102,8 @@ const burningSlot = computed(() => props.view?.burning_slot || null)
 const colorOrder = computed(() => props.view?.color_order || [])
 const pDone = computed(() => !!props.view?.p_done)
 const colorOrderText = computed(() => colorOrder.value.join(' → '))
-const tastatur = computed(() => CODE_SYMBOLE)
+// Tastatur gehört zum Rätsel: kommt gemischt vom Backend (Code-Symbole + Ablenker)
+const tastatur = computed(() => props.view?.keyboard || [])
 
 function freigebenNachFehler() {
   busy.value = false
