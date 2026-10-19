@@ -46,14 +46,14 @@ Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lö
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
 | **Sieht** | LED-Leiste mit 4 Steckplätzen, einer ist rot – die LED **blinkt oder leuchtet dauerhaft** (jede Runde neu). Die **Farbfolge** vom Monitor (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Kabel, beschriftet mit **Symbolen**, in Steckplatz-Reihenfolge 1–4. | Die 4 **Code-Symbole** auf **farbigen** Aufklebern, gemischt. Manchmal ist **einer zerkratzt** (Farbe sichtbar, Symbol nicht). |
-| **Zettel** | Wartungsnotiz oben links | Wartungsnotiz oben rechts | Wartungsnotiz unten |
+| **Zettel** | Wartungsnotiz Teil 1/3: Regel ② + Falle | Wartungsnotiz Teil 2/3: Regel ① | Wartungsnotiz Teil 3/3: Regel ③ |
 | **Eingabe** | `shutdown_cmd`: 4 Symbole in der richtigen Reihenfolge | `main_switch`: Symbol des richtigen Kabels | – |
 
-**Die zerrissene Wartungsnotiz** (`backend/notes.py`, `ALARM_NOTE`): Jede Rolle hat ein Stück. Gerissen wird zwischen ganzen Wörtern, ein Satz geht auf dem Nachbarstück weiter – nur zusammen vorgelesen ergibt er Sinn.
-- **①** Brennt ein Steckplatz: **nie** sein eigenes Kabel kappen! Gerade Nummer → das Kabel **links** daneben, ungerade → **rechts** daneben. *(Anfang Leitstand, Ende Vorderseite)*
-- **②** Shutdown-Code = die Farbfolge vom Monitor – aber nur, wenn die LED dauerhaft leuchtet. **Blinkt sie → rückwärts.** *(Leitstand | Vorderseite)*
-- **③** Ein Aufkleber zerkratzt? Dann gilt dort **das Symbol vom Kabel am Brandplatz** – also von dem, das ihr *nicht* kappt. *(Rückseite)*
-- **Falle:** „Der Code fängt immer mit ★ an.“ – durchgestrichen, „stimmt nicht!“.
+**Die zerrissene Wartungsnotiz** (`backend/notes.py`, `ALARM_NOTE`): Jede Rolle hat ein Stück, oben steht „TEIL x/3“. Das Stück **sieht** zerrissen aus, aber **kein Satz ist zerteilt**: Jedes Stück trägt eine vollständige Regel – genau die, die sein Spieler **nicht allein anwenden** kann, weil die nötigen Fakten bei den anderen stehen. „Ich kenne die Regel, du kennst die Fakten.“
+- **①** *(Vorderseite)* **Nie** das Kabel am brennenden Platz kappen! Gerade Platznummer → das Kabel **links** daneben, ungerade → **rechts** daneben. *Den brennenden Platz kennt nur der Leitstand.*
+- **②** *(Leitstand)* Shutdown-Code = die Farbfolge vom Monitor, Farbe für Farbe. **Blinkt die LED → rückwärts.** *Welches Symbol auf welcher Farbe klebt, kennt nur die Rückseite.*
+- **③** *(Rückseite)* Ist ein Aufkleber zerkratzt, gilt dort **das Symbol vom Kabel am brennenden Platz** – nicht vom gekappten. *Den Platz kennt der Leitstand, das Symbol dort die Vorderseite.*
+- **Falle** *(Leitstand)*: „Code fängt immer mit ★ an.“ – durchgestrichen, „stimmt nicht!“.
 
 **Lösung (Beispiel):** Platz 3 brennt, LED blinkt, GELB zerkratzt. ① 3 ist ungerade → Kabel von Platz 4. ② blinkt → Farbfolge rückwärts. ③ für GELB gilt das Symbol vom Kabel an Platz 3. Die Leitstand-Tastatur enthält deshalb auch die Kabel-Symbole.
 Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Belohnungsziffer sichtbar für:** Rückseite.
@@ -114,7 +114,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 3 | FI-AE | `binary_puzzle` | `binary_codes`, `place_values: [8,4,2,1]`, `button_unlocked` |
 | 4 | alle | `reboot` | `digit: 0..9` (eigene Ziffer), `terminal: true` nur bei MASTER |
 
-**Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück, nur ganze Wörter (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
+**Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
 

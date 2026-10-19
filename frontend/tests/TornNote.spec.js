@@ -1,6 +1,6 @@
 /**
  * TornNote — ein Stück eines zerrissenen Notizzettels (Panel, PANELS.md).
- * Inhalt kommt fertig vom Backend (view.note): nur ganze Wörter, Zeilen mit Position.
+ * Inhalt kommt fertig vom Backend (view.note): Teil x/3, vollständige Regeln, Zeilen mit Position.
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -56,6 +56,11 @@ describe('TornNote.vue', () => {
     const w = mount(TornNote, { props: { note, seed: 'x' } })
     expect(w.find('.tn').attributes('role')).toBe('note')
     expect(w.find('.tn').attributes('aria-label')).toContain('Wartungsnotiz')
+  })
+
+  it('nennt den Teil (Teil 2 von 3), wenn das Backend ihn mitschickt', () => {
+    const w = mount(TornNote, { props: { note: { ...note, part: 2, of: 3 }, seed: 'x' } })
+    expect(w.find('.tn').attributes('aria-label')).toBe('Teil 2 von 3 der Wartungsnotiz')
   })
 
   it('ein Stück beginnt bei seiner ersten eigenen Zeile (kein leeres Papier oben)', () => {

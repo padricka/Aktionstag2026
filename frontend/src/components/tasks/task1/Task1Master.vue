@@ -6,8 +6,8 @@
     </header>
 
     <p class="hint">
-      Sag den anderen, welcher Steckplatz brennt und ob die LED blinkt. Was daraus folgt,
-      steht auf der zerrissenen Wartungsnotiz – jeder von euch hat ein Stück. Du tippst den Code.
+      Sag den anderen, welcher Steckplatz brennt. Wie der Code entsteht, sagt Regel ② auf deinem
+      Teil der Wartungsnotiz – die Aufkleber dazu kennt nur die Rückseite. Du tippst den Code.
     </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
@@ -81,7 +81,7 @@
       </section>
 
       <aside v-if="view.note" class="note-col">
-        <span class="panel-label">Dein Stück der Wartungsnotiz</span>
+        <span class="panel-label">Dein Teil der Wartungsnotiz</span>
         <TornNote :note="view.note" :seed="noteSeed" />
       </aside>
     </div>

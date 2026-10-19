@@ -4,7 +4,7 @@
     class="tn"
     :class="tornClasses"
     role="note"
-    :aria-label="`Dein Stück der ${note.title || 'Notiz'}`"
+    :aria-label="ariaLabel"
   >
     <div class="tn-paper" :style="paperStyle">
       <div
@@ -30,15 +30,20 @@ import { computed } from 'vue'
 
 /**
  * Ein Stück eines zerrissenen Notizzettels. Nur Darstellung (PANELS.md):
- * Text und gerissene Kanten kommen fertig vom Backend (view.note), gerissen
- * wird dort zwischen ganzen Wörtern. Hier entsteht nur die Form der Risskante –
+ * Text, Teil x/3 und gerissene Kanten kommen fertig vom Backend (view.note),
+ * jede Regel steht vollständig auf einem Stück. Hier entsteht nur die Form der Risskante –
  * unregelmäßig, aber für dieselbe Aufgabe (seed) immer gleich.
  */
 const props = defineProps({
-  // { id, title, torn: ['right','bottom',…], lines: [{ row, style, text }] }
+  // { id, title, part, of, torn: ['right','bottom',…], lines: [{ row, style, text }] }
   note: { type: Object, default: null },
   // z. B. die task_id: gleiche Aufgabe → gleiche Risskante
   seed: { type: String, default: '' },
+})
+
+const ariaLabel = computed(() => {
+  const titel = props.note?.title || 'Notiz'
+  return props.note?.part ? `Teil ${props.note.part} von ${props.note.of} der ${titel}` : `Dein Stück der ${titel}`
 })
 
 const rows = computed(() => {

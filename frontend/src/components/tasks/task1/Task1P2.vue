@@ -7,7 +7,8 @@
 
     <p class="hint">
       Beschreibe dem Leitstand die farbigen Aufkleber – du tippst nichts ein.
-      Ist einer zerkratzt? Was dann gilt, steht auf deinem Stück der Wartungsnotiz.
+      Ist einer zerkratzt? Dann gilt Regel ③ auf deinem Teil der Wartungsnotiz – dafür
+      brauchst du den brennenden Platz (Leitstand) und das Kabel-Symbol dort (Vorderseite).
     </p>
 
     <div v-if="!stickers.length" class="empty">Warte auf Aufkleber …</div>
@@ -37,7 +38,7 @@
       </div>
 
       <aside v-if="view?.note" class="note-col">
-        <span class="note-label">Dein Stück der Wartungsnotiz</span>
+        <span class="note-label">Dein Teil der Wartungsnotiz</span>
         <TornNote :note="view.note" :seed="noteSeed" />
       </aside>
     </div>

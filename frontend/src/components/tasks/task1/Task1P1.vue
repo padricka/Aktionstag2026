@@ -6,8 +6,8 @@
     </header>
 
     <p class="hint">
-      Welches Kabel du kappst, steht auf der zerrissenen Wartungsnotiz – aber nicht nur auf
-      deinem Stück. Frag den Leitstand, welcher Steckplatz brennt, und lest euch die Zeilen vor.
+      Welches Kabel du kappst, sagt Regel ① auf deinem Teil der Wartungsnotiz. Welcher
+      Steckplatz brennt, sieht nur der Leitstand – frag nach. Die Rückseite braucht danach dein Symbol.
     </p>
 
     <div class="body">
@@ -18,7 +18,7 @@
         @cut="kappen"
       />
       <aside v-if="view?.note" class="note-col">
-        <span class="note-label">Dein Stück der Wartungsnotiz</span>
+        <span class="note-label">Dein Teil der Wartungsnotiz</span>
         <TornNote :note="view.note" :seed="noteSeed" />
       </aside>
     </div>
