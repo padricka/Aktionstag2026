@@ -182,6 +182,7 @@ const ALL_ROLES = ['MASTER', 'FI-SI', 'FI-AE']
 const gameId = ref('')
 const connected = ref(false)
 const joining = ref(false)
+const registered = ref(false)   // true, sobald ich in einem lobby_update auftauche
 const joinError = ref('')
 const myRole = ref(null)
 const lobbyPlayers = ref([])
@@ -313,14 +314,19 @@ const handleServerMessage = (msg) => {
   if (event === 'lobby_update') {
     const newPlayers = payload.players ?? []
     const stillInLobby = newPlayers.some(p => p.name === (props.playerName || 'Agent'))
+    const lobbyOpen = payload.status === 'waiting' || payload.status === 'ready'
 
-    if (connected.value && myRole.value && !stillInLobby && newPlayers.length === 0) {
-      myRole.value = null
-      connected.value = false
-      task.value = null
-      currentTask.value = 1
-      isGameOver.value = false
-      restarting.value = false
+    if (stillInLobby) {
+      registered.value = true
+    } else if (connected.value && registered.value && lobbyOpen) {
+      // Neustart (reset_game) löscht alle Spieler. Statt zurück zur ID-Eingabe:
+      // Runde zurücksetzen und automatisch wieder anmelden. Wer selbst Neustart
+      // gedrückt hat, meldet sich in handleRestart über die neue Verbindung an.
+      registered.value = false
+      resetRound()
+      if (!restarting.value) {
+        sendEvent('player_register', { player_name: props.playerName || 'Agent' })
+      }
     }
 
     lobbyPlayers.value = newPlayers
@@ -440,24 +446,29 @@ function handleRestart() {
 
   setTimeout(() => {
     disconnect()
-
-    isGameOver.value = false
-    gameOverResult.value = 'meltdown'
-    gameOverScore.value = 0
-    gameOverSurvived.value = 0
-    myRole.value = null
-    task.value = null
-    currentTask.value = 1
-    hp.value = MAX_HP
-    timeLeft.value = 300
-    lastError.value = ''
-    inputResultNonce.value = 0
+    resetRound()
 
     connect(`${WS_BASE}${gameId.value}/`, handleServerMessage, () => {
+      connected.value = true
       sendEvent('player_register', { player_name: props.playerName || 'Agent' })
       restarting.value = false
     })
   }, 300)
+}
+
+/** Alles, was zu einer Runde gehört, auf Anfang (Rolle wird neu gewählt). */
+function resetRound() {
+  isGameOver.value = false
+  gameOverResult.value = 'meltdown'
+  gameOverScore.value = 0
+  gameOverSurvived.value = 0
+  myRole.value = null
+  task.value = null
+  currentTask.value = 1
+  hp.value = MAX_HP
+  timeLeft.value = 300
+  lastError.value = ''
+  inputResultNonce.value = 0
 }
 
 function onTaskFailed() {
