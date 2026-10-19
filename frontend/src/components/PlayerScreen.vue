@@ -134,6 +134,7 @@
           :role="normalizedRole"
           :task="task"
           :view="task?.view"
+          :note-seed="task?.task_id || ''"
           :symbole="task1Switches"
           :code-length="task1CodeLength"
           :valves="task2Valves"

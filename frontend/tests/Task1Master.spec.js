@@ -99,3 +99,24 @@ describe('Task1Master.vue (alarm_leds)', () => {
     expect(wrapper.find('.role').text()).toBe('Leitstand')
   })
 })
+
+describe('Task1Master.vue — LED-Zustand und Zettel', () => {
+  const note = { id: 'alarm', title: 'Wartungsnotiz', torn: ['right', 'bottom'], lines: [{ row: 3, style: 'rule', text: '① Brennt ein Steckplatz:' }] }
+
+  it('blinkende LED blinkt und ist beschriftet', () => {
+    const wrapper = mount(Task1Master, { props: { view: { ...alarmView, led: 'blinkt', note } }, global: { stubs } })
+    expect(wrapper.find('.led.burning').classes()).toContain('blinking')
+    expect(wrapper.find('.led-mode').text()).toMatch(/blinkt/)
+  })
+
+  it('dauerhaft leuchtende LED blinkt nicht', () => {
+    const wrapper = mount(Task1Master, { props: { view: { ...alarmView, led: 'leuchtet', note } }, global: { stubs } })
+    expect(wrapper.find('.led.burning').classes()).not.toContain('blinking')
+    expect(wrapper.find('.led-mode').text()).toMatch(/dauerhaft/)
+  })
+
+  it('zeigt das eigene Stück der Wartungsnotiz', () => {
+    const wrapper = mount(Task1Master, { props: { view: { ...alarmView, led: 'leuchtet', note } }, global: { stubs } })
+    expect(wrapper.find('.tn').text()).toContain('① Brennt ein Steckplatz:')
+  })
+})
