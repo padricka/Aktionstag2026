@@ -29,7 +29,7 @@ import pytest
 import fakeredis
 from unittest.mock import patch
 
-from backend.dataCenter import DataCenter, TASK_MULTIPLIER
+from backend.dataCenter import DataCenter, TASK_POINTS
 from backend.playableObject import DataRescueTask, ROLE_M, ROLE_P1, ROLE_P2
 
 GAME = "t3_session"
@@ -295,7 +295,7 @@ def test_full_chain_from_views_solves_heals_and_scores(dc):
     assert res["result"] == "correct"
     assert dc.current_task()["task_id"] != task_id
     assert dc.health == 115
-    assert res["score_gain"] == 100 * TASK_MULTIPLIER["data_rescue"]
+    assert dc.task_points == 2 * TASK_POINTS["data_rescue"]   # sofort gelöst → ×2
 
 
 def test_word_is_case_insensitive_and_trimmed(dc):

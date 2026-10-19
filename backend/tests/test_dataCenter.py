@@ -94,10 +94,12 @@ def test_health_over_zero(data_center):
 
 
 # ---------------------------------------------------------------- Start + Tick
-def test_tick_reduces_health_in_redis(data_center):
+def test_tick_costs_time_not_health(data_center):
+    """Neue Punktevergabe: Leben sinken nur durch Fehler, nicht mit der Zeit."""
     data_center.start()
     data_center.tick()
-    assert data_center.health == 299
+    assert data_center.health == data_center.max_health
+    assert data_center.time_left == 299
 
 
 def test_tick_snapshot_matches_contract(button_game):
@@ -112,9 +114,9 @@ def test_tick_snapshot_matches_contract(button_game):
     assert set(snap["tasks"][0]) == {"task_id", "kind", "assigned_to_player", "instruction"}
 
 
-def test_tick_to_zero_health_sets_game_over(data_center):
+def test_tick_to_zero_time_sets_health_zero_and_game_over(data_center):
     data_center.start()
-    data_center.redis.r.hset(_state_key(data_center), "health", 1)
+    data_center.redis.r.hset(_state_key(data_center), "time_left", 1)
 
     snap = data_center.tick()
 
@@ -276,11 +278,12 @@ def test_dev_mode_mistake_costs_no_health(dev_game):
     assert dev_game.health == dev_game.max_health
 
 
-def test_without_dev_mode_tick_and_mistake_still_hurt(data_center):
+def test_without_dev_mode_time_runs_and_mistake_hurts(data_center):
     data_center.start()
     data_center.tick()
     _druecke(data_center, "penalty", "wrong")
-    assert data_center.health == data_center.max_health - 1 - 60
+    assert data_center.health == data_center.max_health - 60
+    assert data_center.time_left == 299
 
 
 def test_skip_task_moves_to_next_task_without_score(dev_game):
@@ -288,7 +291,7 @@ def test_skip_task_moves_to_next_task_without_score(dev_game):
     res = dev_game.skip_task()
     assert res == {"result": "skipped", "won": False}
     assert dev_game.current_task()["kind"] == "fire_protocol"
-    assert dev_game.score == 0
+    assert dev_game.task_points == 0
     assert dev_game.health == dev_game.max_health        # kein HP-Bonus
     assert dev_game.snapshot()["reboot_digits"][0] is not None   # Ziffer fürs Finale aufgedeckt
 
@@ -420,12 +423,15 @@ def test_solving_a_task_gives_time_bonus(button_game):
     assert button_game.time_left == 100 + TIME_BONUS
 
 
-def test_score_uses_time_before_bonus(button_game):
-    """Punkte = Restzeit beim Lösen × Multiplikator – der Bonus zählt erst ab danach."""
+def test_points_no_longer_depend_on_remaining_time(button_game):
+    """Früher: Punkte = Restzeit × Multiplikator. Jetzt feste Aufgabenpunkte (test_punkte.py);
+    die Test-Button-Aufgabe hat keine, und die Antwort verrät keinen Punktgewinn."""
     button_game.redis.r.hset(_state_key(button_game), "time_left", 100)
     task = button_game.current_task()
     res = _druecke(button_game, task["state"]["target"], task["state"]["value"])
-    assert res["score_gain"] == 100   # button-Aufgabe hat Multiplikator 1
+    assert res["result"] == "correct"
+    assert "score_gain" not in res
+    assert button_game.task_points == 0
 
 
 def test_wrong_input_gives_no_bonus(button_game):

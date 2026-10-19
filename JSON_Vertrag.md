@@ -153,7 +153,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 
 // 3. Spielende (Broadcast)
-// result: "meltdown" (HP 0 oder Zeit abgelaufen) | "victory" (Neustart-Code richtig).
+// result: "meltdown" (HP 0 oder Zeit abgelaufen – dann HP 0) | "victory" (Neustart-Code richtig).
+// score: Endpunkte = restliche HP + Aufgabenpunkte (200/250/300, unsichtbar ×2 bei schneller
+//        Lösung) + Restzeit (nur bei victory) − 50 je Hilfe-Notiz, nie unter 0 (GAME_DESIGN „Punkte“).
 {
   "event": "game_over",
   "payload": {
@@ -182,7 +184,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 }
 
 // 5. Ergebnis der eigenen Eingabe (nur an den Absender von player_input)
-// result: "correct" | "wrong" | "ignored"
+// result: "correct" | "wrong" | "ignored" – bewusst ohne Punkte (der ×2 bleibt unsichtbar)
 {
   "event": "input_result",
   "payload": {
