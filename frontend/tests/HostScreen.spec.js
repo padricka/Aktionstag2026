@@ -226,6 +226,20 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       expect(getSentEvents().at(-1)).toEqual({ event: 'dev_mode', payload: { enabled: false } })
     })
 
+    it('sagt in Lobby und Spiel dazu, dass DEV-Runden nicht gewertet werden', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({
+        event: 'lobby_update',
+        payload: { players: [], status: 'waiting', ready_to_start: false, dev_mode: true },
+      })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.dev-note').text()).toContain('nicht gewertet')
+
+      const laufend = await laufendesSpiel(true)
+      expect(laufend.find('.dev-badge').text()).toContain('nicht gewertet')
+    })
+
     it('ohne DEV-Modus gibt es im Spiel keinen Überspringen-Button', async () => {
       const wrapper = await laufendesSpiel(false)
       expect(wrapper.find('.running').exists()).toBe(true)

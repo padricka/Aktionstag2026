@@ -170,3 +170,33 @@ describe('PlayerScreen.vue — Leaderboard im Spielende', () => {
     expect(wrapper.find('.end-board li.is-own').text()).toContain('50')
   })
 })
+
+describe('PlayerScreen.vue — DEV-Modus sichtbar', () => {
+  beforeEach(() => {
+    resetGameSocketMock()
+    vi.stubGlobal('location', { protocol: 'http:', hostname: 'localhost' })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  async function imSpiel(devMode) {
+    const wrapper = mount(PlayerScreen, { props: { playerName: NAME }, global: { stubs } })
+    await wrapper.find('.input').setValue('abcd')
+    await wrapper.find('.btn-main').trigger('click')
+    await flushPromises()
+    simulateMessage({ event: 'lobby_update', payload: { players: [{ name: NAME, role: 'FI-SI' }], status: 'running', dev_mode: devMode } })
+    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
+    simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [] } })
+    await wrapper.vm.$nextTick()
+    return wrapper
+  }
+
+  it('zeigt im DEV-Modus während der Runde „DEV · nicht gewertet“', async () => {
+    const wrapper = await imSpiel(true)
+    expect(wrapper.find('.task-bar .bar-dev').text()).toContain('nicht gewertet')
+  })
+
+  it('ohne DEV-Modus kein Schild', async () => {
+    const wrapper = await imSpiel(false)
+    expect(wrapper.find('.bar-dev').exists()).toBe(false)
+  })
+})

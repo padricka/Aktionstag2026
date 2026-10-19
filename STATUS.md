@@ -8,7 +8,7 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 | Bereich | Stand | Quelle |
 |---|---|---|
 | Backend-Tests | **235** grün · 23 übersprungen · **0 rot** | nach #41–#43 + `feat/leaderboard` (Docker, Python 3.13) |
-| Frontend-Tests | **178** grün | nach #41–#43 + `feat/leaderboard` (Docker, Node 22; #33/#34 noch offen) |
+| Frontend-Tests | **183** grün | nach #41–#43 + `feat/leaderboard` (Docker, Node 22; #33/#34 noch offen) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |

@@ -40,7 +40,7 @@
           >
             DEV-Modus: {{ devMode ? 'AN' : 'AUS' }}
           </button>
-          <span v-if="devMode" class="dev-note">Zeit steht · keine HP-Verluste · Aufgaben überspringbar</span>
+          <span v-if="devMode" class="dev-note">Zeit steht · keine HP-Verluste · Aufgaben überspringbar · Runden werden nicht gewertet</span>
         </div>
         <p v-if="devError" class="dev-error">{{ devError }}</p>
 
@@ -74,7 +74,7 @@
       <!-- RUNNING -->
       <section v-else class="running">
         <div v-if="devMode && status === 'running'" class="dev-panel">
-          <span class="dev-badge">DEV-MODUS · Zeit steht · keine HP-Verluste</span>
+          <span class="dev-badge">DEV-MODUS · Zeit steht · keine HP-Verluste · nicht gewertet</span>
           <button class="dev-skip" :disabled="skipping" @click="skipTask">
             {{ skipping ? 'Überspringe …' : 'Aufgabe überspringen ⏭' }}
           </button>

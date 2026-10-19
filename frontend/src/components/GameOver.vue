@@ -39,9 +39,14 @@
         <p class="end-meta">Überlebt · {{ survivedSeconds }}s</p>
 
         <!-- Bestenliste: Top 5 kommen mit game_over vom Backend -->
-        <section v-if="leaderboard?.top?.length" class="end-board" aria-label="Bestenliste Top 5">
+        <section v-if="leaderboard" class="end-board" aria-label="Bestenliste Top 5">
           <h2 class="end-board-title">Bestenliste · Top 5</h2>
-          <ol>
+          <!-- DEV-Runden zählen nicht: das muss man sehen, sonst wundert man sich -->
+          <p v-if="leaderboard.rank === null" class="end-board-own end-board-dev" role="note">
+            DEV-Modus · diese Runde wird nicht gewertet und nicht ins Leaderboard eingetragen
+          </p>
+          <p v-if="!leaderboard.top?.length" class="end-board-empty">Noch keine gewerteten Runden.</p>
+          <ol v-else>
             <li
               v-for="e in leaderboard.top"
               :key="e.rank"
@@ -52,8 +57,7 @@
               <span class="end-board-score">{{ e.score }}</span>
             </li>
           </ol>
-          <p v-if="leaderboard.rank === null" class="end-board-own">DEV-Modus · diese Runde wird nicht gewertet</p>
-          <p v-else-if="leaderboard.rank > leaderboard.top.length" class="end-board-own">
+          <p v-if="leaderboard.rank !== null && leaderboard.rank > (leaderboard.top?.length || 0)" class="end-board-own">
             Euer Platz: {{ leaderboard.rank }} von {{ leaderboard.total }}
           </p>
         </section>
@@ -459,6 +463,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   color: var(--end-fg-2);
   text-align: center;
   letter-spacing: 0.04em;
+}
+
+/* Bernstein wie der DEV-Schalter am Beamer */
+.end-board-dev {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  color: var(--amber, #ffb830);
+  background: var(--amber-bg, rgba(255, 184, 48, 0.1));
+  border: 1px solid var(--amber-border, rgba(255, 184, 48, 0.4));
+  line-height: 1.45;
+}
+
+.end-board-empty {
+  margin: 0;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--end-fg-3);
+  text-align: center;
+  border: 1px dashed var(--end-line);
 }
 
 .end-actions {

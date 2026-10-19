@@ -157,3 +157,25 @@ describe('GameOver.vue — Top 5 aus dem Leaderboard', () => {
     expect(wrapper.find('.end-board').exists()).toBe(false)
   })
 })
+
+describe('GameOver.vue — DEV-Runde ist erkennbar', () => {
+  it('auch ohne gewertete Runden: Abschnitt sichtbar mit deutlichem DEV-Hinweis', () => {
+    const wrapper = mount(GameOver, {
+      props: { result: 'victory', score: 1200, leaderboard: { rank: null, total: 0, top: [] } },
+    })
+    expect(wrapper.find('.end-board').exists()).toBe(true)
+    expect(wrapper.find('.end-board-dev').text()).toContain('nicht gewertet')
+    expect(wrapper.find('.end-board-dev').text()).toContain('Leaderboard')
+    expect(wrapper.find('.end-board-empty').text()).toContain('Noch keine gewerteten Runden')
+  })
+
+  it('der DEV-Hinweis steht über der Liste, nicht darunter', () => {
+    const top = [{ rank: 1, score: 900, players: ['A', 'B', 'C'] }]
+    const wrapper = mount(GameOver, {
+      props: { result: 'victory', score: 1200, leaderboard: { rank: null, total: 1, top } },
+    })
+    const html = wrapper.find('.end-board').html()
+    expect(html.indexOf('end-board-dev')).toBeGreaterThan(-1)
+    expect(html.indexOf('end-board-dev')).toBeLessThan(html.indexOf('<ol'))
+  })
+})

@@ -19,6 +19,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - USE_IN_MEMORY_CHANNEL_LAYER=False
+      # print() sofort in "docker logs" (sonst puffert Python und Meldungen fehlen)
+      - PYTHONUNBUFFERED=1
     volumes:
       # Leaderboard (JSON) übersteht so einen Neubau des Containers
       - leaderboard:/backend/data
