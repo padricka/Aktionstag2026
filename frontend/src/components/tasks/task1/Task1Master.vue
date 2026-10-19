@@ -12,7 +12,7 @@
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-    <div v-else class="body">
+    <div v-else class="body" :class="{ 'with-note': view.note }">
       <section class="panel">
         <span class="panel-label">LED-Leiste</span>
         <div class="led-row" :aria-label="`${slotCount} Steckplätze`">
@@ -281,12 +281,28 @@ function ausfuehren() {
   color: var(--fg-2);
 }
 
+/* Mit Zettel: rechts eine eigene Spalte, wie bei Vorder- und Rückseite */
+.body.with-note {
+  grid-template-columns: 1fr 1fr minmax(300px, 400px);
+}
+
+.body.with-note .panel.terminal {
+  grid-column: 1 / 3;
+}
+
 .note-col {
-  grid-column: 1 / -1;
+  grid-column: 3;
+  grid-row: 1 / span 2;
   display: flex;
   flex-direction: column;
   gap: 10px;
   align-items: flex-start;
+}
+
+@media (max-width: 1100px) {
+  .body.with-note { grid-template-columns: 1fr 1fr; }
+  .body.with-note .panel.terminal { grid-column: 1 / -1; }
+  .note-col { grid-column: 1 / -1; grid-row: auto; }
 }
 
 .color-order {

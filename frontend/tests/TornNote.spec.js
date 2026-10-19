@@ -58,6 +58,19 @@ describe('TornNote.vue', () => {
     expect(w.find('.tn').attributes('aria-label')).toContain('Wartungsnotiz')
   })
 
+  it('ein Stück beginnt bei seiner ersten eigenen Zeile (kein leeres Papier oben)', () => {
+    const unten = { id: 'alarm', title: 'Wartungsnotiz', torn: ['top'], lines: [
+      { row: 12, style: 'rule', text: '③ Ein Aufkleber zerkratzt?' },
+      { row: 13, style: 'text', text: 'Dann gilt dort' },
+      { row: 16, style: 'sign', text: '– M. Kaiser, IT' },
+    ] }
+    const w = mount(TornNote, { props: { note: unten, seed: 'x' } })
+    const reihen = w.findAll('.tn-row')
+    expect(reihen[0].attributes('style')).toContain('top: calc(0 * var(--tn-line))')
+    expect(reihen[2].attributes('style')).toContain('top: calc(4 * var(--tn-line))')   // Abstände bleiben
+    expect(w.find('.tn-paper').attributes('style')).toContain('--tn-lines: 5')
+  })
+
   it('ohne Zettel nichts', () => {
     const w = mount(TornNote, { props: { note: null } })
     expect(w.find('.tn').exists()).toBe(false)

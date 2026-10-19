@@ -12,7 +12,7 @@
         :key="r.row"
         class="tn-row"
         :data-row="r.row"
-        :style="`top: calc(${r.row} * var(--tn-line))`"
+        :style="`top: calc(${r.row - firstRow} * var(--tn-line))`"
       >
         <span
           v-for="(l, i) in r.lines"
@@ -50,7 +50,9 @@ const rows = computed(() => {
   return [...byRow.entries()].sort((a, b) => a[0] - b[0]).map(([row, lines]) => ({ row, lines }))
 })
 
-const lineCount = computed(() => (rows.value.length ? rows.value.at(-1).row + 1 : 1))
+// Ein Stück beginnt bei seiner ersten eigenen Zeile; Abstände dazwischen bleiben
+const firstRow = computed(() => (rows.value.length ? rows.value[0].row : 0))
+const lineCount = computed(() => (rows.value.length ? rows.value.at(-1).row - firstRow.value + 1 : 1))
 const torn = computed(() => new Set(props.note?.torn || []))
 const tornClasses = computed(() => [...torn.value].map((s) => `torn-${s}`))
 
