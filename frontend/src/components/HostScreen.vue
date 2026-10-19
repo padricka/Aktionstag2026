@@ -7,6 +7,11 @@
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
       :leaderboard="gameOverBoard"
+      :show-restart="true"
+      :show-exit="true"
+      :restarting="restarting"
+      @restart="neueRunde"
+      @exit="$emit('exit')"
     />
 
     <template v-else>
@@ -101,6 +106,9 @@
           <span class="host-label">Neustart-Code</span>
           <VaultDoor mode="display" :digits="rebootDigits" :state="vaultState" />
           <p v-if="istSieg" class="finale-win">SERVER ONLINE · SIEG</p>
+          <button v-if="istSieg" class="host-restart" :disabled="restarting" @click="neueRunde">
+            {{ restarting ? 'Neustart …' : 'Neue Runde' }}
+          </button>
         </div>
       </section>
 
@@ -121,6 +129,7 @@ const bootError = ref('')
 const devMode = ref(false)
 const devError = ref('')
 const skipping = ref(false)
+const restarting = ref(false)   // Neustart vom Beamer gesendet, wartet auf lobby_update
 const status = ref('waiting')
 const playerList = ref([])
 const readyToStart = ref(false)
@@ -203,6 +212,7 @@ function handleMessage(msg) {
       gameOverScore.value = 0
       gameOverSurvived.value = 0
       gameOverBoard.value = null
+      restarting.value = false
     }
   }
 
@@ -230,6 +240,15 @@ function handleMessage(msg) {
 }
 
 const { sendEvent, connect } = useGameSocket({ onMessage: handleMessage })
+
+// Neue Runde in derselben Sitzung: Server leert die Lobby (reset_game), die Spieler
+// landen von selbst wieder in der Rollenwahl. Zurück in die Lobby geht es erst mit
+// dem lobby_update vom Server.
+function neueRunde() {
+  if (restarting.value) return
+  restarting.value = true
+  sendEvent('reset_game', {})
+}
 
 // DEV-Modus: Stand kommt immer vom Server (lobby_update), hier nur anfragen
 function toggleDevMode() {
@@ -575,6 +594,21 @@ onMounted(async () => {
 }
 
 .finale .host-label { margin-bottom: 8px; }
+
+.host-restart {
+  margin-top: 18px;
+  padding: 12px 28px;
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.host-restart:disabled { opacity: 0.6; cursor: wait; }
 
 .finale-win {
   margin: 12px 0 0 0;
