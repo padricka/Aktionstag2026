@@ -35,7 +35,7 @@
 <script setup>
 defineProps({
   name: { type: String, required: true },
-  farbe: { type: String, default: '#ffffff' },
+  farbe: { type: String, default: 'currentColor' },
   gefuellt: { type: Boolean, default: false },
   size: { type: Number, default: 40 }
 })
