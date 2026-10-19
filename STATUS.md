@@ -8,7 +8,7 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 | Bereich | Stand | Quelle |
 |---|---|---|
 | Backend-Tests | **173** grün · 23 übersprungen · **0 rot** | nach #34 + `feat/binaer-stellenwerte` (Docker, Python 3.13) |
-| Frontend-Tests | **164** grün | nach #34 + `feat/binaer-stellenwerte` (Docker, Node 22) |
+| Frontend-Tests | **162** grün | nach #34 + `feat/binaer-stellenwerte` (Docker, Node 22) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
@@ -36,4 +36,4 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-Aufgabe 3: Rechenhilfe mit Stellenwert-Spalten, Binärwerte mit Einsen vorne und hinten (`feat/binaer-stellenwerte`) · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
+Aufgabe 3: Hinweis erklärt Binär → Dezimal, Binärwerte mit Einsen vorne und hinten (`feat/binaer-stellenwerte`) · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
