@@ -519,8 +519,13 @@ function onTaskSolved(data) {
       payloadData = { action_type: 'text_input', target: 'release_pw', value: data?.password || '' }
     }
   } else if (currentTask.value === 3) {
-    if (myRole.value === 'MASTER') return
-    if (normalizedRole.value === 'P1') {
+    // Datenrettung: Antworten gehen immer zum Backend (keine Prüfung im Browser),
+    // der Sync-Knopf erst, wenn beide Rätsel freigeschaltet sind.
+    if (data?.target === 'sync_button') {
+      payloadData = { action_type: 'button_press', target: 'sync_button', value: 'press' }
+    } else if (myRole.value === 'MASTER') {
+      return
+    } else if (normalizedRole.value === 'P1') {
       payloadData = { action_type: 'text_input', target: 'ascii_answer', value: data?.answer || '' }
     } else {
       payloadData = { action_type: 'text_input', target: 'binary_answer', value: data?.answer || '' }

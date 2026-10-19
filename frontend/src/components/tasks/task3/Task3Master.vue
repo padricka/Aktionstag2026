@@ -1,58 +1,88 @@
+<!--
+  Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "ascii_binary_tables").
+
+  Der Leitstand hat keine Eingabe. Sein Beitrag ist die Tabelle A–M und die
+  oberen Stellenwerte 128/64/32/16: die Vorderseite hat nur N–Z, die Rückseite
+  nur 8/4/2/1. Dazu sieht er, ob P1 und P2 ihren Sync-Knopf schon freigeschaltet
+  haben (p1_status / p2_status).
+-->
 <template>
   <div class="task">
     <header class="head">
       <h2 class="title">Datenrettung</h2>
-      <span class="role">Master</span>
+      <span class="role">Leitstand</span>
     </header>
 
-    <p class="hint">P1 braucht die ASCII-Tabelle, P2 die Binär-Tabelle.</p>
+    <p class="hint">
+      Deine Tabellenhälfte und die oberen Stellenwerte sind der Schlüssel für beide Seiten.
+      Sag sie Vorderseite (N–Z fehlt dir) und Rückseite (8/4/2/1 fehlt dir) an.
+    </p>
 
     <div class="body">
       <section class="panel">
-        <span class="panel-label">ASCII-Tabelle</span>
-        <div class="grid ascii">
-          <div v-for="item in asciiTable" :key="item.char" class="cell">
+        <span class="panel-label">ASCII-Tabelle · A–M</span>
+        <div class="grid ascii-table">
+          <div v-for="item in asciiHalf" :key="item.char" class="cell">
             <span class="cell-key">{{ item.char }}</span>
             <span class="cell-val">{{ item.dec }}</span>
           </div>
         </div>
       </section>
 
-      <section class="panel">
-        <span class="panel-label">Binär-Tabelle</span>
-        <div class="grid binary">
-          <div v-for="item in binaryTable" :key="item.bin" class="cell">
-            <span class="cell-key">{{ item.bin }}</span>
-            <span class="cell-val">{{ item.dec }}</span>
+      <div class="side">
+        <section class="panel">
+          <span class="panel-label">Stellenwerte · obere Bits</span>
+          <div class="places">
+            <span v-for="wert in placeValues" :key="wert" class="place-value">{{ wert }}</span>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section class="panel">
+          <span class="panel-label">Status</span>
+          <div class="status-row">
+            <span class="status-name">Vorderseite</span>
+            <span class="status-value" :class="statusClass(p1Status)">{{ p1Status }}</span>
+          </div>
+          <div class="status-row">
+            <span class="status-name">Rückseite</span>
+            <span class="status-value" :class="statusClass(p2Status)">{{ p2Status }}</span>
+          </div>
+          <p v-if="beideFrei" class="status-hint">
+            Beide Knöpfe sind frei – jetzt müssen Vorderseite und Rückseite
+            innerhalb von 3 Sekunden drücken.
+          </p>
+        </section>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 
-defineProps({ view: { type: Object, default: null } })
+const props = defineProps({
+  view: { type: Object, default: null },
+})
 
-const asciiTable = ref([
-  { char: 'A', dec: 65 }, { char: 'B', dec: 66 }, { char: 'C', dec: 67 },
-  { char: 'D', dec: 68 }, { char: 'E', dec: 69 }, { char: 'F', dec: 70 },
-  { char: 'G', dec: 71 }, { char: 'H', dec: 72 }, { char: 'I', dec: 73 },
-  { char: 'J', dec: 74 }, { char: 'K', dec: 75 }, { char: 'L', dec: 76 },
-  { char: 'M', dec: 77 }, { char: 'N', dec: 78 }, { char: 'O', dec: 79 },
-  { char: 'P', dec: 80 }, { char: 'Q', dec: 81 }, { char: 'R', dec: 82 },
-  { char: 'S', dec: 83 }, { char: 'T', dec: 84 }, { char: 'U', dec: 85 },
-  { char: 'V', dec: 86 }, { char: 'W', dec: 87 }, { char: 'X', dec: 88 }
-])
+// Tabellenhälfte und Stellenwerte kommen fertig vom Server (nichts wird gerechnet).
+const asciiHalf = computed(() =>
+  Object.entries(props.view?.ascii_half || {})
+    .map(([char, dec]) => ({ char, dec }))
+    .sort((a, b) => a.dec - b.dec),
+)
 
-const binaryTable = ref([
-  { bin: '0000', dec: 0 }, { bin: '0001', dec: 1 }, { bin: '0010', dec: 2 }, { bin: '0011', dec: 3 },
-  { bin: '0100', dec: 4 }, { bin: '0101', dec: 5 }, { bin: '0110', dec: 6 }, { bin: '0111', dec: 7 },
-  { bin: '1000', dec: 8 }, { bin: '1001', dec: 9 }, { bin: '1010', dec: 10 }, { bin: '1011', dec: 11 },
-  { bin: '1100', dec: 12 }, { bin: '1101', dec: 13 }, { bin: '1110', dec: 14 }, { bin: '1111', dec: 15 }
-])
+const placeValues = computed(() => props.view?.place_values || [])
+
+const p1Status = computed(() => props.view?.p1_status || 'GESPERRT')
+const p2Status = computed(() => props.view?.p2_status || 'GESPERRT')
+
+const beideFrei = computed(
+  () => p1Status.value === 'FREIGESCHALTET' && p2Status.value === 'FREIGESCHALTET',
+)
+
+function statusClass(wert) {
+  return wert === 'FREIGESCHALTET' ? 'is-open' : 'is-locked'
+}
 </script>
 
 <style scoped>
@@ -77,12 +107,7 @@ const binaryTable = ref([
   margin-bottom: 6px;
 }
 
-.title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0;
-}
+.title { font-size: 16px; font-weight: 700; color: var(--fg); margin: 0; }
 
 .role {
   font-size: 11px;
@@ -93,17 +118,13 @@ const binaryTable = ref([
   letter-spacing: 0.15em;
 }
 
-.hint {
-  font-size: 13px;
-  color: var(--fg-3);
-  margin: 0 0 24px 0;
-}
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
 .body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr;
   gap: 24px;
 }
 
@@ -115,6 +136,7 @@ const binaryTable = ref([
   background: var(--bg-2);
   border: 1px solid var(--border-2);
   min-height: 0;
+  overflow-y: auto;
 }
 
 .panel-label {
@@ -126,38 +148,86 @@ const binaryTable = ref([
 }
 
 .grid {
-  flex: 1;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-content: start;
-  min-height: 0;
-  overflow-y: auto;
 }
 
-.ascii  { grid-template-columns: repeat(3, 1fr); }
-.binary { grid-template-columns: repeat(2, 1fr); }
+.ascii-table { grid-template-columns: repeat(3, 1fr); }
 
 .cell {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--bg-1);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
 }
 
-.cell-key {
-  font-size: 15px;
+.cell-key { font-size: 24px; font-weight: 700; color: var(--fg); letter-spacing: 0.05em; }
+.cell-val { font-size: 22px; font-weight: 700; color: var(--green); letter-spacing: 0.05em; }
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+}
+
+.places {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.place-value {
+  display: block;
+  padding: 22px 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+  font-size: 40px;
   font-weight: 700;
   color: var(--fg);
+  text-align: center;
   letter-spacing: 0.05em;
 }
 
-.cell-val {
-  font-size: 14px;
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  font-family: var(--mono);
+}
+
+.status-name { font-size: 14px; color: var(--fg-2); }
+
+.status-value {
+  font-size: 13px;
   font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.status-value.is-open { color: var(--green); }
+.status-value.is-locked { color: var(--fg-3); }
+
+.status-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--green);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 1100px) {
+  .body { grid-template-columns: 1fr; overflow-y: auto; }
+  .ascii-table { grid-template-columns: repeat(2, 1fr); }
+  .cell-key { font-size: 20px; }
+  .cell-val { font-size: 18px; }
+  .place-value { font-size: 30px; padding: 16px 8px; }
 }
 </style>
