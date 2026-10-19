@@ -14,8 +14,8 @@
     </header>
 
     <p class="hint">
-      Deine Tabellenhälfte und die oberen Stellenwerte sind der Schlüssel für beide Seiten.
-      Sag sie Vorderseite (N–Z fehlt dir) und Rückseite (8/4/2/1 fehlt dir) an.
+      Du bist der Schlüssel für beide Seiten: Die Vorderseite braucht deine
+      Tabellenhälfte A–M (sie hat N–Z), die Rückseite deine Stellenwerte.
     </p>
 
     <div class="body">
@@ -31,10 +31,20 @@
 
       <div class="side">
         <section class="panel">
-          <span class="panel-label">Stellenwerte · obere Bits</span>
-          <div class="places">
-            <span v-for="wert in placeValues" :key="wert" class="place-value">{{ wert }}</span>
+          <span class="panel-label">Stellenwerte für die Rückseite</span>
+          <div class="bits-head" role="row" aria-label="Stellenwerte der acht Spalten">
+            <span
+              v-for="(wert, i) in spaltenWerte"
+              :key="i"
+              class="bit-cell"
+              :class="[wert === null ? 'is-theirs' : 'place-value', { 'nibble-start': i === placeValues.length }]"
+              :title="wert === null ? 'kennt die Rückseite' : undefined"
+            >{{ wert === null ? '·' : wert }}</span>
           </div>
+          <p class="bits-note">
+            Die Rückseite sieht 8-stellige Binärzahlen, kennt aber nur die Werte der
+            letzten vier Spalten (8 4 2 1). Sag ihr die Werte der ersten vier Spalten an.
+          </p>
         </section>
 
         <section class="panel">
@@ -72,6 +82,12 @@ const asciiHalf = computed(() =>
 )
 
 const placeValues = computed(() => props.view?.place_values || [])
+
+// Gleiche 8 Spalten wie bei der Rückseite: vorne die eigenen Werte, hinten "·"
+const spaltenWerte = computed(() => [
+  ...placeValues.value,
+  ...Array(Math.max(0, 8 - placeValues.value.length)).fill(null),
+])
 
 const p1Status = computed(() => props.view?.p1_status || 'GESPERRT')
 const p2Status = computed(() => props.view?.p2_status || 'GESPERRT')
@@ -175,23 +191,44 @@ function statusClass(wert) {
   min-height: 0;
 }
 
-.places {
+/* Gleiche 8 Spalten wie die Rechenhilfe der Rückseite */
+.bits-head {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
 }
 
-.place-value {
-  display: block;
-  padding: 22px 8px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
+.bit-cell {
+  display: grid;
+  place-items: center;
+  min-height: 56px;
   font-family: var(--mono);
-  font-size: 40px;
   font-weight: 700;
-  color: var(--fg);
-  text-align: center;
-  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border-2);
+  background: var(--bg-1);
+}
+
+.bit-cell.nibble-start { margin-left: 10px; }
+
+.place-value {
+  font-size: 24px;
+  color: var(--amber);
+  border-color: var(--amber-border);
+  background: var(--amber-bg);
+}
+
+.is-theirs {
+  font-size: 20px;
+  color: var(--fg-4);
+  border-style: dashed;
+}
+
+.bits-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-2);
 }
 
 .status-row {

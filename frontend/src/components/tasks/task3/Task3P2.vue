@@ -15,8 +15,10 @@
     </header>
 
     <p class="hint">
-      Wandle die Binärzahlen in Dezimal um, mit Leerzeichen getrennt.
-      Die oberen Stellenwerte (128, 64, 32, 16) stehen beim Leitstand.
+      Wandle die Binärzahlen in Dezimal um: Jede Stelle hat einen Stellenwert,
+      die letzten vier sind deine 8, 4, 2, 1. Addiere die Stellenwerte aller Stellen
+      mit einer 1 (z. B. 0000 0101 = 4 + 1 = 5). Die Werte der ersten vier Stellen
+      kennt nur der Leitstand – frag ihn. Antwort mit Leerzeichen getrennt.
     </p>
 
     <div class="body">

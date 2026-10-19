@@ -73,11 +73,13 @@ Das letzte Fragment erscheint erst nach erfolgreichem Fluten. **Belohnungsziffer
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Halbe** ASCII-Tabelle (A–M) und die **oberen Bit-Stellenwerte** (128, 64, 32, 16). | Das Wort als ASCII-Zahlen (z. B. `83 69 82 86 69 82`). Die **andere Hälfte** der ASCII-Tabelle (N–Z). | Zwei Binärzahlen (z. B. `01000010`). Die **unteren Bit-Stellenwerte** (8, 4, 2, 1). |
+| **Sieht** | **Halbe** ASCII-Tabelle (A–M) und die **oberen Bit-Stellenwerte** (128, 64, 32, 16). | Das Wort als ASCII-Zahlen (z. B. `83 69 82 86 69 82`). Die **andere Hälfte** der ASCII-Tabelle (N–Z). | Zwei 8-stellige Binärzahlen (z. B. `10100110`; Werte 17–255 mit Einsen in **beiden** Hälften, keine wie 101/110). Die **unteren Bit-Stellenwerte** (8, 4, 2, 1). |
 | **Eingabe** | – | `ascii_answer` (Wort), danach `sync_button` | `binary_answer` (Dezimalwerte), danach `sync_button` |
 
 **Lösung:** Vorderseite und Rückseite brauchen jeweils auch die Tabellenhälfte des Leitstands. Beide schalten so ihren Button frei. **Dann drücken Vorderseite und Rückseite innerhalb eines Zeitfensters (3 Sekunden).**
 Die bestehenden Tests in `test_taskDatenRettung.py` beschreiben den Sync-Button bereits. **Belohnungsziffer sichtbar für:** Vorderseite.
+
+**Rückseite – Hinweis:** erklärt die Regel („Addiere die Stellenwerte aller Stellen mit einer 1“, Beispiel `0000 0101 = 4 + 1 = 5`) und dass die Werte der ersten vier Stellen nur der Leitstand kennt. Er nennt 128, 64, 32, 16 bewusst nicht. Der Leitstand sieht seine Werte den ersten vier der acht Stellen zugeordnet.
 
 ### Finale — Neustart (`kind: "reboot"`, neu)
 

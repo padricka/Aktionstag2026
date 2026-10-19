@@ -54,7 +54,16 @@ describe('Task3P2.vue (binary_puzzle) – Anzeige', () => {
     expect(w.html()).not.toContain('72')
     expect(w.html()).not.toContain('79')
     expect(w.find('.hint').text()).toContain('Leitstand')
-    expect(w.find('.hint').text()).toMatch(/128/)
+    // GAME_DESIGN §4: die oberen Stellenwerte kennt NUR der Leitstand –
+    // der Hinweis darf sie deshalb nicht verraten (früher stand hier 128, 64, 32, 16).
+    expect(w.find('.hint').text()).not.toMatch(/128|64|32|16/)
+  })
+
+  it('erklärt im Hinweis, wie man rechnet – mit Beispiel', () => {
+    const w = mount(Task3P2, { props: { view: binaryView } })
+    const hint = w.find('.hint').text()
+    expect(hint).toMatch(/Stellenwerte aller Stellen mit einer 1/)
+    expect(hint).toContain('0000 0101 = 4 + 1 = 5')
   })
 })
 
