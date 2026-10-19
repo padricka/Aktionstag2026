@@ -6,6 +6,10 @@ from backend.hostManager import HostManager
 from backend.multiplayerManager import MultiplayerManager
 from backend.gameLoop import games
 
+# Close-Code, wenn die Sitzungs-ID nicht existiert (4000-4999 = anwendungsspezifisch)
+CLOSE_UNKNOWN_GAME = 4404
+
+
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.game_id = self.scope["url_route"]["kwargs"]["game_id"]
@@ -15,9 +19,18 @@ class GameConsumer(AsyncWebsocketConsumer):
         self.data_center = None
         self.player_name = None
         self.role = None
+        self.closed = False
+
+        await self.accept()
+        # Vertippte ID: nicht still eine leere Lobby anlegen. Erst annehmen, dann
+        # schließen, damit der Browser die Fehlermeldung noch lesen kann.
+        if not await self.lobby.exists():
+            self.closed = True
+            await self.send_error("Unbekannte Sitzungs-ID", code="unknown_game")
+            await self.close(code=CLOSE_UNKNOWN_GAME)
+            return
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()
         payload = await self.lobby.lobby_payload()
         await self.send_event("lobby_update", payload)
         if payload["status"] == "running":
@@ -35,6 +48,8 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data=None, bytes_data=None):
+        if self.closed:
+            return
         try:
             data = json.loads(text_data)
         except (json.JSONDecodeError, TypeError):
@@ -230,8 +245,11 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def send_event(self, event, payload, **extra):
         await self.send(text_data=json.dumps({"event": event, **extra, "payload": payload}))
 
-    async def send_error(self, message):
-        await self.send_event("error", {"message": message})
+    async def send_error(self, message, code=None):
+        payload = {"message": message}
+        if code:
+            payload["code"] = code
+        await self.send_event("error", payload)
 
     async def lobby_update(self, event):
         await self.send_event("lobby_update", event["payload"])

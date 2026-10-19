@@ -14,7 +14,7 @@ from channels.testing import WebsocketCommunicator
 from backend.GameConsumer import GameConsumer
 from backend.gameLoop import games, GameLoop
 from backend.playableObject import AlarmTask, ROLE_M, ROLE_P1, ROLE_P2
-from backend.redis_handler import ROLES
+from backend.redis_handler import ROLES, RedisHandler
 
 
 # ---------------------------------------------------------------- Fixtures
@@ -35,6 +35,15 @@ def env():
 
 # ---------------------------------------------------------------- Helfer
 async def verbinden(game_id="test_game"):
+    # Wie im echten Ablauf: der Host hat die Sitzung vorher per create-game angelegt
+    handler = RedisHandler()
+    if not handler.r.exists(handler._k_state(game_id)):
+        handler.create_game(game_id)
+    return await verbinden_roh(game_id)
+
+
+async def verbinden_roh(game_id):
+    """Verbinden, ohne die Sitzung vorher anzulegen."""
     comm = WebsocketCommunicator(GameConsumer.as_asgi(), f"/ws/game/{game_id}/")
     comm.scope["url_route"] = {"kwargs": {"game_id": game_id}}
     akzeptiert, _ = await comm.connect()
@@ -109,6 +118,30 @@ async def test_connect_sends_lobby_update(env):
     msg = await comm.receive_json_from()
     assert msg["event"] == "lobby_update"
     assert msg["payload"]["status"] == "waiting"
+    await comm.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_connect_unknown_game_is_rejected(env):
+    """Vertippte Sitzungs-ID: Fehler mit code, Verbindung zu, keine Geister-Lobby."""
+    comm, ok = await verbinden_roh("gibtsnicht")
+    assert ok is True  # erst annehmen, damit der Browser die Fehlermeldung lesen kann
+    msg = await comm.receive_json_from()
+    assert msg["event"] == "error"
+    assert msg["payload"]["code"] == "unknown_game"
+    assert (await comm.receive_output())["code"] == 4404
+    assert not env.exists(state_key("gibtsnicht"))
+
+
+@pytest.mark.asyncio
+async def test_unknown_game_register_creates_nothing(env):
+    """Auch ein player_register, das sich mit dem Schließen kreuzt, legt keine Sitzung an."""
+    comm, _ = await verbinden_roh("gibtsnicht2")
+    await comm.receive_json_from()   # error
+    await comm.receive_output()      # close
+    await registrieren(comm, "A")
+    await comm.receive_nothing(timeout=0.2)
+    assert not env.exists(state_key("gibtsnicht2"))
     await comm.disconnect()
 
 

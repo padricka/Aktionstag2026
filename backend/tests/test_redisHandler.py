@@ -55,6 +55,12 @@ def test_create_game_sets_state_and_ttl(handler, env):
     assert env.ttl("game:g:state") > 0
 
 
+def test_waiting_lobby_lives_longer_than_an_hour(handler, env):
+    """Beamer morgens geöffnet, Spieler kommen später: die Sitzungs-ID muss noch gelten."""
+    handler.create_game("g")
+    assert env.ttl("game:g:state") > 3600
+
+
 def test_refresh_ttl_covers_all_keys(handler, env):
     """Cover-Zeile: refresh_ttl pipeline.execute()."""
     handler.create_game("g")
@@ -62,6 +68,13 @@ def test_refresh_ttl_covers_all_keys(handler, env):
     handler.save_role_hints("g", ROLES[0], {"hint": "x"})
     handler.refresh_ttl("g")
     assert env.ttl("game:g:hints:master") > 0
+
+
+# ---------------------------------------------------------------- game_exists
+def test_game_exists_after_create(handler):
+    assert handler.game_exists("g") is False
+    handler.create_game("g")
+    assert handler.game_exists("g") is True
 
 
 # ---------------------------------------------------------------- register_player

@@ -137,4 +137,18 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.end').exists()).toBe(false)
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
+
+  it('zeigt einen Fehler statt der ID, wenn die Sitzung unbekannt ist (?game_id=…)', async () => {
+    const wrapper = mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+
+    simulateMessage({
+      event: 'error',
+      payload: { message: 'Unbekannte Sitzungs-ID', code: 'unknown_game' },
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.id-value').exists()).toBe(false)
+    expect(wrapper.find('.lobby-error').text()).toContain('TEST')
+  })
 })

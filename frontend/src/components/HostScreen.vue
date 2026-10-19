@@ -147,6 +147,13 @@ function handleMessage(msg) {
   const event = msg?.event || msg?.type
   const payload = msg?.payload || msg
 
+  // Beamer mit vertippter ?game_id=…: keine ID anzeigen, die es nicht gibt.
+  if (event === 'error' && payload.code === 'unknown_game') {
+    bootError.value = `Sitzung „${gameId.value.toUpperCase()}" gibt es nicht. Seite ohne ?game_id= neu laden.`
+    gameId.value = ''
+    return
+  }
+
   if (event === 'lobby_update') {
     playerList.value = payload.players || []
     status.value = payload.status || 'waiting'
