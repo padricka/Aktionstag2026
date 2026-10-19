@@ -127,7 +127,7 @@
         <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
       </header>
 
-      <main class="task-main">
+      <main class="task-main" :class="{ 'with-calc': rechnerOffen }">
         <component
           :is="currentTaskComponent"
           :key="currentTask"
@@ -155,6 +155,9 @@
           @failed="onTaskFailed"
         />
       </main>
+
+      <!-- Taschenrechner für alle Rollen, rechts am Rand -->
+      <Calculator v-model:open="rechnerOffen" />
     </template>
   </div>
 </template>
@@ -163,6 +166,7 @@
 import { ref, computed, watch } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
+import Calculator from './Calculator.vue'
 
 import Task1P1 from './tasks/task1/Task1P1.vue'
 import Task1P2 from './tasks/task1/Task1P2.vue'
@@ -213,6 +217,7 @@ const starting = ref(false)
 const startError = ref('')
 
 const restarting = ref(false)
+const rechnerOffen = ref(false)     // Taschenrechner offen → Aufgabe rückt zur Seite
 const inputResultNonce = ref(0)   // ← wird bei jedem Server-input_result inkrementiert
 
 const allRoles = ALL_ROLES
@@ -879,6 +884,14 @@ function onTaskSolved(data) {
   flex-direction: column;
   padding: 16px;
   overflow: hidden;
+}
+
+/* Platz für den offenen Taschenrechner (rechts, auf dem Handy unten), damit
+   die Zahlen der Aufgabe sichtbar bleiben */
+.task-main.with-calc { padding-right: 296px; }
+
+@media (max-width: 700px) {
+  .task-main.with-calc { padding-right: 16px; padding-bottom: calc(50vh + 16px); overflow-y: auto; }
 }
 
 @media (max-width: 900px) {
