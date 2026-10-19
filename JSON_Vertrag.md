@@ -128,10 +128,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 }
 
 // 6. Fehler (nur an den Absender)
+// "code" ist optional und maschinenlesbar. Bisher:
+//   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
+//                    Kommt direkt nach dem Verbinden; danach schließt der Server die
+//                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
 {
   "event": "error",
   "payload": {
-    "message": "Lobby ist voll!"
+    "message": "Unbekannte Sitzungs-ID",
+    "code": "unknown_game"
   }
 }
 

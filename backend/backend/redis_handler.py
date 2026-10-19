@@ -10,6 +10,9 @@ REDIS_DB = int(os.environ.get("REDIS_DB", 1))
 DEFAULT_TIME = 300
 ROLES = ["MASTER", "FI-SI", "FI-AE"]
 
+# Eine wartende Lobby lebt lange (Beamer läuft oft stundenlang), ein gestartetes Spiel 1 h.
+LOBBY_TTL = 12 * 3600
+
 
 def _s(val):
     if isinstance(val, bytes):
@@ -58,7 +61,10 @@ class RedisHandler:
             "time_left": DEFAULT_TIME,
             "status": "waiting",
         })
-        self.refresh_ttl(game_id)
+        self.refresh_ttl(game_id, LOBBY_TTL)
+
+    def game_exists(self, game_id: str) -> bool:
+        return bool(self.r.exists(self._k_state(game_id)))
 
     def _load_players(self, game_id: str) -> dict:
         raw_players = self.r.hgetall(self._k_players(game_id)) or {}

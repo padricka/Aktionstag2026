@@ -300,6 +300,16 @@ const handleServerMessage = (msg) => {
   const event = msg?.event || msg?.type
   const payload = msg?.payload || msg
 
+  // Vertippte Sitzungs-ID: Server schließt die Verbindung → zurück zur Eingabe.
+  // Der Hinweis bleibt stehen, bis der nächste Versuch startet.
+  if (event === 'error' && payload.code === 'unknown_game') {
+    disconnect()
+    connected.value = false
+    joining.value = false
+    joinError.value = `Sitzung „${gameId.value.trim().toUpperCase()}" gibt es nicht. Bitte die ID vom Beamer prüfen.`
+    return
+  }
+
   if (event === 'lobby_update') {
     const newPlayers = payload.players ?? []
     const stillInLobby = newPlayers.some(p => p.name === (props.playerName || 'Agent'))
