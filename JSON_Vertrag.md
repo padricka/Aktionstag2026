@@ -129,7 +129,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   Jedes Stück trägt vollständige Regeln (kein Satz reißt ab); anwenden kann man
 //   sie nur mit den Fakten auf den Bildschirmen der anderen.
 // Umgesetzt: Aufgabe 1 (alarm_leds / main_switches / code_stickers, mit note),
-//            Aufgabe 2 (fire_log / valve_panel / password_input),
+//            Aufgabe 2 (fire_log / valve_panel / rack_rear, mit note; Eingaben
+//              target "valve_action" = "RACK:LÖSCHMITTEL" nur FI-SI, target "release"
+//              = Vier-Augen-Freigabe von MASTER + FI-AE innerhalb release.window s),
 //            Aufgabe 3 (ascii_binary_tables / ascii_puzzle / binary_puzzle),
 //            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).
 // "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre

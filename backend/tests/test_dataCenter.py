@@ -177,28 +177,28 @@ def test_role_task_hides_state_but_sends_views(data_center):
 
 
 def test_fire_protocol_flow_via_process_input(data_center):
-    """P1 macht alle 3 Schritte, P2 gibt das Passwort in der Order ein."""
+    """P1 löscht alle 3 Racks, dann geben Leitstand und Rückseite gemeinsam frei."""
     data_center.start()
     _register(data_center, "Anna", ROLE_P1)
     _register(data_center, "Ben", ROLE_P2)
+    _register(data_center, "Cara", ROLE_M)
     task = data_center.new_task("fire_protocol")
     st = task["state"]
     data_center.redis.r.hset(_state_key(data_center), "health", 100)
     data_center.redis.r.hset(_state_key(data_center), "time_left", 100)
 
-    # P1: falsche Kombination kostet HP
-    assert _druecke(data_center, "valve_action", "V9:lila", "Anna")["result"] == "wrong"
+    # P1: falsches Rack/Löschmittel kostet HP
+    assert _druecke(data_center, "valve_action", "Z-99:LIMONADE", "Anna")["result"] == "wrong"
     assert data_center.health == 40
 
     # P1: alle 3 Schritte korrekt
     for step in st["sequence"]:
-        res = _druecke(data_center, "valve_action", f"{step['valve']}:{step['color']}", "Anna")
+        res = _druecke(data_center, "valve_action", f"{step['rack']}:{step['agent']}", "Anna")
         assert res["result"] == "correct"
 
-    # P2: richtiges Passwort
-    # Passwort = alle Fragmente nach Punkten sortiert (Escape-Room, GAME_DESIGN.md)
-    pw = "".join(f["text"] for f in sorted(st["fragments"], key=lambda f: f["dots"]))
-    assert _druecke(data_center, "release_pw", pw, "Ben")["result"] == "correct"
+    # Vier-Augen-Freigabe (GAME_DESIGN.md, Aufgabe 2)
+    assert _druecke(data_center, "release", "press", "Cara")["result"] == "correct"
+    assert _druecke(data_center, "release", "press", "Ben")["result"] == "correct"
     assert data_center.current_task()["task_id"] != task["task_id"]
     assert data_center.health == 55
 

@@ -60,17 +60,25 @@ Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Belohnungsziffer sich
 
 ### Aufgabe 2 — Löschprotokoll (`kind: "fire_protocol"`)
 
-**Geschichte:** Die Löschanlage muss in genau einer Reihenfolge geflutet werden, danach wird sie mit einem Passwort freigegeben.
+**Geschichte:** Drei von vier Racks brennen. Jedes muss mit dem **richtigen Löschmittel** gelöscht werden, in der Reihenfolge der Brandmeldungen. Danach wird die Anlage im **Vier-Augen-Prinzip** freigegeben.
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | Logzeile mit **einem** Schritt der Sequenz (Schrittnummer, Ventil, Farbe). Ein **Passwort-Fragment** mit Punkt-Markierung (z. B. `●● SYS`). | Ventilpanel (3 Ventile × 3 Farben), Fortschritt. **Einen** Schritt der Sequenz auf einem Notizzettel. Nach dem Fluten: das letzte Passwort-Fragment. | **Einen** Schritt der Sequenz auf einem Aufkleber. Ein Passwort-Fragment mit Punkt-Markierung. Passwort-Eingabe. |
-| **Eingabe** | – | `valve_action`: `VENTIL:FARBE`, Schritt für Schritt | `release_pw`: Passwort |
+| **Sieht** | **Brandmelde-Log**: Uhrzeit, Quelle (BMZ/RM), Rack – 3 echte Meldungen + ein `[TEST]`-Probealarm, sortiert nach *angezeigter* Uhrzeit. | Steuerpult (Rack × Löschmittel), Fortschritt. **Welches Rack unter Strom steht.** | **Brandgut** hinter jedem Rack (Papierarchiv, Kabelbaum, Server, USV-Akku). |
+| **Zettel** | Löschplan Teil 1/3: Regel ① + Falle | Löschplan Teil 2/3: Regel ② | Löschplan Teil 3/3: Regeln ③ + ④ |
+| **Eingabe** | `release` (Freigabe-Knopf) | `valve_action`: `RACK:LÖSCHMITTEL`, Rack für Rack | `release` (Freigabe-Knopf) |
 
-**Lösung:**
-1. Alle drei lesen ihren Schritt vor (Schritt 1/2/3 ist auf drei Personen verteilt), die Vorderseite flutet in der Reihenfolge.
-2. Die Fragmente tragen 1–3 Punkte. Nach Punktzahl sortiert ergeben sie das Passwort (**Schlussfolgern**), die Rückseite gibt es ein.
-Das letzte Fragment erscheint erst nach erfolgreichem Fluten. **Belohnungsziffer sichtbar für:** Leitstand.
+**Der Löschplan** (`backend/notes.py`, `FIRE_NOTE`) – wie bei Aufgabe 1: jede Regel vollständig auf einem Stück, und zwar bei dem, der die Fakten dazu **nicht** sieht.
+- **①** *(Leitstand)* Papier → WASSER, Kabel → SCHAUM, Server → INERTGAS. **Rack unter Strom: nie Wasser oder Schaum → CO2.** **USV-Akku: nicht löschen → ABSCHOTTEN.** *Brandgut kennt die Rückseite, Strom die Vorderseite.*
+- **②** *(Vorderseite)* Gelöscht wird in der Reihenfolge der Meldungen, **älteste zuerst**. `[TEST]`-Meldungen sind Probealarme → ignorieren. *Das Log hat der Leitstand.*
+- **③** *(Rückseite)* BMZ (Brandmeldezentrale) zeigt **UTC**, Rauchmelder (RM) zeigen **Ortszeit = UTC + 2 h** → bei RM 2 Stunden abziehen. *Das Log hat der Leitstand.*
+- **④** *(Rückseite)* Freigabe nur zu zweit: Leitstand und Rückseite drücken **innerhalb von 3 Sekunden**.
+- **Falle** *(Leitstand)*: „Wasser geht immer.“ – durchgestrichen, „NEIN!“.
+
+**Garantiert in jeder Runde:** Wer die Uhrzeiten ohne ③ vergleicht, bekommt die falsche Reihenfolge. Mindestens ein brennendes Rack mit Papier/Kabel steht unter Strom (① Strom-Regel). Ein USV-Akku brennt in etwa jeder zweiten Runde.
+
+**Lösung (Beispiel):** Log: `09:41 BMZ A-02`, `09:44 BMZ [TEST] B-02`, `11:38 RM B-01`, `11:47 RM A-01`. Mit ③: B-01 = 09:38, A-01 = 09:47 UTC → Reihenfolge **B-01, A-02, A-01** (TEST ignoriert). Rückseite: B-01 Kabelbaum, A-02 USV-Akku, A-01 Papierarchiv. Vorderseite: B-01 Strom an, A-01 stromlos. ① → `B-01:CO2`, `A-02:ABSCHOTTEN`, `A-01:WASSER`. Danach drücken Leitstand und Rückseite auf „3, 2, 1“ die Freigabe.
+Falsches Rack/Löschmittel kostet Leben; wer zu spät drückt, wartet nur erneut (der andere muss nochmal). **Belohnungsziffer sichtbar für:** Leitstand.
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
@@ -106,9 +114,9 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `led: "blinkt" / "leuchtet"`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code- und Kabel-Symbole + Ablenker, pro Aufgabe gemischt), `p_done`, `note` |
 | 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done`, `note` |
 | 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt; zerkratzt: `{symbol: null, color, scratched: true}`), `note` |
-| 2 | MASTER | `fire_log` | `clue: {step, valve, color}`, `fragment: {dots, text}` |
-| 2 | FI-SI | `valve_panel` | `valves`, `colors`, `sequence_len`, `step`, `clue: {step, valve, color}`, `last_fragment` (null bis gelöst, dann `{dots, text}`), `p_done` |
-| 2 | FI-AE | `password_input` | `clue: {step, valve, color}`, `fragment: {dots, text}`, `last_fragment` (null bis gelöst), `p_done` |
+| 2 | MASTER | `fire_log` | `log: [{time: "HH:MM", source: "BMZ"/"RM", rack, test}]` (nach angezeigter Uhrzeit sortiert), `release: {armed, window}`, `note` |
+| 2 | FI-SI | `valve_panel` | `racks: [4 Rack-IDs]`, `agents: [WASSER, SCHAUM, CO2, INERTGAS, ABSCHOTTEN]`, `power: {rack: true/false}`, `sequence_len`, `step`, `p_done`, `note` |
+| 2 | FI-AE | `rack_rear` | `rear: [{rack, material, label} ×4]`, `release: {armed, window}`, `note` |
 | 3 | MASTER | `ascii_binary_tables` | `ascii_half: {"A":65,…"M":77}`, `place_values: [128,64,32,16]` |
 | 3 | FI-SI | `ascii_puzzle` | `ascii_codes`, `ascii_half: {"N":78,…"Z":90}`, `button_unlocked` |
 | 3 | FI-AE | `binary_puzzle` | `binary_codes`, `place_values: [8,4,2,1]`, `button_unlocked` |
@@ -118,7 +126,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
 
-Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`). Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

@@ -112,3 +112,15 @@ describe("ControlDesk – Anzeige", () => {
     expect(w.classes()).toContain(`cd--${state}`);
   });
 });
+
+describe("ControlDesk – Beschriftung", () => {
+  it("Regler lassen sich umbenennen (Aufgabe 2: Rack / Löschmittel)", () => {
+    const w = mount(ControlDesk, {
+      props: { ...PROPS, valves: ["A-01", "B-02"], colors: ["WASSER", "CO2"], valveLabel: "Rack", colorLabel: "Löschmittel" },
+    });
+    expect(w.find('[role="slider"][aria-label="Rack"]').attributes("aria-valuetext")).toBe("A-01");
+    expect(w.find('[role="slider"][aria-label="Löschmittel"]').attributes("aria-valuetext")).toBe("WASSER");
+    expect(w.text()).toContain("RACK");
+    expect(w.text()).toContain("LÖSCHMITTEL");
+  });
+});

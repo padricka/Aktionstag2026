@@ -1,99 +1,59 @@
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">Freigabe-Passwort</h2>
+      <h2 class="title">Rack-Rückseite</h2>
       <span class="role">Rückseite</span>
     </header>
 
     <p class="hint">
-      Teile eure Fragmente und sortiert nach Punkten (● → ●●●). Das letzte Fragment erscheint erst nach dem Fluten.
+      Du siehst, was in jedem Rack steckt – sag es dem Leitstand. Regel ③ auf deinem Teil des
+      Löschplans erklärt, wie man die Uhrzeiten im Log liest. Zum Schluss: Freigabe zu zweit (④).
     </p>
 
-    <div class="grid">
-      <section class="panel">
-        <span class="panel-label">Dein Aufkleber · Sequenz</span>
-        <div class="clue">
-          <span>Schritt {{ clue.step }}</span>
-          <strong>{{ clue.valve }} · {{ clue.color }}</strong>
-        </div>
-      </section>
+    <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-      <section class="panel">
-        <span class="panel-label">Dein Fragment</span>
-        <div class="fragment">
-          <span class="fragment-dots">{{ dotsLabel(fragment.dots) }}</span>
-          <span class="fragment-text">{{ fragment.text }}</span>
-        </div>
-      </section>
+    <div v-else class="body">
+      <div class="main-col">
+        <section class="panel">
+          <span class="panel-label">Brandgut hinter den Racks</span>
+          <ul class="rear">
+            <li v-for="r in rear" :key="r.rack" class="rear-item">
+              <span class="rear-rack">{{ r.rack }}</span>
+              <span class="rear-label">{{ r.label }}</span>
+            </li>
+          </ul>
+        </section>
 
-      <section class="panel" :class="{ missing: !lastFragment }">
-        <span class="panel-label">Letztes Fragment</span>
-        <div class="fragment">
-          <template v-if="lastFragment">
-            <span class="fragment-dots">{{ dotsLabel(lastFragment.dots) }}</span>
-            <span class="fragment-text">{{ lastFragment.text }}</span>
-          </template>
-          <span v-else class="waiting">wartet auf Fluten …</span>
-        </div>
-      </section>
-    </div>
+        <ReleaseButton
+          :armed="!!view.release?.armed"
+          :window="view.release?.window || 3"
+          partner="Leitstand"
+          @press="emit('solved', { target: 'release' })"
+        />
+      </div>
 
-    <div class="foot">
-      <input
-        v-model="enteredPassword"
-        class="input-pw"
-        placeholder="FRAGMENTE ZUSAMMEN"
-        :disabled="pDone"
-        @keyup.enter="verifyPassword"
-      />
-      <button
-        class="btn-action"
-        :disabled="!enteredPassword.trim() || pDone"
-        @click="verifyPassword"
-      >
-        {{ pDone ? 'Akzeptiert' : 'Passwort bestätigen' }}
-      </button>
-      <p v-if="serverError && !pDone" class="msg-err">{{ serverError }}</p>
+      <aside v-if="view.note" class="note-col">
+        <span class="panel-label">Dein Teil des Löschplans</span>
+        <TornNote :note="view.note" :seed="noteSeed" />
+      </aside>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
+import TornNote from '../../TornNote.vue'
+import ReleaseButton from './ReleaseButton.vue'
 
 const props = defineProps({
   view: { type: Object, default: null },
-  fragments: { type: Array, default: () => [] },
-  lastFragment: { type: [Object, String], default: null },
-  p2Done: { type: Boolean, default: false },
-  serverError: { type: String, default: '' },
+  // gleiche Aufgabe → gleiche Risskante
+  noteSeed: { type: String, default: '' },
 })
 
 const emit = defineEmits(['solved'])
-const enteredPassword = ref('')
 
-const clue = computed(() => props.view?.clue || { step: '–', valve: '–', color: '–' })
-const fragment = computed(() => props.view?.fragment || { dots: 0, text: '–' })
-const pDone = computed(() => !!(props.view?.p_done ?? props.p2Done))
-const lastFragment = computed(() => {
-  const lf = props.view?.last_fragment ?? props.lastFragment
-  if (!lf) return null
-  if (typeof lf === 'string') return { dots: 0, text: lf }
-  return lf
-})
-
-function dotsLabel(n) {
-  const count = Math.max(0, Number(n) || 0)
-  return '●'.repeat(count) || '–'
-}
-
-watch(pDone, (v) => { if (!v) enteredPassword.value = '' })
-watch(() => props.serverError, (e) => { if (e) enteredPassword.value = '' })
-
-function verifyPassword() {
-  if (!enteredPassword.value.trim() || pDone.value) return
-  emit('solved', { password: enteredPassword.value.trim() })
-}
+const rear = computed(() => props.view?.rear || [])
 </script>
 
 <style scoped>
@@ -129,26 +89,40 @@ function verifyPassword() {
   letter-spacing: 0.15em;
 }
 
-.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 20px 0; }
+.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
 
-.grid {
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-3);
+}
+
+.body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+  gap: 24px;
+  overflow: auto;
+}
+
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px;
+  gap: 16px;
+  padding: 24px;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
 }
-
-.panel.missing { border-style: dashed; opacity: 0.7; }
 
 .panel-label {
   font-size: 11px;
@@ -158,97 +132,47 @@ function verifyPassword() {
   font-weight: 600;
 }
 
-.clue {
+.rear {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rear-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px;
+  padding: 16px 18px;
   background: var(--bg-1);
   border: 1px solid var(--border-2);
+  border-left: 4px solid var(--border-3);
+}
+
+.rear-rack {
   font-family: var(--mono);
-  font-size: 14px;
-  color: var(--fg-2);
-  flex: 1;
-  justify-content: center;
-}
-
-.clue strong {
-  font-size: 20px;
-  color: var(--fg);
-}
-
-.fragment {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 20px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-}
-
-.fragment-dots {
-  font-size: 20px;
-  letter-spacing: 0.2em;
-  color: var(--amber, #ffb830);
-}
-
-.fragment-text {
-  font-family: var(--mono);
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--green);
-  letter-spacing: 0.1em;
-}
-
-.waiting {
-  font-family: var(--mono);
+  font-size: 13px;
   color: var(--fg-3);
-  font-size: 14px;
+  letter-spacing: 0.12em;
 }
 
-.foot {
-  padding-top: 20px;
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
+.rear-label {
+  font-family: var(--mono);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.note-col {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 10px;
+  align-items: flex-start;
 }
 
-.input-pw {
-  width: 100%;
-  max-width: 480px;
-  padding: 14px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-  font-size: 20px;
-  text-align: center;
-  letter-spacing: 0.15em;
-  font-weight: 700;
-  outline: none;
+@media (max-width: 1100px) {
+  .body { grid-template-columns: minmax(0, 1fr); }
 }
-
-.input-pw:focus { border-color: var(--green-border); }
-
-.btn-action {
-  padding: 14px 56px;
-  background: var(--green);
-  color: #050a08;
-  border: none;
-  font-family: var(--mono);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-}
-
-.btn-action:disabled { opacity: 0.35; cursor: not-allowed; }
-
-.msg-err { font-size: 12px; color: var(--red); margin: 0; }
 </style>
