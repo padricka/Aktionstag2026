@@ -45,13 +45,24 @@ const datenrettungStub = {
   `,
 }
 
+// Aufgabe 2: Löschen (Vorderseite) und Vier-Augen-Freigabe (Leitstand, Rückseite).
+const loeschStub = {
+  name: 'Task2Stub',
+  template: `
+    <div class="task2-stub">
+      <button class="task2-loeschen" @click="$emit('solved', { valve: 'B-02', color: 'CO2' })">löschen</button>
+      <button class="task2-freigabe" @click="$emit('solved', { target: 'release' })">freigabe</button>
+    </div>
+  `,
+}
+
 const stubs = {
   Task1P1: taskStub,
   Task1P2: taskStub,
   Task1Master: taskStub,
-  Task2P1: taskStub,
-  Task2P2: taskStub,
-  Task2Master: taskStub,
+  Task2P1: loeschStub,
+  Task2P2: loeschStub,
+  Task2Master: loeschStub,
   Task3P1: datenrettungStub,
   Task3P2: datenrettungStub,
   Task3Master: datenrettungStub,
@@ -348,6 +359,39 @@ describe('PlayerScreen.vue', () => {
       payload: { action_type: 'text_input', target: 'binary_answer', value: 'FALSCH' },
     })
   })
+
+  async function inAufgabe2(rolle, type) {
+    const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: rolle } })
+    simulateMessage({
+      event: 'game_tick',
+      payload: { health: 240, time_left: 180, tasks: [{ kind: 'fire_protocol', view: { type } }] },
+    })
+    await wrapper.vm.$nextTick()
+    return wrapper
+  }
+
+  it('sendet in Aufgabe 2 das Löschen der Vorderseite als valve_action RACK:MITTEL', async () => {
+    const wrapper = await inAufgabe2('FI-SI', 'valve_panel')
+    await wrapper.find('.task2-loeschen').trigger('click')
+    expect(getSentEvents().at(-1)).toEqual({
+      event: 'player_input',
+      payload: { action_type: 'button_press', target: 'valve_action', value: 'B-02:CO2' },
+    })
+  })
+
+  it.each([['MASTER', 'fire_log'], ['FI-AE', 'rack_rear']])(
+    'sendet in Aufgabe 2 die Freigabe von %s als button_press release',
+    async (rolle, type) => {
+      const wrapper = await inAufgabe2(rolle, type)
+      await wrapper.find('.task2-freigabe').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({
+        event: 'player_input',
+        payload: { action_type: 'button_press', target: 'release', value: 'press' },
+      })
+    },
+  )
 
   it('sendet den Sync-Knopf aus Aufgabe 3 als button_press', async () => {
     const wrapper = mount(PlayerScreen, {

@@ -37,7 +37,7 @@ Nur wenn das Team schnell und effektiv zusammenarbeitet, kann der Server gerette
 ## Die drei Aufgaben
 
 1. **Alarm verifizieren:** Der Master findet die defekte Komponente und erfährt ihre Seriennummer. Spieler 1 betätigt den richtigen Hauptschalter, Spieler 2 tippt den Shutdown-Befehl mit der Seriennummer ein.
-2. **Richtiges Löschprotokoll:** Der Master kennt das richtige Ventil und die Farbe. Spieler 1 betätigt die richtige Kombination und erhält den letzten Passwort-Schnipsel. Spieler 2 setzt die Schnipsel zum Freigabe-Passwort zusammen und gibt es ein.
+2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (mit Zeitzonen und Probealarm), Spieler 1 sieht den Strom an den Racks und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
 3. **Datenrettung:** Der Master hat die ASCII-Tabelle und die binären Zahlen als Hilfsblatt. Spieler 1 löst ein ASCII-Rätsel, Spieler 2 ein Binär-Rätsel, jeder schaltet damit seinen Button frei. Beide drücken gleichzeitig und retten den Server.
 
 ---

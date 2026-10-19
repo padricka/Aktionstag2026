@@ -215,114 +215,144 @@ class FireProtocolTask(PlayableObject):
     kind = "fire_protocol"
     instruction = "Löschprotokoll ausführen!"
 
-    VALVES = ["V-31", "V-32", "V-33"]
-    COLORS = ["ORANGE", "RED", "GREEN"]
-    FRAGMENT_POOL = ["DRV", "AK26", "SYS", "BOX", "SEC", "FIRE"]
+    RACKS = ["A-01", "A-02", "B-01", "B-02"]
+    AGENTS = ["WASSER", "SCHAUM", "CO2", "INERTGAS", "ABSCHOTTEN"]
+    # Brandgut → Anzeige auf der Rückseite und Löschmittel laut Löschplan ①
+    MATERIALS = {
+        "PAPIER": {"label": "Papierarchiv", "agent": "WASSER"},
+        "KABEL": {"label": "Kabelbaum", "agent": "SCHAUM"},
+        "SERVER": {"label": "Server", "agent": "INERTGAS"},
+        "AKKU": {"label": "USV-Akku (Lithium)", "agent": "ABSCHOTTEN"},
+    }
+    AKKU_CHANCE = 0.5
+    RM_OFFSET = 120          # Rauchmelder zeigen Ortszeit = UTC + 2 h (Löschplan ③)
+    RELEASE_WINDOW = 3       # Sekunden für die Vier-Augen-Freigabe (Löschplan ④)
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 2):
-    #   Jede Rolle kennt genau EINEN Schritt der Sequenz -> nur gemeinsam kann die
-    #   Vorderseite fluten. Passwort-Fragmente tragen 1–3 Punkte, sortiert ergeben sie
-    #   das Passwort. Fragment 0 = Leitstand, 1 = Rückseite, 2 = erst nach dem Fluten.
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 2): Log nur am Leitstand,
+    # Strom nur vorne, Brandgut nur hinten; die Regeln stehen auf dem Löschplan
+    # jeweils bei dem, der die Fakten dazu NICHT sieht.
     @classmethod
     def create(cls, players):
-        sequence = [
-            {"valve": random.choice(cls.VALVES), "color": random.choice(cls.COLORS)}
-            for _ in range(FIRE_SEQUENCE_LEN)
-        ]
+        fires = random.sample(cls.RACKS, FIRE_SEQUENCE_LEN)      # in Reihenfolge der Meldung
+        spare = next(r for r in cls.RACKS if r not in fires)
 
-        steps = list(range(FIRE_SEQUENCE_LEN))
-        random.shuffle(steps)
-        clue_steps = {ROLE_M: steps[0], ROLE_P1: steps[1], ROLE_P2: steps[2]}
+        power = {r: random.random() < 0.5 for r in cls.RACKS}
+        material = {spare: random.choice(list(cls.MATERIALS))}
+        # Strom-Regel kommt immer vor: ein Brand mit Papier/Kabel unter Strom
+        akku, override, *rest = random.sample(fires, len(fires))
+        material[override] = random.choice(["PAPIER", "KABEL"])
+        power[override] = True
+        material[akku] = "AKKU" if random.random() < cls.AKKU_CHANCE else random.choice(["PAPIER", "KABEL", "SERVER"])
+        for r in rest:
+            material[r] = random.choice(["PAPIER", "KABEL", "SERVER"])
 
-        dots = [1, 2, 3]
-        random.shuffle(dots)
-        texts = random.sample(cls.FRAGMENT_POOL, 3)
-        fragments = [{"dots": d, "text": t} for d, t in zip(dots, texts)]
+        sequence = [{"rack": r, "agent": cls._agent(material[r], power[r])} for r in fires]
 
         return {
+            "racks": [{"rack": r, "power": power[r], "material": material[r]} for r in cls.RACKS],
+            "log": cls._log(fires, spare),
             "sequence": sequence,
             "step": 0,
-            "clue_steps": clue_steps,
-            "fragments": fragments,
             "p1_done": False,
-            "p2_done": False,
+            "release": {},
         }
 
     @classmethod
-    def _clue(cls, state, role):
-        idx = state["clue_steps"][role]
-        step = state["sequence"][idx]
-        return {"step": idx + 1, "valve": step["valve"], "color": step["color"]}
+    def _agent(cls, material, power):
+        agent = cls.MATERIALS[material]["agent"]
+        if power and agent in ("WASSER", "SCHAUM"):
+            return "CO2"
+        return agent
+
+    @classmethod
+    def _log(cls, fires, spare):
+        """Brandmelde-Log: echte Meldungen + ein Probealarm, sortiert nach ANGEZEIGTER
+        Uhrzeit – wer die Zeitzonen (③) nicht beachtet, liest die falsche Reihenfolge."""
+        start = random.randint(7 * 60, 20 * 60)
+        utc = [start]
+        for _ in fires[1:]:
+            utc.append(utc[-1] + random.randint(3, 12))
+
+        while True:
+            sources = [random.choice(["BMZ", "RM"]) for _ in fires]
+            shown = [t + (cls.RM_OFFSET if s == "RM" else 0) for t, s in zip(utc, sources)]
+            if sorted(range(len(fires)), key=lambda i: shown[i]) != list(range(len(fires))):
+                break
+
+        entries = [
+            {"minutes": m, "source": s, "rack": r, "test": False}
+            for m, s, r in zip(shown, sources, fires)
+        ]
+        test_source = random.choice(["BMZ", "RM"])
+        test_rack = random.choice([spare, *fires])
+        test_utc = random.randint(start - 15, utc[-1] + 15)
+        entries.append({
+            "minutes": test_utc + (cls.RM_OFFSET if test_source == "RM" else 0),
+            "source": test_source, "rack": test_rack, "test": True,
+        })
+        entries.sort(key=lambda e: e["minutes"])
+        return [
+            {"time": f"{e['minutes'] // 60:02d}:{e['minutes'] % 60:02d}",
+             "source": e["source"], "rack": e["rack"], "test": e["test"]}
+            for e in entries
+        ]
 
     @classmethod
     def views(cls, state):
-        frags = state["fragments"]
-        last = frags[2] if state["p1_done"] else None
-
+        release = {"armed": state["p1_done"], "window": cls.RELEASE_WINDOW}
         return {
             ROLE_M: {
                 "type": "fire_log",
-                "clue": cls._clue(state, ROLE_M),
-                "fragment": frags[0],
+                "log": state["log"],
+                "release": release,
+                "note": notes.piece(notes.FIRE_NOTE, ROLE_M),
             },
             ROLE_P1: {
                 "type": "valve_panel",
-                "valves": cls.VALVES,
-                "colors": cls.COLORS,
+                "racks": cls.RACKS,
+                "agents": cls.AGENTS,
+                "power": {r["rack"]: r["power"] for r in state["racks"]},
                 "sequence_len": len(state["sequence"]),
                 "step": state["step"],
-                "clue": cls._clue(state, ROLE_P1),
-                "last_fragment": last,
                 "p_done": state["p1_done"],
+                "note": notes.piece(notes.FIRE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
-                "type": "password_input",
-                "clue": cls._clue(state, ROLE_P2),
-                "fragment": frags[1],
-                "last_fragment": last,
-                "p_done": state["p2_done"],
+                "type": "rack_rear",
+                "rear": [
+                    {"rack": r["rack"], "material": r["material"],
+                     "label": cls.MATERIALS[r["material"]]["label"]}
+                    for r in state["racks"]
+                ],
+                "release": release,
+                "note": notes.piece(notes.FIRE_NOTE, ROLE_P2),
             },
         }
 
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):
-        value = str(data.value).strip().upper()
-
         if data.target == "valve_action" and role == ROLE_P1:
             if state["p1_done"]:
                 return StepResult(Outcome.IGNORED, state)
-            step = state["step"]
-            if step >= len(state["sequence"]):
-                return StepResult(Outcome.IGNORED, state)
-
-            if ":" not in value:
+            rack, _, agent = str(data.value).strip().upper().partition(":")
+            expected = state["sequence"][state["step"]]
+            if rack != expected["rack"] or agent != expected["agent"]:
                 return StepResult(Outcome.WRONG, state)
-            valve_in, color_in = value.split(":", 1)
-            valve_map = {"ALPHA": "V-31", "BETA": "V-32", "GAMMA": "V-33"}
-            valve_norm = valve_map.get(valve_in, valve_in)
-
-            current = state["sequence"][step]
-            if valve_norm != current["valve"].upper() or color_in != current["color"].upper():
-                return StepResult(Outcome.WRONG, state)
-
-            state["step"] = step + 1
+            state["step"] += 1
             if state["step"] >= len(state["sequence"]):
                 state["p1_done"] = True
             return StepResult(Outcome.PROGRESS, state)
 
-        if data.target == "release_pw" and role == ROLE_P2:
+        if data.target == "release" and role in (ROLE_M, ROLE_P2):
             if not state["p1_done"]:
                 return StepResult(Outcome.IGNORED, state)
-
-            ordered = sorted(state["fragments"], key=lambda f: f["dots"])
-            expected = "".join(f["text"] for f in ordered).upper()
-
-            clean_in = value.replace("-", "").replace(" ", "").upper()
-            if clean_in != expected:
-                return StepResult(Outcome.WRONG, state)
-
-            state["p2_done"] = True
-            return StepResult(Outcome.SOLVED, state)
+            other = ROLE_P2 if role == ROLE_M else ROLE_M
+            pressed = state["release"].get(other)
+            if pressed is not None and now - pressed <= cls.RELEASE_WINDOW:
+                return StepResult(Outcome.SOLVED, state)
+            # zu spät oder als Erster: dieser Druck wartet auf den anderen
+            state["release"] = {role: now}
+            return StepResult(Outcome.PROGRESS, state)
 
         return StepResult(Outcome.IGNORED, state)
 

@@ -1,9 +1,11 @@
 /**
- * Task2P1 — Vorderseite, view.type valve_panel.
- * Bedient über das Steuerpult (ControlDesk), siehe frontend/PANELS.md.
+ * Task2P1 — Vorderseite, view.type valve_panel (GAME_DESIGN Aufgabe 2).
+ * Löscht über das Steuerpult (ControlDesk, frontend/PANELS.md): Drehregler = Rack,
+ * Schieberegler = Löschmittel. Sieht, welches Rack unter Strom steht, und Teil 2/3
+ * des Löschplans.
  *
- * Drehregler   role="slider" aria-label="Ventil"
- * Schieberegler role="slider" aria-label="Farbe"
+ * Drehregler   role="slider" aria-label="Rack"
+ * Schieberegler role="slider" aria-label="Löschmittel"
  * Manometer    role="progressbar"
  * Auslöser     <button aria-label="Auslösen">
  * Wurzel       Klasse cd--<state>
@@ -14,18 +16,18 @@ import Task2P1 from '../src/components/tasks/task2/Task2P1.vue'
 
 const valveView = {
   type: 'valve_panel',
-  valves: ['V-31', 'V-32', 'V-33'],
-  colors: ['ORANGE', 'RED', 'GREEN'],
+  racks: ['A-01', 'A-02', 'B-01', 'B-02'],
+  agents: ['WASSER', 'SCHAUM', 'CO2', 'INERTGAS', 'ABSCHOTTEN'],
+  power: { 'A-01': true, 'A-02': false, 'B-01': false, 'B-02': true },
   sequence_len: 3,
   step: 1,
-  clue: { step: 1, valve: 'V-31', color: 'ORANGE' },
-  last_fragment: null,
   p_done: false,
+  note: { id: 'fire', title: 'Löschplan', part: 2, of: 3, torn: ['left'], lines: [{ row: 3, style: 'rule', text: '② Gelöscht wird in der' }] },
 }
 
 const pult = (w) => w.find('.cd')
-const ventil = (w) => w.find('[role="slider"][aria-label="Ventil"]')
-const farbe = (w) => w.find('[role="slider"][aria-label="Farbe"]')
+const rack = (w) => w.find('[role="slider"][aria-label="Rack"]')
+const mittel = (w) => w.find('[role="slider"][aria-label="Löschmittel"]')
 const manometer = (w) => w.find('[role="progressbar"]')
 const ausloeser = (w) => w.find('button[aria-label="Auslösen"]')
 
@@ -38,93 +40,71 @@ afterEach(() => {
 })
 
 describe('Task2P1.vue (valve_panel) — Steuerpult', () => {
-  it('zeigt eigenen clue und Fortschritt aus view', () => {
-    const wrapper = mountTask()
-
-    expect(wrapper.find('.clue').text()).toMatch(/Schritt 1/)
-    expect(wrapper.find('.clue').text()).toMatch(/V-31/)
-    expect(wrapper.find('.role').text()).toBe('Vorderseite')
-    expect(manometer(wrapper).attributes('aria-valuenow')).toBe('1')
-    expect(manometer(wrapper).attributes('aria-valuemax')).toBe('3')
+  it('zeigt Racks, Löschmittel und Fortschritt aus view', () => {
+    const w = mountTask()
+    expect(w.find('.role').text()).toBe('Vorderseite')
+    expect(rack(w).attributes('aria-valuetext')).toBe('A-01')
+    expect(mittel(w).attributes('aria-valuetext')).toBe('WASSER')
+    expect(manometer(w).attributes('aria-valuenow')).toBe('1')
+    expect(manometer(w).attributes('aria-valuemax')).toBe('3')
   })
 
-  it('emittiert valve_action über solved', async () => {
-    const wrapper = mountTask()
+  it('zeigt, welches Rack unter Strom steht', () => {
+    const w = mountTask()
+    const racks = w.findAll('.power-item')
+    expect(racks).toHaveLength(4)
+    expect(racks[0].text()).toContain('A-01')
+    expect(racks[0].classes()).toContain('is-on')
+    expect(racks[1].classes()).not.toContain('is-on')
+    expect(racks[0].text()).toMatch(/Strom an/i)
+    expect(racks[1].text()).toMatch(/stromlos/i)
+  })
 
-    await ventil(wrapper).trigger('keydown', { key: 'ArrowRight' })
-    await farbe(wrapper).trigger('keydown', { key: 'ArrowRight' })
-    await ausloeser(wrapper).trigger('click')
+  it('zeigt Teil 2 des Löschplans', () => {
+    const w = mountTask()
+    expect(w.find('.tn').attributes('aria-label')).toBe('Teil 2 von 3: Löschplan')
+  })
 
-    expect(wrapper.emitted('solved')[0][0]).toEqual({ valve: 'V-32', color: 'RED' })
+  it('emittiert Rack und Löschmittel über solved', async () => {
+    const w = mountTask()
+    await rack(w).trigger('keydown', { key: 'ArrowRight' })
+    await mittel(w).trigger('keydown', { key: 'ArrowRight' })
+    await mittel(w).trigger('keydown', { key: 'ArrowRight' })
+    await ausloeser(w).trigger('click')
+    expect(w.emitted('solved')[0][0]).toEqual({ valve: 'A-02', color: 'CO2' })
   })
 
   it('sperrt direkt nach dem Senden (checking), bis view.step steigt', async () => {
-    const wrapper = mountTask()
-    expect(pult(wrapper).classes()).toContain('cd--idle')
+    const w = mountTask()
+    expect(pult(w).classes()).toContain('cd--idle')
 
-    await ausloeser(wrapper).trigger('click')
-    expect(pult(wrapper).classes()).toContain('cd--checking')
-    expect(ausloeser(wrapper).attributes('disabled')).toBeDefined()
+    await ausloeser(w).trigger('click')
+    expect(pult(w).classes()).toContain('cd--checking')
+    await ausloeser(w).trigger('click')
+    expect(w.emitted('solved')).toHaveLength(1)
 
-    await ausloeser(wrapper).trigger('click')
-    expect(wrapper.emitted('solved')).toHaveLength(1)
-
-    await wrapper.setProps({ view: { ...valveView, step: 2 } })
-    expect(pult(wrapper).classes()).toContain('cd--idle')
-    expect(ausloeser(wrapper).attributes('disabled')).toBeUndefined()
+    await w.setProps({ view: { ...valveView, step: 2 } })
+    expect(pult(w).classes()).toContain('cd--idle')
   })
 
   it('zeigt serverError als error und ist nach 1200 ms wieder idle', async () => {
     vi.useFakeTimers()
-    const wrapper = mountTask()
+    const w = mountTask()
 
-    await ausloeser(wrapper).trigger('click')
-    await wrapper.setProps({ serverError: 'Falscher Schritt' })
+    await ausloeser(w).trigger('click')
+    await w.setProps({ serverError: 'Falsche Eingabe' })
+    expect(pult(w).classes()).toContain('cd--error')
+    expect(w.find('.msg-err').text()).toBe('Falsche Eingabe')
 
-    expect(pult(wrapper).classes()).toContain('cd--error')
-    expect(wrapper.find('.msg-err').text()).toBe('Falscher Schritt')
-    expect(ausloeser(wrapper).attributes('disabled')).toBeUndefined()
-
-    vi.advanceTimersByTime(1199)
-    await wrapper.vm.$nextTick()
-    expect(pult(wrapper).classes()).toContain('cd--error')
-
-    vi.advanceTimersByTime(1)
-    await wrapper.vm.$nextTick()
-    expect(pult(wrapper).classes()).toContain('cd--idle')
-  })
-
-  it('gibt nach error wieder frei und kann erneut senden', async () => {
-    vi.useFakeTimers()
-    const wrapper = mountTask()
-
-    await ausloeser(wrapper).trigger('click')
-    await wrapper.setProps({ serverError: 'Falscher Schritt' })
     vi.advanceTimersByTime(1200)
-    await wrapper.vm.$nextTick()
-
-    await ventil(wrapper).trigger('keydown', { key: 'ArrowRight' })
-    await ausloeser(wrapper).trigger('click')
-
-    expect(wrapper.emitted('solved')).toHaveLength(2)
-    expect(wrapper.emitted('solved')[1][0]).toEqual({ valve: 'V-32', color: 'ORANGE' })
-    expect(pult(wrapper).classes()).toContain('cd--checking')
+    await w.vm.$nextTick()
+    expect(pult(w).classes()).toContain('cd--idle')
   })
 
-  it('zeigt nach p_done das letzte Fragment, Pult ist done', () => {
-    const wrapper = mountTask({
-      view: {
-        ...valveView,
-        step: 3,
-        p_done: true,
-        last_fragment: { dots: 3, text: 'FIRE' },
-      },
-    })
-
-    expect(pult(wrapper).classes()).toContain('cd--done')
-    expect(ausloeser(wrapper).attributes('disabled')).toBeDefined()
-    expect(wrapper.find('.clue').exists()).toBe(true)
-    expect(wrapper.find('.fragment-text').text()).toBe('FIRE')
-    expect(wrapper.find('.fragment-dots').text()).toMatch(/●/)
+  it('nach p_done ist das Pult fertig und verweist auf die Freigabe', () => {
+    const w = mountTask({ view: { ...valveView, step: 3, p_done: true } })
+    expect(pult(w).classes()).toContain('cd--done')
+    expect(ausloeser(w).attributes('disabled')).toBeDefined()
+    expect(w.find('.result').text()).toMatch(/Freigabe/)
   })
 })

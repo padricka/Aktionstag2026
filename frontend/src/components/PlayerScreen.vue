@@ -137,14 +137,6 @@
           :note-seed="task?.task_id || ''"
           :symbole="task1Switches"
           :code-length="task1CodeLength"
-          :valves="task2Valves"
-          :colors="task2Colors"
-          :sequence-len="task2SequenceLen"
-          :step="task2Step"
-          :last-fragment="task2LastFragment"
-          :fragments="task2Fragments"
-          :p1-done="task2P1Done"
-          :p2-done="task2P2Done"
           :ascii-codes="task3Ascii"
           :binary-codes="task3Binary"
           :input-result-nonce="inputResultNonce"
@@ -242,14 +234,6 @@ const currentTaskComponent = computed(() => {
 
 const task1Switches   = computed(() => task.value?.view?.switches || ['raute', 'dreieck', 'quadrat', 'kreis'])
 const task1CodeLength = computed(() => task.value?.view?.code_length || 4)
-const task2Valves     = computed(() => task.value?.view?.valves || [])
-const task2Colors     = computed(() => task.value?.view?.colors || [])
-const task2SequenceLen = computed(() => task.value?.view?.sequence_len || 3)
-const task2Step       = computed(() => task.value?.view?.step || 0)
-const task2LastFragment = computed(() => task.value?.view?.last_fragment || null)
-const task2Fragments  = computed(() => task.value?.view?.fragments || [])
-const task2P1Done     = computed(() => task.value?.view?.p_done || task.value?.view?.p1_done || false)
-const task2P2Done     = computed(() => task.value?.view?.p_done || task.value?.view?.p2_done || false)
 const task3Ascii      = computed(() => task.value?.view?.ascii_codes || [])
 const task3Binary     = computed(() => task.value?.view?.binary_codes || [])
 
@@ -303,7 +287,7 @@ function taskNumberFromView(viewType) {
     case 'fire_log':
     case 'fire_protocol':
     case 'valve_panel':
-    case 'password_input':    return 2
+    case 'rack_rear':         return 2
     case 'ascii_binary_tables':
     case 'ascii_puzzle':
     case 'binary_puzzle':
@@ -512,12 +496,12 @@ function onTaskSolved(data) {
       payloadData = { action_type: 'button_press', target: 'main_switch', value: data?.value || '' }
     }
   } else if (currentTask.value === 2) {
-    if (myRole.value === 'MASTER') return
-    if (normalizedRole.value === 'P1') {
+    // Löschprotokoll: Vorderseite löscht (RACK:MITTEL), Leitstand + Rückseite geben gemeinsam frei
+    if (data?.target === 'release') {
+      payloadData = { action_type: 'button_press', target: 'release', value: 'press' }
+    } else if (normalizedRole.value === 'P1') {
       payloadData = { action_type: 'button_press', target: 'valve_action',
                       value: `${data?.valve || ''}:${data?.color || ''}` }
-    } else {
-      payloadData = { action_type: 'text_input', target: 'release_pw', value: data?.password || '' }
     }
   } else if (currentTask.value === 3) {
     // Datenrettung: Antworten gehen immer zum Backend (keine Prüfung im Browser),

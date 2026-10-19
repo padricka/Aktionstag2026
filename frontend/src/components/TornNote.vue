@@ -43,7 +43,7 @@ const props = defineProps({
 
 const ariaLabel = computed(() => {
   const titel = props.note?.title || 'Notiz'
-  return props.note?.part ? `Teil ${props.note.part} von ${props.note.of} der ${titel}` : `Dein Stück der ${titel}`
+  return props.note?.part ? `Teil ${props.note.part} von ${props.note.of}: ${titel}` : `Dein Stück der ${titel}`
 })
 
 const rows = computed(() => {

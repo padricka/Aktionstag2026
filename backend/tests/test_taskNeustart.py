@@ -62,10 +62,9 @@ def _loese_alarm(dc):
 def _loese_loeschprotokoll(dc):
     st = _state(dc)
     for step in st["sequence"]:
-        _input(dc, P1_NAME, "valve_action", f"{step['valve']}:{step['color']}")
-    alle = _state(dc)["fragments"]
-    pw = "".join(f["text"] for f in sorted(alle, key=lambda f: f["dots"]))
-    return _input(dc, P2_NAME, "release_pw", pw)
+        _input(dc, P1_NAME, "valve_action", f"{step['rack']}:{step['agent']}")
+    _input(dc, MASTER_NAME, "release", "press")          # Vier-Augen-Freigabe
+    return _input(dc, P2_NAME, "release", "press")
 
 
 def _loese_datenrettung(dc):

@@ -60,7 +60,7 @@ describe('TornNote.vue', () => {
 
   it('nennt den Teil (Teil 2 von 3), wenn das Backend ihn mitschickt', () => {
     const w = mount(TornNote, { props: { note: { ...note, part: 2, of: 3 }, seed: 'x' } })
-    expect(w.find('.tn').attributes('aria-label')).toBe('Teil 2 von 3 der Wartungsnotiz')
+    expect(w.find('.tn').attributes('aria-label')).toBe('Teil 2 von 3: Wartungsnotiz')
   })
 
   it('ein Stück beginnt bei seiner ersten eigenen Zeile (kein leeres Papier oben)', () => {

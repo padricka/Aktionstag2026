@@ -56,3 +56,30 @@ def test_zeilen_im_stueck_behalten_ihre_reihenfolge():
     for rolle in ROLLEN:
         reihen = [z["row"] for z in notes.piece(notes.ALARM_NOTE, rolle)["lines"]]
         assert reihen == sorted(reihen)
+
+
+# ------------------------------------------------------------------ Aufgabe 2 · Löschplan
+def test_loeschplan_hat_teile_1_bis_3_mit_risskanten():
+    teile = {r: notes.piece(notes.FIRE_NOTE, r) for r in ROLLEN}
+    assert {t["title"] for t in teile.values()} == {"Löschplan"}
+    assert (teile[ROLE_M]["part"], teile[ROLE_P1]["part"], teile[ROLE_P2]["part"]) == (1, 2, 3)
+    for t in teile.values():
+        assert t["of"] == 3 and t["torn"]
+        assert any(f"TEIL {t['part']}/3" in z["text"] for z in t["lines"])
+        reihen = [z["row"] for z in t["lines"]]
+        assert reihen == sorted(reihen)
+
+
+def test_loeschplan_regeln_stehen_bei_dem_der_die_fakten_nicht_hat():
+    """① Löschmittel (Leitstand: Brandgut/Strom kennen die anderen), ② Reihenfolge
+    (Vorderseite: Log hat der Leitstand), ③ Uhrzeiten + ④ Freigabe (Rückseite)."""
+    regeln = {
+        r: [z["text"][0] for z in notes.piece(notes.FIRE_NOTE, r)["lines"] if z["style"] == "rule"]
+        for r in ROLLEN
+    }
+    assert regeln == {ROLE_M: ["①"], ROLE_P1: ["②"], ROLE_P2: ["③", "④"]}
+
+
+def test_loeschplan_hat_die_falle_wasser_geht_immer():
+    zeilen = notes.piece(notes.FIRE_NOTE, ROLE_M)["lines"]
+    assert any(z["style"] == "strike" and "Wasser" in z["text"] for z in zeilen)
