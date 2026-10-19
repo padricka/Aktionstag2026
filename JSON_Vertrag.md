@@ -52,6 +52,22 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {}
 }
 
+// 6. DEV-Modus umschalten (nur Host-Verbindung = nach host_register, nur vor dem Start)
+// Im DEV-Modus steht die Zeit (kein Tick-Verlust), Fehler kosten keine HP.
+// Der Stand kommt per lobby_update ("dev_mode") an alle und übersteht den Neustart.
+{
+  "event": "dev_mode",
+  "payload": { "enabled": true }
+}
+
+// 7. Aktuelle Aufgabe für alle überspringen (nur Host, nur im DEV-Modus, Spiel läuft)
+// Wie gelöst, aber ohne Punkte und ohne HP-Bonus; die Ziffer fürs Finale wird aufgedeckt.
+// Danach game_tick mit der nächsten Aufgabe, beim Finale game_over "victory".
+{
+  "event": "dev_skip_task",
+  "payload": {}
+}
+
 ---
 
 ## Server -> Client
@@ -63,7 +79,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {
     "status": "waiting",
     "players": ["Patrick", "Bene"],
-    "ready_to_start": true
+    "ready_to_start": true,
+    "dev_mode": false
   }
 }
 
@@ -132,6 +149,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
 //                    Kommt direkt nach dem Verbinden; danach schließt der Server die
 //                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
+//   "dev_denied"   = dev_mode / dev_skip_task abgelehnt (nicht Host, DEV-Modus aus,
+//                    Spiel läuft schon bzw. noch nicht, enabled kein true/false).
 {
   "event": "error",
   "payload": {

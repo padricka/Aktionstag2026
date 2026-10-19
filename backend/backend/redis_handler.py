@@ -54,12 +54,15 @@ class RedisHandler:
     def create_game(self, game_id: str):
         state_key = self._k_state(game_id)
         players_key = self._k_players(game_id)
+        # DEV-Modus gehört zur Sitzung, nicht zur Runde: übersteht den Neustart
+        dev_mode = _s(self.r.hget(state_key, "dev_mode")) or "0"
 
         self.r.delete(state_key, players_key)
         self.r.hset(state_key, mapping={
             "health": 300,
             "time_left": DEFAULT_TIME,
             "status": "waiting",
+            "dev_mode": dev_mode,
         })
         self.refresh_ttl(game_id, LOBBY_TTL)
 
@@ -208,7 +211,17 @@ class RedisHandler:
             "ready_to_start": ready,
             "roles_taken": taken,
             "roles_free": free,
+            "dev_mode": state.get("dev_mode") == "1",
         }
+
+    def set_dev_mode(self, game_id: str, enabled: bool) -> dict:
+        """DEV-Modus nur in der Lobby umschalten (vor dem Start)."""
+        status = _s(self.r.hget(self._k_state(game_id), "status")) or "waiting"
+        if status not in ("waiting", "ready"):
+            return {"event": "error",
+                    "payload": {"message": "DEV-Modus nur vor dem Start umschaltbar"}}
+        self.r.hset(self._k_state(game_id), "dev_mode", "1" if enabled else "0")
+        return {"event": "lobby_update", "payload": self.get_lobby_payload(game_id)}
 
     def update_owner_settings(self, game_id: str, settings_data: dict) -> dict:
         self._ensure_state(game_id)

@@ -247,3 +247,68 @@ def test_solving_an_already_replaced_task_is_ignored(button_game, monkeypatch):
 
     assert res["result"] == "ignored"
     assert button_game.health == 100
+
+# ---------------------------------------------------------------- DEV-Modus
+@pytest.fixture
+def dev_game(data_center):
+    data_center.redis.r.hset(_state_key(data_center), "dev_mode", "1")
+    data_center.start()
+    return data_center
+
+
+def test_dev_mode_tick_freezes_time_and_health(dev_game):
+    snap = dev_game.tick()
+    assert snap["health"] == dev_game.max_health
+    assert snap["time_left"] == 300
+    assert dev_game.status == "running"
+
+
+def test_dev_mode_mistake_costs_no_health(dev_game):
+    res = _druecke(dev_game, "penalty", "wrong")
+    assert res["result"] == "wrong"
+    assert dev_game.health == dev_game.max_health
+    # Falsche Eingabe ohne aktive Aufgabe zählt sonst als Fehler (−60 HP)
+    dev_game.redis.r.hdel(_state_key(dev_game), "task")
+    assert _druecke(dev_game, "reactor_vent", "open")["result"] == "wrong"
+    assert dev_game.health == dev_game.max_health
+
+
+def test_without_dev_mode_tick_and_mistake_still_hurt(data_center):
+    data_center.start()
+    data_center.tick()
+    _druecke(data_center, "penalty", "wrong")
+    assert data_center.health == data_center.max_health - 1 - 60
+
+
+def test_skip_task_moves_to_next_task_without_score(dev_game):
+    assert dev_game.current_task()["kind"] == "alarm"
+    res = dev_game.skip_task()
+    assert res == {"result": "skipped", "won": False}
+    assert dev_game.current_task()["kind"] == "fire_protocol"
+    assert dev_game.score == 0
+    assert dev_game.health == dev_game.max_health        # kein HP-Bonus
+    assert dev_game.snapshot()["reboot_digits"][0] is not None   # Ziffer fürs Finale aufgedeckt
+
+
+def test_skip_all_tasks_wins(dev_game):
+    for _ in range(3):
+        assert dev_game.skip_task()["won"] is False
+    assert dev_game.current_task()["kind"] == "reboot"
+    assert dev_game.skip_task() == {"result": "skipped", "won": True}
+    assert dev_game.status == "won"
+
+
+def test_skip_task_requires_dev_mode(data_center):
+    data_center.start()
+    assert data_center.skip_task()["result"] == "error"
+    assert data_center.current_task()["kind"] == "alarm"
+
+
+def test_skip_task_requires_running_game(data_center):
+    data_center.redis.r.hset(_state_key(data_center), "dev_mode", "1")
+    assert data_center.skip_task()["result"] == "error"
+
+
+def test_skip_task_without_task_is_ignored(dev_game):
+    dev_game.redis.r.hdel(_state_key(dev_game), "task")
+    assert dev_game.skip_task() == {"result": "ignored"}

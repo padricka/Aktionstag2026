@@ -639,3 +639,150 @@ async def test_broadcast_game_over(env):
             assert "score" in over["payload"]
     finally:
         await beenden(a, b, c, game_ids=["cov_bcast_over"])
+
+# ---------------------------------------------------------------- DEV-Modus
+async def host_verbinden(game_id):
+    host = await verbinden_ohne_initial(game_id)
+    await host.send_json_to({"event": "host_register", "payload": {}})
+    await recv_until(host, "lobby_update")
+    return host
+
+
+async def dev_spiel(env, gid, dev=True):
+    """Host + 3 Spieler, optional DEV-Modus, Spiel läuft."""
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    if dev:
+        await host.send_json_to({"event": "dev_mode", "payload": {"enabled": True}})
+        await recv_until(a, "lobby_update", lambda p: p["dev_mode"] is True)
+    await a.send_json_to({"event": "start_game", "payload": {}})
+    await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+    return host, a, b, c
+
+
+@pytest.mark.asyncio
+async def test_dev_mode_toggle_only_for_host(env):
+    (a,) = await spieler("cov_dev_nohost", ("A", "MASTER"))
+    await a.send_json_to({"event": "dev_mode", "payload": {"enabled": True}})
+    msg = await recv_until(a, "error")
+    assert msg["payload"]["code"] == "dev_denied"
+    assert env.hget(state_key("cov_dev_nohost"), "dev_mode") in (None, b"0")
+    await a.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_host_toggles_dev_mode_for_everyone(env):
+    gid = "cov_dev_toggle"
+    host = await host_verbinden(gid)
+    (a,) = await spieler(gid, ("A", "MASTER"))
+
+    await host.send_json_to({"event": "dev_mode", "payload": {"enabled": True}})
+    msg = await recv_until(a, "lobby_update", lambda p: p["dev_mode"] is True)
+    assert msg["payload"]["dev_mode"] is True
+
+    await host.send_json_to({"event": "dev_mode", "payload": {"enabled": False}})
+    await recv_until(a, "lobby_update", lambda p: p["dev_mode"] is False)
+    await beenden(host, a)
+
+
+@pytest.mark.asyncio
+async def test_dev_mode_needs_boolean(env):
+    host = await host_verbinden("cov_dev_bool")
+    await host.send_json_to({"event": "dev_mode", "payload": {"enabled": "ja"}})
+    msg = await recv_until(host, "error")
+    assert msg["payload"]["code"] == "dev_denied"
+    await host.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_dev_mode_toggle_rejected_while_running(env):
+    gid = "cov_dev_running"
+    host, a, b, c = await dev_spiel(env, gid, dev=False)
+    try:
+        await host.send_json_to({"event": "dev_mode", "payload": {"enabled": True}})
+        msg = await recv_until(host, "error")
+        assert msg["payload"]["code"] == "dev_denied"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_dev_skip_task_moves_everyone_on(env):
+    gid = "cov_dev_skip"
+    host, a, b, c = await dev_spiel(env, gid)
+    try:
+        await host.send_json_to({"event": "dev_skip_task", "payload": {}})
+        tick = await recv_until(b, "game_tick", lambda p: p["reboot_digits"][0] is not None)
+        assert tick["payload"]["tasks"][0]["view"]["type"] == "valve_panel"   # Aufgabe 2, Vorderseite
+        task = json.loads(env.hget(state_key(gid), "task"))
+        assert task["kind"] == "fire_protocol"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_dev_skip_task_only_for_host(env):
+    gid = "cov_dev_skip_nohost"
+    host, a, b, c = await dev_spiel(env, gid)
+    try:
+        await b.send_json_to({"event": "dev_skip_task", "payload": {}})
+        msg = await recv_until(b, "error")
+        assert msg["payload"]["code"] == "dev_denied"
+        assert json.loads(env.hget(state_key(gid), "task"))["kind"] == "alarm"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_dev_skip_task_needs_dev_mode(env):
+    gid = "cov_dev_skip_off"
+    host, a, b, c = await dev_spiel(env, gid, dev=False)
+    try:
+        await host.send_json_to({"event": "dev_skip_task", "payload": {}})
+        msg = await recv_until(host, "error")
+        assert msg["payload"]["code"] == "dev_denied"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_dev_skip_last_task_wins_once(env):
+    gid = "cov_dev_skip_win"
+    host, a, b, c = await dev_spiel(env, gid)
+    try:
+        env.hset(state_key(gid), "solved_count", 3)   # Finale läuft
+        await host.send_json_to({"event": "dev_skip_task", "payload": {}})
+        assert await game_over_events(c, 2.5) == ["victory"]
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_dev_mode_time_stands_still(env):
+    gid = "cov_dev_time"
+    host, a, b, c = await dev_spiel(env, gid)
+    try:
+        t1 = await recv_until(a, "game_tick")
+        t2 = await recv_until(a, "game_tick", timeout=3)
+        assert t1["payload"]["time_left"] == t2["payload"]["time_left"] == 300
+        assert t2["payload"]["health"] == 300
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_dev_skip_without_task_is_silent(env):
+    """Doppelklick/keine Aufgabe: kein Fehler, nichts passiert."""
+    gid = "cov_dev_skip_none"
+    host, a, b, c = await dev_spiel(env, gid)
+    try:
+        env.hdel(state_key(gid), "task")
+        await host.send_json_to({"event": "dev_skip_task", "payload": {}})
+        await host.send_json_to({"event": "ping", "payload": {}})
+        seen = []
+        while (msg := await host.receive_json_from())["event"] != "pong":
+            seen.append(msg["event"])
+        assert "error" not in seen
+        assert env.hget(state_key(gid), "solved_count") == b"0"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
