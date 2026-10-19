@@ -11,12 +11,20 @@ async def announce_game_over(data_center, game_id: str, result: str, snap: dict)
     """game_over an alle, aber nur einmal pro Runde (Consumer und Spielschleife melden beide)."""
     if not await asyncio.to_thread(data_center.claim_game_over):
         return False
+    # Genau hier einmal pro Runde: ins Leaderboard eintragen. Ein Fehler dort
+    # (z. B. Datei nicht schreibbar) darf das Spielende nicht verhindern.
+    try:
+        board = await asyncio.to_thread(data_center.record_result, result, snap)
+    except Exception as e:
+        print(f"[GAMELOOP] Leaderboard nicht gespeichert: {e}")
+        board = None
     await get_channel_layer().group_send(f"game_{game_id}", {
         "type": "game.over",
         "payload": {
             "result": result,
             "score": snap["score"],
             "survived_seconds": snap["survived_seconds"],
+            "leaderboard": board,
         },
     })
     print(f"[GAMELOOP] Game over: {result}")

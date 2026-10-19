@@ -116,3 +116,6 @@ dist-ssr/
 .env.*
 !.env.example
 *.pid
+
+# Leaderboard-Daten (Spielernamen) gehören nicht ins öffentliche Repo
+backend/data/

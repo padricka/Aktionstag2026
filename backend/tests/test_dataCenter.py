@@ -317,6 +317,32 @@ def test_skip_task_without_task_is_ignored(dev_game):
     assert dev_game.skip_task() == {"result": "ignored"}
 
 
+# ---------------------------------------------------------------- Leaderboard
+def _drei_spieler(dc):
+    # absichtlich nicht in Rollen-Reihenfolge registriert
+    for name, role in (("Cem", ROLE_P2), ("Anna", ROLE_M), ("Ben", ROLE_P1)):
+        _register(dc, name, role)
+
+
+def test_record_result_adds_entry_with_team_in_role_order(data_center):
+    _drei_spieler(data_center)
+    data_center.start()
+    snap = {**data_center.snapshot(), "score": 420, "survived_seconds": 150}
+    lb = data_center.record_result("victory", snap)
+    assert lb["rank"] == 1 and lb["total"] == 1
+    assert lb["top"][0]["players"] == ["Anna", "Ben", "Cem"]
+    assert lb["top"][0]["score"] == 420
+
+
+def test_record_result_in_dev_mode_adds_nothing(data_center):
+    _drei_spieler(data_center)
+    data_center.redis.r.hset(_state_key(data_center), "dev_mode", "1")
+    data_center.start()
+    lb = data_center.record_result("victory", data_center.snapshot())
+    assert lb["rank"] is None
+    assert lb["total"] == 0
+
+
 # ---------------------------------------------------------------- Tick-Payload aus einer Hand
 def test_snapshot_sends_max_health_and_task_kind(data_center):
     data_center.start()

@@ -6,6 +6,7 @@
       :result="gameOverResult"
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
+      :leaderboard="gameOverBoard"
       :show-restart="true"
       :show-exit="true"
       :restarting="restarting"
@@ -83,6 +84,7 @@
         <span class="bar-brand">DRV-BOX</span>
         <span class="bar-session">{{ gameId.toUpperCase() }}</span>
         <span class="bar-role">{{ roleLabel(myRole) }}</span>
+        <span v-if="devMode" class="bar-dev">DEV · nicht gewertet</span>
       </header>
 
       <main class="wait-main">
@@ -121,6 +123,7 @@
       <header class="task-bar">
         <span class="bar-brand">DRV-BOX</span>
         <span class="bar-role">{{ roleLabel(myRole) }}</span>
+        <span v-if="devMode" class="bar-dev" title="DEV-Modus: Zeit steht, Fehler kosten nichts">DEV · nicht gewertet</span>
         <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
       </header>
 
@@ -200,6 +203,8 @@ const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
 const gameOverScore = ref(0)
 const gameOverSurvived = ref(0)
+const gameOverBoard = ref(null)   // Top 5 + eigener Platz aus game_over.leaderboard
+const devMode = ref(false)        // vom Beamer gesetzt; DEV-Runden zählen nicht fürs Leaderboard
 const lastError = ref('')
 const roleError = ref('')
 
@@ -345,6 +350,7 @@ const handleServerMessage = (msg) => {
     rolesTaken.value = payload.roles_taken ?? []
     status.value = payload.status ?? status.value
     readyToStart.value = !!payload.ready_to_start
+    devMode.value = !!payload.dev_mode
 
     if (status.value === 'waiting' || status.value === 'ready') {
       if (!isGameOver.value) {
@@ -395,6 +401,7 @@ const handleServerMessage = (msg) => {
     gameOverResult.value = payload.result || 'meltdown'
     gameOverScore.value = payload.score || 0
     gameOverSurvived.value = payload.survived_seconds || 0
+    gameOverBoard.value = payload.leaderboard || null
     status.value = gameOverResult.value === 'victory' ? 'won' : 'game_over'
   }
 
@@ -476,6 +483,7 @@ function resetRound() {
   gameOverResult.value = 'meltdown'
   gameOverScore.value = 0
   gameOverSurvived.value = 0
+  gameOverBoard.value = null
   myRole.value = null
   task.value = null
   currentTask.value = 1
@@ -656,6 +664,17 @@ function onTaskSolved(data) {
 .bar-role { color: var(--fg-2); letter-spacing: 0.1em; }
 .bar-count,
 .bar-stats { margin-left: auto; color: var(--fg-3); letter-spacing: 0.05em; }
+
+/* Bernstein wie am Beamer: DEV-Runden zählen nicht */
+.bar-dev {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-border);
+}
 
 /* Phase 2: Rollenwahl */
 .phase-lobby {

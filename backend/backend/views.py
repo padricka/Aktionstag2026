@@ -2,6 +2,7 @@ import asyncio
 import secrets
 from django.http import JsonResponse
 from .gameLoop import start_game_for
+from . import leaderboard
 from .redis_handler import RedisHandler
 
 _MESSAGES = {
@@ -29,6 +30,23 @@ async def create_game(request):
     game_id = _short_game_id()
     await asyncio.to_thread(RedisHandler().create_game, game_id)
     return _json({"status": "success", "game_id": game_id})
+
+
+def _int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+async def leaderboard_page(request):
+    """GET /leaderboard/?page=1&per_page=20 – alle Runden, höchste Punktzahl zuerst."""
+    data = await asyncio.to_thread(
+        leaderboard.page,
+        _int(request.GET.get("page"), 1),
+        _int(request.GET.get("per_page"), leaderboard.PER_PAGE),
+    )
+    return _json(data)
 
 
 async def force_start_game(request):

@@ -8,6 +8,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 - `GET /create-game/` → `{"status": "success", "game_id": "<uuid>"}`
 - `GET /force-start/?game_id=<id>` → startet das Spiel
   - 200 gestartet, 404 unbekannte ID, 409 läuft bereits oder beendet
+- `GET /leaderboard/?page=1&per_page=20` → alle Runden, höchste Punktzahl zuerst
+  (Gleichstand: ältere Runde vorn). `per_page` 1–100, Seite wird auf 1…pages begrenzt.
+  ```
+  {"entries": [{"rank": 1, "players": ["Anna", "Ben", "Cem"], "score": 900,
+                "result": "victory", "survived_seconds": 200,
+                "created_at": "2026-10-19T12:30:00+00:00", "id": "…", "game_id": "…"}],
+   "page": 1, "per_page": 20, "total": 45, "pages": 3}
+  ```
+  Gespeichert in `backend/data/leaderboard.json` (Docker-Volume `leaderboard`).
 
 ---
 
@@ -128,7 +137,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {
     "result": "meltdown",
     "score": 450,
-    "survived_seconds": 85
+    "survived_seconds": 85,
+    // Diese Runde wurde ins Leaderboard eingetragen (genau einmal pro Runde).
+    // rank: Platz dieser Runde; null im DEV-Modus (wird nicht gewertet).
+    // top: die besten 5 Runden. leaderboard ist null, falls Speichern fehlschlug.
+    "leaderboard": {
+      "rank": 7,
+      "total": 23,
+      "top": [{"rank": 1, "players": ["Anna", "Ben", "Cem"], "score": 900, "result": "victory"}]
+    }
   }
 }
 

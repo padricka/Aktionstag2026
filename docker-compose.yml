@@ -19,6 +19,11 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - USE_IN_MEMORY_CHANNEL_LAYER=False
+      # print() sofort in "docker logs" (sonst puffert Python und Meldungen fehlen)
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Leaderboard (JSON) übersteht so einen Neubau des Containers
+      - leaderboard:/backend/data
     depends_on:
       - redis
 
@@ -48,3 +53,6 @@ services:
         do echo "warte auf backend..."; sleep 1; done;
         newman run drv_box_http.postman_collection.json
         --env-var baseUrl=http://backend:8000
+
+volumes:
+  leaderboard:
