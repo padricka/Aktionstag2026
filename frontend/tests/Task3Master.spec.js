@@ -1,77 +1,39 @@
 /**
- * Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "ascii_binary_tables").
- *
- * Der Leitstand hat keine Eingabe. Er zeigt seine Tabellenhälfte A–M, die
- * oberen Stellenwerte 128/64/32/16 und ob P1/P2 ihren Knopf freigeschaltet haben.
+ * Task3Master — Leitstand, view.type rescue_key (GAME_DESIGN Aufgabe 3).
+ * Sieht den Schlüssel k als 4 Bit und Teil 1/3 der Anleitung (Binär → Dezimal).
+ * Keine Eingabe.
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import Task3Master from '../src/components/tasks/task3/Task3Master.vue'
 
-const masterView = {
-  type: 'ascii_binary_tables',
-  ascii_half: { A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77 },
-  place_values: [128, 64, 32, 16],
-  p1_status: 'GESPERRT',
-  p2_status: 'GESPERRT',
+const view = {
+  type: 'rescue_key',
+  key: '0101',
+  note: { id: 'rescue', title: 'Datenrettung', part: 1, of: 3, torn: ['right'], lines: [{ row: 3, style: 'rule', text: '② Binär → Dezimal:' }] },
 }
 
-describe('Task3Master.vue (ascii_binary_tables)', () => {
-  it('zeigt die Tabelle A–M vollständig und sortiert', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const buchstaben = w.findAll('.cell-key').map((el) => el.text())
-    expect(buchstaben).toHaveLength(13)
-    expect(buchstaben[0]).toBe('A')
-    expect(buchstaben[12]).toBe('M')
-    expect(w.findAll('.cell-val').map((el) => el.text())[0]).toBe('65')
-    expect(w.findAll('.cell-val').map((el) => el.text()).at(-1)).toBe('77')
+describe('Task3Master.vue (rescue_key)', () => {
+  it('zeigt den Schlüssel Bit für Bit mit den Stellenwerten 8 4 2 1', () => {
+    const w = mount(Task3Master, { props: { view } })
+    expect(w.findAll('.key-bit').map((b) => b.text())).toEqual(['0', '1', '0', '1'])
+    expect(w.findAll('.key-place').map((p) => p.text())).toEqual(['8', '4', '2', '1'])
   })
 
-  it('zeigt die oberen Stellenwerte 128/64/32/16 gross', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
+  it('verrät den Dezimalwert des Schlüssels nicht', () => {
+    const w = mount(Task3Master, { props: { view } })
+    expect(w.find('.key').text()).not.toContain('5')
+  })
 
-    expect(w.findAll('.place-value').map((el) => el.text())).toEqual(['128', '64', '32', '16'])
+  it('zeigt Teil 1 der Datenrettungs-Anleitung', () => {
+    const w = mount(Task3Master, { props: { view } })
+    expect(w.find('.tn').attributes('aria-label')).toBe('Teil 1 von 3: Datenrettung')
+  })
+
+  it('hat keine Eingabe und heißt Leitstand', () => {
+    const w = mount(Task3Master, { props: { view } })
+    expect(w.find('input').exists()).toBe(false)
+    expect(w.find('button').exists()).toBe(false)
     expect(w.find('.role').text()).toBe('Leitstand')
-  })
-
-  it('zeigt den Status beider Seiten', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const zeilen = w.findAll('.status-row').map((el) => el.text())
-    expect(zeilen[0]).toContain('Vorderseite')
-    expect(zeilen[0]).toContain('GESPERRT')
-    expect(zeilen[1]).toContain('Rückseite')
-    expect(w.find('.status-hint').exists()).toBe(false)
-  })
-
-  it('meldet, wenn beide Knöpfe frei sind', () => {
-    const w = mount(Task3Master, {
-      props: { view: { ...masterView, p1_status: 'FREIGESCHALTET', p2_status: 'FREIGESCHALTET' } },
-    })
-
-    expect(w.findAll('.status-value').map((el) => el.text())).toEqual([
-      'FREIGESCHALTET',
-      'FREIGESCHALTET',
-    ])
-    expect(w.find('.status-hint').text()).toMatch(/3 Sekunden/)
-  })
-
-  it('erklärt, dass die Tabellenhälfte sein Beitrag fürs Team ist', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const hint = w.find('.hint').text()
-    expect(hint).toContain('Vorderseite')
-    expect(hint).toContain('Rückseite')
-    expect(hint).toContain('N–Z')
-  })
-
-  it('ordnet die oberen Stellenwerte den ersten vier Spalten der Rückseite zu', () => {
-    const w = mount(Task3Master, { props: { view: masterView } })
-
-    const spalten = w.findAll('.bits-head .bit-cell').map((el) => el.text())
-    expect(spalten).toEqual(['128', '64', '32', '16', '·', '·', '·', '·'])
-    expect(w.find('.bits-note').text()).toMatch(/ersten vier Spalten/)
-    expect(w.find('.bits-note').text()).toMatch(/Rückseite/)
   })
 })

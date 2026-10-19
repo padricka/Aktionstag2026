@@ -307,3 +307,47 @@ def test_extinguishing_after_done_is_ignored(dc):
     _loeschen(dc)
     erster = _schritte_aus_ansichten(_views(dc))[0]
     assert _press(dc, P1_NAME, "valve_action", erster)["result"] == "ignored"
+
+
+# ------------------------------------------------------------------ Gleichzeitig drücken (#46)
+def _gleichzeitig(*aufrufe):
+    """Startet alle Aufrufe in eigenen Threads und wartet; Rückgabe in Aufruf-Reihenfolge."""
+    import threading
+    ergebnisse = [None] * len(aufrufe)
+
+    def lauf(i, f):
+        ergebnisse[i] = f()
+
+    threads = [threading.Thread(target=lauf, args=(i, f)) for i, f in enumerate(aufrufe)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    return ergebnisse
+
+
+@pytest.fixture
+def langsame_pruefung(monkeypatch):
+    """Verbreitert das Fenster zwischen Lesen und Schreiben – wie echtes gleichzeitiges Drücken."""
+    import time
+    original = FireProtocolTask.handle_input.__func__
+
+    def langsam(cls, *args, **kwargs):
+        res = original(cls, *args, **kwargs)
+        time.sleep(0.05)
+        return res
+
+    monkeypatch.setattr(FireProtocolTask, "handle_input", classmethod(langsam))
+
+
+def test_freigabe_gleichzeitig_gedrueckt_gibt_frei(dc, langsame_pruefung):
+    """Ohne Eingabe-Sperre überschrieb der zweite Druck den ersten, keiner galt als Partner.
+    (Früher am Sync-Knopf der Datenrettung getestet, der ist weggefallen.)"""
+    task_id = dc.current_task()["task_id"]
+    _loeschen(dc)
+
+    _gleichzeitig(
+        lambda: _press(dc, MASTER_NAME, "release", "press"),
+        lambda: _press(dc, P2_NAME, "release", "press"),
+    )
+
+    assert dc.current_task()["task_id"] != task_id
+    assert int(dc.redis.r.hget(dc.redis._k_state(GAME), "solved_count")) == 1

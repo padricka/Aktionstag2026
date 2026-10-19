@@ -362,107 +362,67 @@ class DataRescueTask(PlayableObject):
     kind = "data_rescue"
     instruction = "Daten retten!"
 
-    WORDS = ["SERVER", "BACKUP", "DATEN", "RETTEN", "SICHERN", "CLOUD"]
-    # Binärwerte-Pool für die Rückseite: Einsen vorne (Leitstand: 128/64/32/16)
-    # UND hinten (Rückseite: 8/4/2/1), damit beide gebraucht werden. Werte wie
-    # 101 oder 110 fallen raus – die sähen selbst wie Binärzahlen aus.
-    # (Früher nur Buchstaben 65–90: immer 010xxxxx, 128 und 32 kamen nie vor.)
-    BINARY_VALUES = [
-        v for v in range(17, 256)
-        if v & 0b11110000 and v & 0b00001111 and set(str(v)) - {"0", "1"}
-    ]
+    WORD = "RENTE"
+    PACKETS = len(WORD) + 1          # ein beschädigtes Paket dazu
+    ASCII_TABLE = {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
 
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3) – das Wort als Kette:
+    #   RENTE → Caesar um k VOR → ASCII-Code → Prüfbit + 7 Bit (gerade Anzahl Einsen)
+    #   Leitstand sieht k (4 Bit), Vorderseite die ASCII-Tabelle, Rückseite die Pakete.
+    #   Die Regeln dazu (notes.RESCUE_NOTE) stehen jeweils bei einem anderen.
     @classmethod
     def create(cls, players):
-        word = random.choice(cls.WORDS)
-        p1_codes = [ord(c) for c in word]
-
-        # Zwei unterschiedliche Werte zufällig ziehen
-        p2_values = random.sample(cls.BINARY_VALUES, 2)
-        p2_binary = [format(v, "08b") for v in p2_values]
-
+        k = random.randint(1, 9)
+        cipher = "".join(chr((ord(c) - ord("A") + k) % 26 + ord("A")) for c in cls.WORD)
+        packets = [cls._packet(ord(c), healthy=True) for c in cipher]
+        corrupt = random.randrange(cls.PACKETS)
+        packets.insert(corrupt, cls._packet(random.choice(list(cls.ASCII_TABLE.values())), healthy=False))
         return {
-            "p1_word": word,
-            "p1_codes": p1_codes,
-            "p2_values": p2_values,
-            "p2_binary": p2_binary,
-            "p1_unlocked": False,
-            "p2_unlocked": False,
+            "word": cls.WORD,
+            "k": k,
+            "cipher": cipher,
+            "packets": packets,
+            "corrupt": corrupt,
         }
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3):
-    #   Leitstand   hat die ASCII-Tabelle A–M und die oberen Bit-Stellenwerte
-    #   Vorderseite hat die ASCII-Codes des Worts und die Tabelle N–Z
-    #   Rückseite   hat die Binärzahlen und die unteren Bit-Stellenwerte
-    # -> beide brauchen den Leitstand, um ihren Knopf freizuschalten.
-    ASCII_HALF_MASTER = {chr(c): c for c in range(ord("A"), ord("M") + 1)}
-    ASCII_HALF_P1 = {chr(c): c for c in range(ord("N"), ord("Z") + 1)}
-    PLACE_VALUES_MASTER = [128, 64, 32, 16]
-    PLACE_VALUES_P2 = [8, 4, 2, 1]
+    @staticmethod
+    def _packet(code, healthy):
+        """Prüfbit vorne + 7 Bit ASCII; heil = gerade Anzahl Einsen insgesamt."""
+        bits = format(code, "07b")
+        parity = bits.count("1") % 2
+        return f"{parity if healthy else 1 - parity}{bits}"
 
     @classmethod
     def views(cls, state):
         return {
             ROLE_M: {
-                "type": "ascii_binary_tables",
-                "ascii_half": cls.ASCII_HALF_MASTER,
-                "place_values": cls.PLACE_VALUES_MASTER,
-                "p1_status": "FREIGESCHALTET" if state["p1_unlocked"] else "GESPERRT",
-                "p2_status": "FREIGESCHALTET" if state["p2_unlocked"] else "GESPERRT",
+                "type": "rescue_key",
+                "key": format(state["k"], "04b"),
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_M),
             },
             ROLE_P1: {
-                "type": "ascii_puzzle",
-                "ascii_codes": state["p1_codes"],
-                "ascii_half": cls.ASCII_HALF_P1,
-                "button_unlocked": state["p1_unlocked"],
+                "type": "rescue_terminal",
+                "ascii_table": cls.ASCII_TABLE,
+                "word_len": len(state["word"]),
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
-                "type": "binary_puzzle",
-                "binary_codes": state["p2_binary"],
-                "place_values": cls.PLACE_VALUES_P2,
-                "button_unlocked": state["p2_unlocked"],
+                "type": "packet_dump",
+                "packets": state["packets"],
+                "note": notes.piece(notes.RESCUE_NOTE, ROLE_P2),
             },
         }
 
     @classmethod
     def handle_input(cls, state, player_name, role, data, now):
+        if data.target != "rescue_word" or role != ROLE_P1:
+            return StepResult(Outcome.IGNORED, state)
         value = str(data.value).strip().upper()
-
-        if data.target == "ascii_answer" and role == ROLE_P1:
-            if value != state["p1_word"]:
-                return StepResult(Outcome.WRONG, state)
-            state["p1_unlocked"] = True
-            return StepResult(Outcome.PROGRESS, state)
-
-        if data.target == "binary_answer" and role == ROLE_P2:
-            versuch = " ".join(value.split())
-            ziel = " ".join(str(v) for v in state["p2_values"])
-            if versuch != ziel:
-                return StepResult(Outcome.WRONG, state)
-            state["p2_unlocked"] = True
-            return StepResult(Outcome.PROGRESS, state)
-
-        if data.target == "sync_button":
-            if role == ROLE_M:
-                return StepResult(Outcome.IGNORED, state)
-            if not (state.get("p1_unlocked") and state.get("p2_unlocked")):
-                return StepResult(Outcome.IGNORED, state)
-
-            if role == ROLE_P1:
-                state["sync_p1_time"] = now
-            elif role == ROLE_P2:
-                state["sync_p2_time"] = now
-
-            t1 = state.get("sync_p1_time")
-            t2 = state.get("sync_p2_time")
-
-            if t1 is not None and t2 is not None:
-                if abs(t1 - t2) <= 3:
-                    return StepResult(Outcome.SOLVED, state)
-
-            return StepResult(Outcome.PROGRESS, state)
-
-        return StepResult(Outcome.IGNORED, state)
+        if not value:
+            return StepResult(Outcome.IGNORED, state)
+        if value != state["word"]:
+            return StepResult(Outcome.WRONG, state)
+        return StepResult(Outcome.SOLVED, state)
 
 
 # --------------------------------------------------------------------------- Reboot

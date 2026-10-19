@@ -136,3 +136,65 @@ FIRE_NOTE = {
         },
     },
 }
+
+
+# ------------------------------------------------------------------ Aufgabe 3 · Datenrettung
+# Mit Rechenbeispielen – die Regeln sollen auch ohne Informatik-Vorwissen klappen.
+RESCUE_NOTE = {
+    "id": "rescue",
+    "title": "Datenrettung",
+    "pieces": {
+        # Leitstand rechnet um, die Pakete liest ihm die Rückseite vor
+        M: {
+            "part": 1,
+            "torn": ["right", "bottom"],
+            "lines": [
+                _line(0, "typed", "DRV SCHWABEN · BACKUP-TEAM"),
+                _line(1, "typed", "DATENRETTUNG · TEIL 1/3"),
+                _line(3, "rule", "② Binär → Dezimal:"),
+                _line(4, "text", "1. Bit = Prüfbit, zählt NICHT!"),
+                _line(5, "text", "Die 7 Bits danach sind wert:"),
+                _line(6, "typed", "P · 64 · 32 · 16 · 8 · 4 · 2 · 1"),
+                _line(7, "text", "Addiere alle Werte mit einer 1."),
+                _line(8, "text", "Bsp: 1 1000011"),
+                _line(9, "text", "→ 64 + 2 + 1 = 67"),
+                _line(11, "text", "Schlüssel hat 4 Bits: 8 · 4 · 2 · 1"),
+                _line(12, "text", "Bsp: 0101 → 4 + 1 = 5"),
+            ],
+        },
+        # Vorderseite prüft, welche Pakete heil sind – die Pakete sieht die Rückseite
+        V: {
+            "part": 2,
+            "torn": ["left", "bottom"],
+            "lines": [
+                _line(0, "stamp", "NUR FÜR TECHNIKER"),
+                _line(1, "typed", "DATENRETTUNG · TEIL 2/3"),
+                _line(3, "rule", "① Erst prüfen: Einsen zählen!"),
+                _line(4, "text", "GERADE Anzahl → Paket heil."),
+                _line(5, "text", "UNGERADE → Paket beschädigt,"),
+                _line(6, "text", "komplett weglassen!"),
+                _line(7, "text", "Bsp: 1 1000011 → 4 Einsen → heil"),
+                _line(8, "text", "Bsp: 0 1000011 → 3 → kaputt"),
+            ],
+        },
+        # Rückseite entschlüsselt – Tabelle hat die Vorderseite, Schlüssel der Leitstand
+        R: {
+            "part": 3,
+            "torn": ["top"],
+            "lines": [
+                _line(0, "typed", "DATENRETTUNG · TEIL 3/3"),
+                _line(2, "rule", "③ Zahl → Buchstabe: in der"),
+                _line(3, "text", "ASCII-Tabelle nachsehen."),
+                _line(4, "text", "Bsp: 67 → C"),
+                _line(6, "rule", "④ Das Wort ist verschoben!"),
+                _line(7, "text", "Jeden Buchstaben um k Stellen"),
+                _line(8, "text", "im Alphabet ZURÜCK."),
+                _line(9, "text", "Bsp k = 3: F → E → D → C"),
+                _line(10, "text", "Vor A kommt wieder Z."),
+                _line(12, "strike", "Immer ROT13"),
+                _line(12, "red", "stimmt nicht!"),
+                _line(14, "sign", "– M. Kaiser, IT"),
+            ],
+        },
+    },
+}

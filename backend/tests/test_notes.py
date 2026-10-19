@@ -83,3 +83,40 @@ def test_loeschplan_regeln_stehen_bei_dem_der_die_fakten_nicht_hat():
 def test_loeschplan_hat_die_falle_wasser_geht_immer():
     zeilen = notes.piece(notes.FIRE_NOTE, ROLE_M)["lines"]
     assert any(z["style"] == "strike" and "Wasser" in z["text"] for z in zeilen)
+
+
+# ------------------------------------------------------------------ Aufgabe 3 · Datenrettung
+def test_datenrettung_hat_teile_1_bis_3_mit_risskanten():
+    teile = {r: notes.piece(notes.RESCUE_NOTE, r) for r in ROLLEN}
+    assert {t["title"] for t in teile.values()} == {"Datenrettung"}
+    assert (teile[ROLE_M]["part"], teile[ROLE_P1]["part"], teile[ROLE_P2]["part"]) == (1, 2, 3)
+    for t in teile.values():
+        assert t["of"] == 3 and t["torn"]
+        assert any(f"TEIL {t['part']}/3" in z["text"] for z in t["lines"])
+        reihen = [z["row"] for z in t["lines"]]
+        assert reihen == sorted(reihen)
+
+
+def test_datenrettung_regeln_stehen_bei_dem_der_die_fakten_nicht_hat():
+    """① Einsen zählen (Vorderseite: Pakete hat die Rückseite), ② Binär → Dezimal
+    (Leitstand: Pakete hat die Rückseite), ③ ASCII + ④ Caesar (Rückseite: Tabelle hat
+    die Vorderseite, den Schlüssel der Leitstand)."""
+    regeln = {
+        r: [z["text"][0] for z in notes.piece(notes.RESCUE_NOTE, r)["lines"] if z["style"] == "rule"]
+        for r in ROLLEN
+    }
+    assert regeln == {ROLE_M: ["②"], ROLE_P1: ["①"], ROLE_P2: ["③", "④"]}
+
+
+def test_datenrettung_jede_regel_hat_ein_rechenbeispiel():
+    """Auch für Nicht-Informatiker: zu jeder Regel steht ein Beispiel (Zeile mit „Bsp“)."""
+    for rolle in ROLLEN:
+        zeilen = notes.piece(notes.RESCUE_NOTE, rolle)["lines"]
+        regeln = sum(z["style"] == "rule" for z in zeilen)
+        beispiele = sum(z["text"].startswith("Bsp") for z in zeilen)
+        assert beispiele >= regeln, rolle
+
+
+def test_datenrettung_hat_die_falle_rot13():
+    zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_P2)["lines"]
+    assert any(z["style"] == "strike" and "ROT13" in z["text"] for z in zeilen)

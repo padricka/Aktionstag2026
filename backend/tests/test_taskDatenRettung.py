@@ -1,19 +1,31 @@
-"""
-Task 3 – Datenrettung (kind="data_rescue").
+"""Task 3 – Datenrettung (kind="data_rescue"), Escape-Room-Variante.
 
-Vertrag (playableObject.DataRescueTask):
-  MASTER  sieht Status (GESPERRT / FREIGESCHALTET)
-  FI-SI   bekommt ASCII-Codes, tippt das Wort (target=ascii_answer)
-  FI-AE   bekommt Binär-Codes, tippt Dezimalzahlen (target=binary_answer)
-  Beide freigeschaltet → sync_button innerhalb SYNC_WINDOW → gelöst
+Spezifikation: GAME_DESIGN.md, Abschnitt 4 „Aufgabe 3".
+
+  Das gerettete Wort ist immer RENTE – aber als Kette verschlüsselt:
+  Wort → Caesar um k Buchstaben VOR → ASCII-Code → 7 Bit + Prüfbit vorne.
+  Dazu kommt ein beschädigtes Paket (ungerade Anzahl Einsen).
+
+  Leitstand   sieht den Schlüssel k binär (4 Bit).
+  Vorderseite sieht die ASCII-Tabelle A–Z und tippt das Wort (target=rescue_word).
+  Rückseite   sieht die 6 Datenpakete (je 8 Bit).
+
+  Rettungsanleitung, je Rolle ein Teil mit vollständigen Regeln (notes.RESCUE_NOTE):
+    ① (Vorderseite) Einsen zählen: gerade → heil, ungerade → beschädigt, weglassen
+    ② (Leitstand)   Binär → Dezimal: erstes Bit = Prüfbit zählt nicht, dann 64 … 1
+    ③ (Rückseite)   Zahl → Buchstabe über die ASCII-Tabelle
+    ④ (Rückseite)   jeden Buchstaben um k im Alphabet ZURÜCK; Falle: „ROT13“
+
+Kernidee der Tests: Das Wort entsteht NUR aus den drei Ansichten und den Regeln.
 """
 import json
+
 import pytest
 import fakeredis
 from unittest.mock import patch
 
 from backend.dataCenter import DataCenter, TASK_MULTIPLIER
-from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
+from backend.playableObject import DataRescueTask, ROLE_M, ROLE_P1, ROLE_P2
 
 GAME = "t3_session"
 MASTER_NAME = "Anna"
@@ -27,11 +39,7 @@ def dc():
     fake.flushall()
     with patch("backend.redis_handler.redis.Redis", return_value=fake):
         center = DataCenter(game_id=GAME)
-        for name, role in (
-            (MASTER_NAME, ROLE_M),
-            (P1_NAME, ROLE_P1),
-            (P2_NAME, ROLE_P2),
-        ):
+        for name, role in ((MASTER_NAME, ROLE_M), (P1_NAME, ROLE_P1), (P2_NAME, ROLE_P2)):
             center.redis.r.hset(
                 center.redis._k_players(GAME),
                 name,
@@ -42,300 +50,177 @@ def dc():
         yield center
 
 
-def _press(dc, name, target, value):
-    return dc.process_input(name, {
-        "action_type": "button_press",
-        "target": target,
-        "value": value,
-    })
+def _text(dc, name, target, value):
+    return dc.process_input(name, {"action_type": "text_input", "target": target, "value": value})
 
 
-def _state(dc):
-    return dc.current_task()["state"]
+def _views(dc):
+    return dc.snapshot()["tasks"][0]["views"]
 
 
 def _view(dc, role):
-    return dc.snapshot()["tasks"][0]["views"][role]
+    return _views(dc)[role]
 
 
-def test_new_task_is_data_rescue_with_views(dc):
-    task = dc.current_task()
-    assert task["kind"] == "data_rescue"
-    views = dc.snapshot()["tasks"][0]["views"]
-    assert set(views) >= {ROLE_M, ROLE_P1, ROLE_P2}
+# ------------------------------------------------------------------ Regeln (wie auf der Anleitung)
+def _heil(paket):
+    """① gerade Anzahl Einsen → heil."""
+    return paket.count("1") % 2 == 0
 
 
-def test_master_sees_status_not_solutions(dc):
-    master = _view(dc, ROLE_M)
-    assert "p1_status" in master
-    assert "p2_status" in master
-    assert master["p1_status"] == "GESPERRT"
-    st = _state(dc)
-    assert st["p1_word"] not in json.dumps(master)
+def _dezimal(paket):
+    """② erstes Bit ist das Prüfbit, der Rest mit 64 32 16 8 4 2 1."""
+    return int(paket[1:], 2)
 
 
-def test_p1_sees_ascii_codes_not_binary(dc):
-    st = _state(dc)
-    p1 = _view(dc, ROLE_P1)
-    assert p1["ascii_codes"] == st["p1_codes"]
-    assert "binary_codes" not in p1
-    assert p1["button_unlocked"] is False
+def _buchstabe(zahl, tabelle):
+    """③ ASCII-Tabelle der Vorderseite."""
+    return next(b for b, z in tabelle.items() if z == zahl)
 
 
-def test_p2_sees_binary_codes_not_ascii(dc):
-    st = _state(dc)
-    p2 = _view(dc, ROLE_P2)
-    assert p2["binary_codes"] == st["p2_binary"]
-    assert "ascii_codes" not in p2
-    assert p2["button_unlocked"] is False
+def _zurueck(buchstabe, k):
+    """④ um k im Alphabet zurück, vor A kommt Z."""
+    return chr((ord(buchstabe) - ord("A") - k) % 26 + ord("A"))
 
 
-def test_nobody_sees_solutions_in_views(dc):
-    st = _state(dc)
-    for role in (ROLE_M, ROLE_P1, ROLE_P2):
-        blob = json.dumps(_view(dc, role))
-        assert st["p1_word"] not in blob
+def _wort_aus_ansichten(views, k_override=None):
+    k = int(views[ROLE_M]["key"], 2) if k_override is None else k_override
+    tabelle = views[ROLE_P1]["ascii_table"]
+    pakete = [p for p in views[ROLE_P2]["packets"] if _heil(p)]
+    return "".join(_zurueck(_buchstabe(_dezimal(p), tabelle), k) for p in pakete)
 
 
-def test_correct_ascii_unlocks_button_and_keeps_task(dc):
-    st = _state(dc)
-    task_id = dc.current_task()["task_id"]
-
-    res = _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-
-    assert res["result"] == "correct"
-    assert dc.current_task()["task_id"] == task_id
-    assert dc.health == 300
-    assert _state(dc)["p1_unlocked"] is True
-    assert _view(dc, ROLE_P1)["button_unlocked"] is True
-    assert _view(dc, ROLE_M)["p1_status"] == "FREIGESCHALTET"
+def _runden(n=300):
+    for _ in range(n):
+        st = DataRescueTask.create({})
+        yield st, DataRescueTask.views(st)
 
 
-def test_correct_binary_unlocks_button_and_keeps_task(dc):
-    st = _state(dc)
-    task_id = dc.current_task()["task_id"]
-    ziel = " ".join(str(v) for v in st["p2_values"])
-
-    res = _press(dc, P2_NAME, "binary_answer", ziel)
-
-    assert res["result"] == "correct"
-    assert dc.current_task()["task_id"] == task_id
-    assert _state(dc)["p2_unlocked"] is True
-    assert _view(dc, ROLE_P2)["button_unlocked"] is True
+# ------------------------------------------------------------------ Ansichten
+def test_every_role_has_its_own_view_type(dc):
+    assert dc.current_task()["kind"] == "data_rescue"
+    assert _view(dc, ROLE_M)["type"] == "rescue_key"
+    assert _view(dc, ROLE_P1)["type"] == "rescue_terminal"
+    assert _view(dc, ROLE_P2)["type"] == "packet_dump"
 
 
-def test_wrong_ascii_costs_health(dc):
-    res = _press(dc, P1_NAME, "ascii_answer", "FALSCH")
-    assert res["result"] == "wrong"
-    assert dc.health == 240
+def test_every_role_has_its_part_of_the_anleitung(dc):
+    teile = {r: _view(dc, r)["note"] for r in (ROLE_M, ROLE_P1, ROLE_P2)}
+    assert {n["title"] for n in teile.values()} == {"Datenrettung"}
+    assert (teile[ROLE_M]["part"], teile[ROLE_P1]["part"], teile[ROLE_P2]["part"]) == (1, 2, 3)
 
 
-def test_wrong_binary_costs_health(dc):
-    res = _press(dc, P2_NAME, "binary_answer", "0 0")
-    assert res["result"] == "wrong"
-    assert dc.health == 240
+def test_each_role_sees_only_its_own_facts(dc):
+    m, p1, p2 = (_view(dc, r) for r in (ROLE_M, ROLE_P1, ROLE_P2))
+    assert "key" in m and "packets" not in m and "ascii_table" not in m
+    assert "ascii_table" in p1 and "key" not in p1 and "packets" not in p1
+    assert "packets" in p2 and "key" not in p2 and "ascii_table" not in p2
+    for view in (m, p1, p2):
+        for verboten in ("word", "cipher", "corrupt", "k", "solution"):
+            assert verboten not in view
 
 
-def test_button_locked_until_riddle_solved(dc):
-    res = _press(dc, P1_NAME, "sync_button", "press")
-    assert res["result"] == "ignored"
-    assert dc.health == 300
+def test_vorderseite_has_the_full_ascii_table(dc):
+    tabelle = _view(dc, ROLE_P1)["ascii_table"]
+    assert tabelle == {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
+    assert _view(dc, ROLE_P1)["word_len"] == 5
 
 
-def test_one_button_alone_does_not_solve(dc):
-    st = _state(dc)
-    task_id = dc.current_task()["task_id"]
-    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
-
-    res = _press(dc, P1_NAME, "sync_button", "press")
-    assert res["result"] == "correct"
-    assert dc.current_task()["task_id"] == task_id
+def test_public_snapshot_hides_raw_state(dc):
+    assert "state" not in dc.snapshot()["tasks"][0]
 
 
-def test_both_buttons_within_window_solve(dc):
-    st = _state(dc)
+# ------------------------------------------------------------------ Pakete und Schlüssel
+def test_six_packets_of_eight_bits_one_of_them_broken():
+    for _, views in _runden():
+        pakete = views[ROLE_P2]["packets"]
+        assert len(pakete) == 6
+        assert all(len(p) == 8 and set(p) <= {"0", "1"} for p in pakete)
+        assert sum(not _heil(p) for p in pakete) == 1
+
+
+def test_key_is_four_bits_between_1_and_9():
+    for _, views in _runden():
+        key = views[ROLE_M]["key"]
+        assert len(key) == 4 and set(key) <= {"0", "1"}
+        assert 1 <= int(key, 2) <= 9
+
+
+def test_rules_always_give_rente():
+    for _, views in _runden():
+        assert _wort_aus_ansichten(views) == "RENTE"
+
+
+def test_every_healthy_packet_is_a_letter_in_the_table():
+    for _, views in _runden():
+        tabelle = views[ROLE_P1]["ascii_table"].values()
+        for p in views[ROLE_P2]["packets"]:
+            if _heil(p):
+                assert _dezimal(p) in tabelle
+
+
+def test_rot13_is_always_a_trap():
+    for _, views in _runden():
+        assert _wort_aus_ansichten(views, k_override=13) != "RENTE"
+
+
+def test_key_and_broken_packet_change_between_rounds():
+    keys, kaputt = set(), set()
+    for _, views in _runden():
+        keys.add(views[ROLE_M]["key"])
+        kaputt.add(next(i for i, p in enumerate(views[ROLE_P2]["packets"]) if not _heil(p)))
+    assert len(keys) > 3
+    assert kaputt == set(range(6))
+
+
+# ------------------------------------------------------------------ Lösen
+def test_word_from_views_solves_heals_and_scores(dc):
     task_id = dc.current_task()["task_id"]
     dc.redis.r.hset(dc.redis._k_state(GAME), "health", 100)
     dc.redis.r.hset(dc.redis._k_state(GAME), "time_left", 100)
 
-    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
-
-    _press(dc, P1_NAME, "sync_button", "press")
-    res = _press(dc, P2_NAME, "sync_button", "press")
+    res = _text(dc, P1_NAME, "rescue_word", _wort_aus_ansichten(_views(dc)))
 
     assert res["result"] == "correct"
+    assert dc.current_task()["task_id"] != task_id
     assert dc.health == 115
-    assert dc.current_task()["task_id"] != task_id
-    assert dc.score == 100 * TASK_MULTIPLIER["data_rescue"]
+    assert res["score_gain"] == 100 * TASK_MULTIPLIER["data_rescue"]
 
 
-def test_same_player_pressing_twice_does_not_solve(dc):
-    st = _state(dc)
-    task_id = dc.current_task()["task_id"]
-    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
-
-    _press(dc, P1_NAME, "sync_button", "press")
-    _press(dc, P1_NAME, "sync_button", "press")
-
-    assert dc.current_task()["task_id"] == task_id
+def test_word_is_case_insensitive_and_trimmed(dc):
+    assert _text(dc, P1_NAME, "rescue_word", "  rente ")["result"] == "correct"
 
 
-def test_wrong_role_cannot_answer_ascii(dc):
-    st = _state(dc)
-    assert _press(dc, P2_NAME, "ascii_answer", st["p1_word"])["result"] == "ignored"
-    assert _press(dc, MASTER_NAME, "ascii_answer", st["p1_word"])["result"] == "ignored"
+def test_wrong_word_costs_health(dc):
+    assert _text(dc, P1_NAME, "rescue_word", "RENTEN")["result"] == "wrong"
+    assert dc.health == 240
+
+
+def test_rot13_word_costs_health(dc):
+    falsch = _wort_aus_ansichten(_views(dc), k_override=13)
+    assert _text(dc, P1_NAME, "rescue_word", falsch)["result"] == "wrong"
+    assert dc.health == 240
+
+
+def test_word_without_shifting_back_costs_health(dc):
+    """Nur ASCII, ohne ④ – das ist noch das verschlüsselte Wort."""
+    falsch = _wort_aus_ansichten(_views(dc), k_override=0)
+    assert _text(dc, P1_NAME, "rescue_word", falsch)["result"] == "wrong"
+
+
+def test_empty_input_is_ignored(dc):
+    assert _text(dc, P1_NAME, "rescue_word", "   ")["result"] == "ignored"
     assert dc.health == 300
 
 
-def test_wrong_role_cannot_answer_binary(dc):
-    st = _state(dc)
-    ziel = " ".join(str(v) for v in st["p2_values"])
-    assert _press(dc, P1_NAME, "binary_answer", ziel)["result"] == "ignored"
-    assert _press(dc, MASTER_NAME, "binary_answer", ziel)["result"] == "ignored"
+# ------------------------------------------------------------------ Rollen
+def test_only_vorderseite_types_the_word(dc):
+    assert _text(dc, MASTER_NAME, "rescue_word", "RENTE")["result"] == "ignored"
+    assert _text(dc, P2_NAME, "rescue_word", "RENTE")["result"] == "ignored"
     assert dc.health == 300
 
 
-def test_master_cannot_press_sync(dc):
-    st = _state(dc)
-    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
-    assert _press(dc, MASTER_NAME, "sync_button", "press")["result"] == "ignored"
-
-
-def test_wrong_attempts_do_not_block_rescue(dc):
-    st = _state(dc)
-    task_id = dc.current_task()["task_id"]
-
-    _press(dc, P1_NAME, "ascii_answer", "FALSCH")
-    _press(dc, P2_NAME, "binary_answer", "0 0")
-    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
-    _press(dc, P1_NAME, "sync_button", "press")
-    res = _press(dc, P2_NAME, "sync_button", "press")
-
-    assert res["result"] == "correct"
-    assert dc.current_task()["task_id"] != task_id
-
-# ------------------------------------------------ Escape-Room-Views (B4, GAME_DESIGN.md §5)
-from backend.playableObject import DataRescueTask  # noqa: E402
-
-A_BIS_M = {chr(c): c for c in range(ord("A"), ord("M") + 1)}
-N_BIS_Z = {chr(c): c for c in range(ord("N"), ord("Z") + 1)}
-
-
-def test_master_hat_die_halbe_ascii_tabelle_und_die_oberen_stellenwerte(dc):
-    master = _view(dc, ROLE_M)
-    assert master["type"] == "ascii_binary_tables"
-    assert master["ascii_half"] == A_BIS_M
-    assert master["place_values"] == [128, 64, 32, 16]
-
-
-def test_vorderseite_hat_die_andere_tabellenhaelfte(dc):
-    p1 = _view(dc, ROLE_P1)
-    assert p1["type"] == "ascii_puzzle"
-    assert p1["ascii_half"] == N_BIS_Z
-
-
-def test_rueckseite_hat_die_unteren_stellenwerte(dc):
-    p2 = _view(dc, ROLE_P2)
-    assert p2["type"] == "binary_puzzle"
-    assert p2["place_values"] == [8, 4, 2, 1]
-
-
-def test_rueckseite_sieht_keine_dezimalwerte(dc):
-    st = _state(dc)
-    blob = json.dumps(_view(dc, ROLE_P2))
-    for v in st["p2_values"]:
-        assert str(v) not in blob
-
-
-def test_jedes_wort_braucht_beide_tabellenhaelften():
-    # Escape Room: die Vorderseite kann das Wort nie allein entschlüsseln.
-    for wort in DataRescueTask.WORDS:
-        assert set(wort) & set(A_BIS_M), wort
-        assert set(wort) & set(N_BIS_Z), wort
-
-
-def test_jeder_binaerwert_braucht_die_oberen_stellenwerte():
-    # Jeder Wert hat Einsen vorne UND hinten: 8-4-2-1 allein reicht nie,
-    # die Werte des Leitstands allein auch nicht.
-    for v in DataRescueTask.BINARY_VALUES:
-        assert v & 0b11110000, v
-        assert v & 0b00001111, v
-
-
-def test_binaerwerte_sehen_nicht_selbst_wie_binaer_aus():
-    # 100, 101, 110, 111 wären mit Binärzahlen zu verwechseln
-    for v in DataRescueTask.BINARY_VALUES:
-        assert set(str(v)) - {"0", "1"}, v
-
-
-def test_alle_oberen_stellenwerte_kommen_vor():
-    # Früher waren es nur Buchstaben (65–90 = 010xxxxx): 128 und 32 kamen nie vor.
-    gesehen = 0
-    for _ in range(200):
-        st = DataRescueTask.create({})
-        assert len(set(st["p2_values"])) == 2
-        assert st["p2_binary"] == [format(v, "08b") for v in st["p2_values"]]
-        for v in st["p2_values"]:
-            gesehen |= v
-    assert gesehen & 0b11110000 == 0b11110000
-
-
-# ---------------------------------------------------------------- Gleichzeitig drücken
-def _gleichzeitig(*aufrufe):
-    """Startet alle Aufrufe in eigenen Threads und wartet; Rückgabe in Aufruf-Reihenfolge."""
-    import threading
-    ergebnisse = [None] * len(aufrufe)
-
-    def lauf(i, f):
-        ergebnisse[i] = f()
-
-    threads = [threading.Thread(target=lauf, args=(i, f)) for i, f in enumerate(aufrufe)]
-    [t.start() for t in threads]
-    [t.join() for t in threads]
-    return ergebnisse
-
-
-@pytest.fixture
-def langsame_pruefung(monkeypatch):
-    """Verbreitert das Fenster zwischen Lesen und Schreiben – wie echtes gleichzeitiges Drücken."""
-    import time
-    from backend.playableObject import DataRescueTask
-    original = DataRescueTask.handle_input.__func__
-
-    def langsam(cls, *args, **kwargs):
-        res = original(cls, *args, **kwargs)
-        time.sleep(0.05)
-        return res
-
-    monkeypatch.setattr(DataRescueTask, "handle_input", classmethod(langsam))
-
-
-def test_sync_button_gleichzeitig_gedrueckt_rettet(dc, langsame_pruefung):
-    """Vorher: der zweite Druck überschrieb den ersten, keiner galt als Partner → nie gelöst."""
-    st = _state(dc)
-    task_id = dc.current_task()["task_id"]
-    _press(dc, P1_NAME, "ascii_answer", st["p1_word"])
-    _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"]))
-
-    _gleichzeitig(
-        lambda: _press(dc, P1_NAME, "sync_button", "press"),
-        lambda: _press(dc, P2_NAME, "sync_button", "press"),
-    )
-
-    assert dc.current_task()["task_id"] != task_id
-    assert int(dc.redis.r.hget(dc.redis._k_state(GAME), "solved_count")) == 1
-
-
-def test_beide_antworten_gleichzeitig_schalten_beide_frei(dc, langsame_pruefung):
-    st = _state(dc)
-    _gleichzeitig(
-        lambda: _press(dc, P1_NAME, "ascii_answer", st["p1_word"]),
-        lambda: _press(dc, P2_NAME, "binary_answer", " ".join(str(v) for v in st["p2_values"])),
-    )
-    neu = _state(dc)
-    assert neu["p1_unlocked"] and neu["p2_unlocked"]
+def test_old_targets_are_gone(dc):
+    for target in ("ascii_answer", "binary_answer", "sync_button"):
+        assert _text(dc, P1_NAME, target, "RENTE")["result"] == "ignored"
+    assert dc.health == 300

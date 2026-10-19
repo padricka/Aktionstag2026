@@ -82,17 +82,25 @@ Falsches Rack/Löschmittel kostet Leben; wer zu spät drückt, wartet nur erneut
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
-**Geschichte:** Zwei Datenblöcke sind verschlüsselt. Erst wenn beide entschlüsselt sind, kann die Rettung **gleichzeitig** ausgelöst werden.
+**Geschichte:** Das Passwort der Backup-Festplatte liegt in Datenpaketen – binär, mit einem beschädigten Paket, und zusätzlich verschlüsselt. Gerettet wird es Schritt für Schritt als **Kette**: Pakete prüfen → Binär → Dezimal → Buchstabe → zurückschieben. Das Ergebnis ist immer **RENTE**.
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Halbe** ASCII-Tabelle (A–M) und die **oberen Bit-Stellenwerte** (128, 64, 32, 16). | Das Wort als ASCII-Zahlen (z. B. `83 69 82 86 69 82`). Die **andere Hälfte** der ASCII-Tabelle (N–Z). | Zwei 8-stellige Binärzahlen (z. B. `10100110`; Werte 17–255 mit Einsen in **beiden** Hälften, keine wie 101/110). Die **unteren Bit-Stellenwerte** (8, 4, 2, 1). |
-| **Eingabe** | – | `ascii_answer` (Wort), danach `sync_button` | `binary_answer` (Dezimalwerte), danach `sync_button` |
+| **Sieht** | Schlüssel **k** als 4 Bit (Stellenwerte 8 4 2 1 darunter), k = 1–9 | **ASCII-Tabelle** A=65 … Z=90, Backup-Terminal | **6 Datenpakete** à 8 Bit, das erste Bit (Prüfbit P) abgesetzt |
+| **Zettel** | Anleitung Teil 1/3: Regel ② | Anleitung Teil 2/3: Regel ① | Anleitung Teil 3/3: Regeln ③ + ④ + Falle |
+| **Eingabe** | – | `rescue_word`: das Wort | – |
 
-**Lösung:** Vorderseite und Rückseite brauchen jeweils auch die Tabellenhälfte des Leitstands. Beide schalten so ihren Button frei. **Dann drücken Vorderseite und Rückseite innerhalb eines Zeitfensters (3 Sekunden).**
-Die bestehenden Tests in `test_taskDatenRettung.py` beschreiben den Sync-Button bereits. **Belohnungsziffer sichtbar für:** Vorderseite.
+**Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, **mit Rechenbeispiel** (auch ohne Informatik-Vorwissen lösbar), und jeweils bei dem, der die Fakten dazu nicht sieht:
+- **①** *(Vorderseite)* Einsen in jedem Paket zählen: **gerade** → heil, **ungerade** → beschädigt, weglassen. *Bsp: 1 1000011 → 4 Einsen → heil.* *Die Pakete hat die Rückseite.*
+- **②** *(Leitstand)* Binär → Dezimal: erstes Bit = Prüfbit, zählt nicht; die 7 Bits danach sind 64 32 16 8 4 2 1 wert, Werte mit einer 1 addieren. *Bsp: 1 1000011 → 64 + 2 + 1 = 67.* Schlüssel: 4 Bits = 8 4 2 1. *Die Pakete hat die Rückseite.*
+- **③** *(Rückseite)* Zahl → Buchstabe in der ASCII-Tabelle. *Bsp: 67 → C.* *Die Tabelle hat die Vorderseite.*
+- **④** *(Rückseite)* Jeden Buchstaben um k im Alphabet **zurück**, vor A kommt Z. *Bsp k = 3: F → C.* *k hat der Leitstand.*
+- **Falle** *(Rückseite)*: „Immer ROT13“ – durchgestrichen, „stimmt nicht!“ (k ist nie 13).
 
-**Rückseite – Hinweis:** erklärt die Regel („Addiere die Stellenwerte aller Stellen mit einer 1“, Beispiel `0000 0101 = 4 + 1 = 5`) und dass die Werte der ersten vier Stellen nur der Leitstand kennt. Er nennt 128, 64, 32, 16 bewusst nicht. Der Leitstand sieht seine Werte den ersten vier der acht Stellen zugeordnet.
+**So entsteht die Runde** (Backend rechnet rückwärts): RENTE → um k (1–9) **vor** → ASCII → Prüfbit so, dass jedes heile Paket eine gerade Anzahl Einsen hat. Dazu ein Paket mit falschem Prüfbit an zufälliger Stelle.
+
+**Lösung (Beispiel):** k = `0011` = 3. Pakete: `0 1010101`, `0 1001000`, `1 1001011`, `1 1010001`, `1 1010111`, `0 1001000`. ① Paket 3 hat 5 Einsen → weg. ② 85, 72, 81, 87, 72. ③ U H Q W H. ④ je 3 zurück → **R E N T E**.
+Falsches Wort kostet Leben (auch ROT13 oder das noch verschobene Wort). **Belohnungsziffer sichtbar für:** Vorderseite.
 
 ### Finale — Neustart (`kind: "reboot"`, neu)
 
@@ -117,16 +125,16 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 2 | MASTER | `fire_log` | `log: [{time: "HH:MM", source: "BMZ"/"RM", rack, test}]` (nach angezeigter Uhrzeit sortiert), `release: {armed, window}`, `note` |
 | 2 | FI-SI | `valve_panel` | `racks: [4 Rack-IDs]`, `agents: [WASSER, SCHAUM, CO2, INERTGAS, ABSCHOTTEN]`, `power: {rack: true/false}`, `sequence_len`, `step`, `p_done`, `note` |
 | 2 | FI-AE | `rack_rear` | `rear: [{rack, material, label} ×4]`, `release: {armed, window}`, `note` |
-| 3 | MASTER | `ascii_binary_tables` | `ascii_half: {"A":65,…"M":77}`, `place_values: [128,64,32,16]` |
-| 3 | FI-SI | `ascii_puzzle` | `ascii_codes`, `ascii_half: {"N":78,…"Z":90}`, `button_unlocked` |
-| 3 | FI-AE | `binary_puzzle` | `binary_codes`, `place_values: [8,4,2,1]`, `button_unlocked` |
+| 3 | MASTER | `rescue_key` | `key: "0011"` (k binär, 4 Bit), `note` |
+| 3 | FI-SI | `rescue_terminal` | `ascii_table: {"A":65,…"Z":90}`, `word_len: 5`, `note` |
+| 3 | FI-AE | `packet_dump` | `packets: ["01010101", …]` (6 × 8 Bit, erstes Bit = Prüfbit), `note` |
 | 4 | alle | `reboot` | `digit: 0..9` (eigene Ziffer), `terminal: true` nur bei MASTER |
 
 **Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
 
-Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `rescue_word` (FI-SI, das Wort) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung
