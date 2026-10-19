@@ -336,3 +336,32 @@ def test_lock_ignores_release_error(handler):
         with handler.lock("x") as acq:
             assert acq is True
         # Kein Raise nach oben
+
+# ---------------------------------------------------------------- DEV-Modus
+def test_lobby_payload_dev_mode_default_off(handler):
+    handler.create_game("g")
+    assert handler.get_lobby_payload("g")["dev_mode"] is False
+
+
+def test_set_dev_mode_in_lobby(handler):
+    handler.create_game("g")
+    res = handler.set_dev_mode("g", True)
+    assert res["event"] == "lobby_update"
+    assert res["payload"]["dev_mode"] is True
+    assert handler.set_dev_mode("g", False)["payload"]["dev_mode"] is False
+
+
+def test_set_dev_mode_rejected_while_running(handler, env):
+    handler.create_game("g")
+    env.hset("game:g:state", "status", "running")
+    res = handler.set_dev_mode("g", True)
+    assert res["event"] == "error"
+    assert handler.get_lobby_payload("g")["dev_mode"] is False
+
+
+def test_create_game_keeps_dev_mode(handler):
+    """Neustart (reset_game → create_game) behält den DEV-Modus der Sitzung."""
+    handler.create_game("g")
+    handler.set_dev_mode("g", True)
+    handler.create_game("g")
+    assert handler.get_lobby_payload("g")["dev_mode"] is True

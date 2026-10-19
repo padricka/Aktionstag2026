@@ -122,7 +122,14 @@ class DataCenter:
             return 0
         return new_hp
 
+    @property
+    def dev_mode(self) -> bool:
+        """DEV-Modus (vom Host in der Lobby gesetzt): Zeit steht, Fehler kosten nichts."""
+        return _s(self.redis.r.hget(self._key, "dev_mode")) == "1"
+
     def tick(self) -> dict:
+        if self.dev_mode:
+            return self.snapshot()
         self.apply_tick(1)
         self.redis.r.hincrby(self._key, "time_left", -1)
         return self.snapshot()
@@ -137,7 +144,31 @@ class DataCenter:
     def register_mistake(self) -> int:
         if self.health <= 0:
             return 0
+        if self.dev_mode:
+            return self.health
         return self.apply_tick(MISTAKE_DAMAGE)
+
+    def skip_task(self) -> dict:
+        """DEV-Modus: aktuelle Aufgabe für alle überspringen (ohne Punkte und HP-Bonus)."""
+        if not self.dev_mode:
+            return {"result": "error", "message": "DEV-Modus ist aus"}
+        if self.status != "running":
+            return {"result": "error", "message": "game not running"}
+        task = self.current_task()
+        if not task or self.redis.r.hdel(self._key, "task") != 1:
+            return {"result": "ignored"}
+        won = self._advance(task)
+        return {"result": "skipped", "won": won}
+
+    def _advance(self, task: dict) -> bool:
+        """Nach gelöster/übersprungener Aufgabe: Ziffer aufdecken, nächste Aufgabe. True = gewonnen."""
+        self._reveal_digit(task.get("kind", ""))
+        solved = self.redis.r.hincrby(self._key, "solved_count", 1)
+        if solved >= TOTAL_TASKS:
+            self.redis.r.hset(self._key, "status", "won")
+            return True
+        self.new_task()
+        return False
 
     @staticmethod
     def _public(task: dict) -> dict:
@@ -230,14 +261,9 @@ class DataCenter:
                 # Score = Restzeit × Multiplikator der gerade gelösten Aufgabe
                 gain = self._score_for_solve(task.get("kind", ""))
                 self.redis.r.hincrby(self._key, "score", gain)
-                self._reveal_digit(task.get("kind", ""))
 
-                solved = self.redis.r.hincrby(self._key, "solved_count", 1)
-                if solved >= TOTAL_TASKS:
-                    self.redis.r.hset(self._key, "status", "won")
+                if self._advance(task):
                     return {"result": "correct", "won": True, "score_gain": gain}
-
-                self.new_task()
                 return {"result": "correct", "score_gain": gain}
 
         self.register_mistake()

@@ -19,6 +19,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         self.data_center = None
         self.player_name = None
         self.role = None
+        self.is_host = False
         self.closed = False
 
         await self.accept()
@@ -88,12 +89,61 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.handle_start_game()
         elif event in ("reset_game", "new_lobby"):
             await self.handle_reset_lobby()
+        elif event == "dev_mode":
+            await self.handle_dev_mode(payload)
+        elif event == "dev_skip_task":
+            await self.handle_dev_skip_task()
         else:
             await self.send_error(f"unknown event: {event}")
 
     async def handle_host_register(self):
+        self.is_host = True
         payload = await self.lobby.lobby_payload()
         await self.send_event("lobby_update", payload)
+
+    # ------------------------------------------------------------ DEV-Modus (nur Host)
+    async def handle_dev_mode(self, payload):
+        enabled = payload.get("enabled")
+        if not self.is_host or not isinstance(enabled, bool):
+            await self.send_error("DEV-Modus nur vom Host (enabled: true/false)", code="dev_denied")
+            return
+        result = await asyncio.to_thread(self.lobby.redis.set_dev_mode, self.game_id, enabled)
+        if result["event"] == "error":
+            await self.send_error(result["payload"]["message"], code="dev_denied")
+            return
+        await self.channel_layer.group_send(
+            self.room_group_name, {"type": "lobby_update", "payload": result["payload"]}
+        )
+
+    async def handle_dev_skip_task(self):
+        if not self.is_host:
+            await self.send_error("Überspringen nur vom Host", code="dev_denied")
+            return
+        if self.data_center is None:
+            from backend.dataCenter import DataCenter
+            self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
+
+        result = await asyncio.to_thread(self.data_center.skip_task)
+        if result["result"] == "error":
+            await self.send_error(result["message"], code="dev_denied")
+            return
+        if result["result"] == "ignored":
+            return
+
+        snap = await asyncio.to_thread(self.data_center.snapshot)
+        if result["won"]:
+            await announce_game_over(self.data_center, self.game_id, "victory", snap)
+            return
+        await self.channel_layer.group_send(self.room_group_name, {
+            "type": "game.tick",
+            "status": "alive",
+            "payload": {
+                "health": snap["health"],
+                "time_left": snap["time_left"],
+                "tasks": snap["tasks"],
+                "reboot_digits": snap["reboot_digits"],
+            },
+        })
 
     async def handle_reset_lobby(self):
         game = games.pop(self.game_id, None)

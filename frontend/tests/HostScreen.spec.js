@@ -151,4 +151,80 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.id-value').exists()).toBe(false)
     expect(wrapper.find('.lobby-error').text()).toContain('TEST')
   })
+
+  describe('DEV-Modus', () => {
+    async function laufendesSpiel(devMode) {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({
+        event: 'lobby_update',
+        payload: { players: [], status: 'running', ready_to_start: true, dev_mode: devMode },
+      })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [] } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it('zeigt in der Lobby neben der Sitzungs-ID einen Schalter, anfangs AUS', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+
+      const toggle = wrapper.find('.lobby .dev-toggle')
+      expect(toggle.exists()).toBe(true)
+      expect(toggle.text()).toContain('AUS')
+      expect(toggle.attributes('aria-pressed')).toBe('false')
+    })
+
+    it('schaltet über den Server um und zeigt den Stand aus lobby_update', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+
+      await wrapper.find('.dev-toggle').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'dev_mode', payload: { enabled: true } })
+
+      simulateMessage({
+        event: 'lobby_update',
+        payload: { players: [], status: 'waiting', ready_to_start: false, dev_mode: true },
+      })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.dev-toggle').text()).toContain('AN')
+      expect(wrapper.find('.dev-toggle').attributes('aria-pressed')).toBe('true')
+
+      await wrapper.find('.dev-toggle').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'dev_mode', payload: { enabled: false } })
+    })
+
+    it('ohne DEV-Modus gibt es im Spiel keinen Überspringen-Button', async () => {
+      const wrapper = await laufendesSpiel(false)
+      expect(wrapper.find('.running').exists()).toBe(true)
+      expect(wrapper.find('.dev-skip').exists()).toBe(false)
+      expect(wrapper.find('.dev-badge').exists()).toBe(false)
+    })
+
+    it('mit DEV-Modus überspringt der Host die Aufgabe für alle', async () => {
+      const wrapper = await laufendesSpiel(true)
+      expect(wrapper.find('.dev-badge').exists()).toBe(true)
+
+      await wrapper.find('.dev-skip').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'dev_skip_task', payload: {} })
+      // bis zur nächsten Aufgabe gesperrt (kein Doppelsprung)
+      expect(wrapper.find('.dev-skip').attributes('disabled')).toBeDefined()
+
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [] } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.dev-skip').attributes('disabled')).toBeUndefined()
+    })
+
+    it('zeigt eine Ablehnung des Servers an', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+
+      simulateMessage({
+        event: 'error',
+        payload: { message: 'DEV-Modus nur vor dem Start umschaltbar', code: 'dev_denied' },
+      })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.dev-error').text()).toContain('nur vor dem Start')
+    })
+  })
 })
