@@ -111,7 +111,7 @@ class DataCenter:
             "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
             "reboot_revealed": json.dumps([]),
         })
-        self.redis.r.hdel(self._key, "task")
+        self.redis.r.hdel(self._key, "task", "over_announced")
         self.new_task(kind="alarm")
         self.redis.refresh_ttl(self.game_id)
 
@@ -129,6 +129,10 @@ class DataCenter:
 
     def finish(self):
         self.redis.r.hset(self._key, "status", "game_over")
+
+    def claim_game_over(self) -> bool:
+        """True nur beim ersten Aufruf pro Runde: wer True bekommt, meldet das Spielende."""
+        return bool(self.redis.r.hsetnx(self._key, "over_announced", 1))
 
     def register_mistake(self) -> int:
         if self.health <= 0:
