@@ -46,6 +46,13 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        # Wer noch keine Rolle hat, blockiert sonst einen der 3 Plätze (z. B. Tab geschlossen)
+        if self.player_name and not self.role:
+            if await self.lobby.release_player(self.player_name, self.channel_name):
+                payload = await self.lobby.lobby_payload()
+                await self.channel_layer.group_send(
+                    self.room_group_name, {"type": "lobby_update", "payload": payload}
+                )
 
     async def receive(self, text_data=None, bytes_data=None):
         if self.closed:
@@ -104,7 +111,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error("player_name required")
             return
 
-        result = await self.lobby.register_player(name)
+        result = await self.lobby.register_player(name, self.channel_name)
         if result["event"] == "error":
             await self.send_error(result["payload"]["message"])
             return

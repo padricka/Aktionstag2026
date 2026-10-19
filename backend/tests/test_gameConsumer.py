@@ -277,6 +277,56 @@ async def test_reconnect_with_role_sends_role_assigned(env):
     await b.disconnect()
 
 
+@pytest.mark.asyncio
+async def test_disconnect_without_role_frees_slot(env):
+    """Wer ohne Rolle geht, blockiert keinen der 3 Plätze."""
+    gid = "cov_leave_free"
+    a = await verbinden_ohne_initial(gid)
+    b = await verbinden_ohne_initial(gid)
+    c = await verbinden_ohne_initial(gid)
+    for comm, name in ((a, "A"), (b, "B"), (c, "C")):
+        await registrieren(comm, name)
+        await recv_until(comm, "lobby_update", lambda p, n=name: any(x["name"] == n for x in p["players"]))
+
+    await a.disconnect()
+    msg = await recv_until(b, "lobby_update", lambda p: len(p["players"]) == 2)
+    assert [p["name"] for p in msg["payload"]["players"]] == ["B", "C"]
+
+    d = await verbinden_ohne_initial(gid)
+    await registrieren(d, "D")
+    await recv_until(d, "lobby_update", lambda p: any(x["name"] == "D" for x in p["players"]))
+    await beenden(b, c, d)
+
+
+@pytest.mark.asyncio
+async def test_disconnect_with_role_keeps_slot(env):
+    (a, b) = await spieler("cov_leave_role", ("A", "MASTER"), ("B", "FI-SI"))
+    await a.disconnect()
+    await b.send_json_to({"event": "host_register", "payload": {}})
+    msg = await recv_until(b, "lobby_update")
+    assert {"name": "A", "role": "MASTER"} in msg["payload"]["players"]
+    await b.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_old_disconnect_does_not_remove_reloaded_player(env):
+    """Reload: neue Verbindung meldet sich an, bevor die alte als getrennt gilt."""
+    gid = "cov_leave_reload"
+    alt = await verbinden_ohne_initial(gid)
+    await registrieren(alt, "A")
+    await recv_until(alt, "lobby_update", lambda p: len(p["players"]) == 1)
+
+    neu = await verbinden_ohne_initial(gid)
+    await registrieren(neu, "A")
+    await recv_until(neu, "lobby_update", lambda p: len(p["players"]) == 1)
+    await alt.disconnect()
+
+    await waehle_rolle(neu, "MASTER")
+    msg = await recv_until(neu, "role_assigned")
+    assert msg["payload"]["role"] == "MASTER"
+    await neu.disconnect()
+
+
 # ---------------------------------------------------------------- choose_role (124-129)
 @pytest.mark.asyncio
 async def test_choose_role_without_register(env):
