@@ -109,6 +109,59 @@ def test_register_fourth_player_is_rejected(handler):
     assert int(handler.r.hget("game:g:state", "player_counter")) == 3
 
 
+# ---------------------------------------------------------------- release_player
+def test_release_player_without_role_frees_slot(handler):
+    for n in ("A", "B", "C"):
+        handler.register_player("g", n, conn="c-" + n)
+    assert handler.release_player("g", "A", conn="c-A") is True
+    names = [p["name"] for p in handler.get_lobby_payload("g")["players"]]
+    assert names == ["B", "C"]
+    # Der Platz ist wieder frei
+    assert handler.register_player("g", "D")["event"] == "registered"
+
+
+def test_release_player_with_role_keeps_player(handler):
+    """Wer eine Rolle hat, behält den Platz (Reconnect)."""
+    handler.register_player("g", "A", conn="c1")
+    handler.choose_role("g", "A", "MASTER")
+    assert handler.release_player("g", "A", conn="c1") is False
+    assert handler.register_player("g", "A")["role"] == "MASTER"
+
+
+def test_release_player_ignored_after_newer_connection(handler):
+    """Reload: das verspätete disconnect der alten Verbindung wirft den Spieler nicht raus."""
+    handler.register_player("g", "A", conn="alt")
+    handler.register_player("g", "A", conn="neu")
+    assert handler.release_player("g", "A", conn="alt") is False
+    assert handler.choose_role("g", "A", "FI-SI")["event"] == "role_assigned"
+
+
+def test_release_player_ignored_while_running(handler, env):
+    handler.register_player("g", "A", conn="c1")
+    env.hset("game:g:state", "status", "running")
+    assert handler.release_player("g", "A", conn="c1") is False
+
+
+def test_release_player_lock_not_acquired(handler):
+    handler.register_player("g", "A", conn="c1")
+    with patch.object(handler, "lock") as mock_lock:
+        mock_lock.return_value.__enter__ = lambda self: False
+        mock_lock.return_value.__exit__ = lambda *_: None
+        assert handler.release_player("g", "A", conn="c1") is False
+    assert "A" in handler._load_players("g")
+
+
+def test_release_unknown_player(handler):
+    handler.create_game("g")
+    assert handler.release_player("g", "X", conn="c1") is False
+
+
+def test_choose_role_keeps_connection(handler):
+    handler.register_player("g", "A", conn="c1")
+    handler.choose_role("g", "A", "MASTER")
+    assert handler._load_players("g")["A"] == {"role": "MASTER", "conn": "c1"}
+
+
 # ---------------------------------------------------------------- choose_role
 def test_choose_role_assigns(handler):
     handler.register_player("g", "A")
