@@ -118,4 +118,10 @@ describe('PlayerScreen.vue — Neustart', () => {
     expect(registrierungen()).toBe(vorher + 1)
     expect(wrapper.find('.phase-lobby').exists()).toBe(true)
   })
+
+  it('„Spiel beenden“ im Spielende führt zurück zum Hauptmenü', async () => {
+    const wrapper = await nachSpielende()
+    await wrapper.find('.end-card .end-exit').trigger('click')
+    expect(wrapper.emitted('exit')).toHaveLength(1)
+  })
 })

@@ -7,8 +7,8 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **189** grün · 23 übersprungen · **0 rot** | `main` nach #38 (Docker, Python 3.13) |
-| Frontend-Tests | **141** grün | `main` nach #38 (Docker, Node 22; #33/#34 noch offen) |
+| Backend-Tests | **211** grün · 23 übersprungen · **0 rot** | `main` nach #40 (Docker, Python 3.13) |
+| Frontend-Tests | **156** grün | nach `feat/spielende-screen` (Docker, Node 22; #33/#34 noch offen) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
 | Live-Pfad Frontend | `App` → `StartMenu` / `HostScreen` / `PlayerScreen` (Master = Rolle in PlayerScreen + `Task*Master`) | Cleanup |
@@ -36,4 +36,4 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-#35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
+Spielende-Bildschirm: Bild voll sichtbar, Punkte-Karte als Popup, Leiste mit Spiel beenden / Neustart (`feat/spielende-screen`) · #40 DEV-Modus am Beamer · #35 Lobby-Platz wird bei Verbindungsabbruch ohne Rolle frei · #36 vertippte Sitzungs-ID wird abgelehnt · #37 `game_over` nur einmal pro Runde · #38 nach Neustart automatisch zurück in die Rollenwahl · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
