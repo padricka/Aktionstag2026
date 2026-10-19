@@ -123,7 +123,12 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // "view" ist pro Spieler verschieden: Jeder bekommt NUR die Ansicht seiner Rolle
 // (Escape Room: niemand kennt die Lösung allein). Das Frontend wählt die Komponente
 // über view.type. Alle view-Typen und Felder: GAME_DESIGN.md, Abschnitt 5.
-// Umgesetzt: Aufgabe 1 (alarm_leds / main_switches / code_stickers),
+// Notizzettel: view.note = das eigene Stück des zerrissenen Zettels
+//   { "id": "alarm", "title": "Wartungsnotiz", "part": 2, "of": 3, "torn": ["left", "bottom"],
+//     "lines": [ { "row": 3, "style": "rule", "text": "① NIE das Kabel am brennenden" }, … ] }
+//   Jedes Stück trägt vollständige Regeln (kein Satz reißt ab); anwenden kann man
+//   sie nur mit den Fakten auf den Bildschirmen der anderen.
+// Umgesetzt: Aufgabe 1 (alarm_leds / main_switches / code_stickers, mit note),
 //            Aufgabe 2 (fire_log / valve_panel / password_input),
 //            Aufgabe 3 (ascii_binary_tables / ascii_puzzle / binary_puzzle),
 //            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).

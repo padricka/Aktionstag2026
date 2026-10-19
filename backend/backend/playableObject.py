@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 import random
 
+from . import notes
+
 ROLE_M = "MASTER"
 ROLE_P1 = "FI-SI"
 ROLE_P2 = "FI-AE"
@@ -90,19 +92,28 @@ class AlarmTask(PlayableObject):
     # Pool für den Shutdown-Code. Wird bei jedem Task neu gemischt.
     CODE_POOL = ['dreieck-runter', 'kreuz', 'dreieck-runter-voll', 'stern']
     # Ablenker auf der Tastatur des Leitstands. Die Tastatur wird pro Aufgabe gemischt,
-    # sonst stünden die echten Code-Symbole immer vorne.
-    KEYBOARD_DECOYS = ['dreieck-voll', 'plus', 'sechseck', 'herz', 'blitz', 'fuenfeck', 'pfeil', 'ring']
+    # sonst stünden die echten Code-Symbole immer vorne. Die Kabel-Symbole gehören
+    # dazu, weil Regel ③ eins davon in den Code setzen kann.
+    KEYBOARD_DECOYS = ['dreieck-voll', 'herz', 'sechseck', 'blitz']
     # Aufkleber-Farben. Ihre Reihenfolge (nur der Leitstand kennt sie) ordnet den Code.
     STICKER_COLORS = ["ROT", "GELB", "GRÜN", "BLAU"]
+    # Wie oft die LED blinkt bzw. ein Aufkleber zerkratzt ist (jede Runde neu gewürfelt)
+    BLINK_CHANCE = 0.5
+    SCRATCH_CHANCE = 0.6
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 1):
-    #   Leitstand  sieht, WELCHER Steckplatz brennt, und die Farb-Reihenfolge -> tippt den Code
-    #   Vorderseite sieht die Schalter (Symbole in Steckplatz-Reihenfolge)    -> drückt den Schalter
-    #   Rückseite  sieht die Code-Symbole auf farbigen Aufklebern, gemischt   -> keine Eingabe
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 1) + zerrissene Wartungsnotiz:
+    #   Leitstand  sieht WELCHER Steckplatz brennt, ob die LED blinkt, die Farbfolge -> Code
+    #   Vorderseite sieht die Kabel (Symbole in Steckplatz-Reihenfolge)           -> kappt eins
+    #   Rückseite  sieht die Code-Symbole auf farbigen Aufklebern, evtl. zerkratzt
+    # Regeln auf der Notiz (notes.ALARM_NOTE):
+    #   ① nie das Kabel am Brandplatz: gerade Nummer → links daneben, ungerade → rechts
+    #   ② Code = Farbfolge; blinkt die LED → rückwärts
+    #   ③ zerkratzter Aufkleber → dort gilt das Symbol vom Kabel am Brandplatz
     @classmethod
     def create(cls, players):
         slot = random.randrange(len(cls.COMPONENTS))
         broken = cls.COMPONENTS[slot]
+        target = cls.COMPONENTS[cls._cut_index(slot)]
 
         code = list(cls.CODE_POOL)
         random.shuffle(code)
@@ -112,20 +123,39 @@ class AlarmTask(PlayableObject):
         stickers = [{"symbol": s, "color": c} for s, c in zip(code, color_order)]
         # ... die Rückseite sieht die Aufkleber aber gemischt.
         random.shuffle(stickers)
-        keyboard = cls.CODE_POOL + cls.KEYBOARD_DECOYS
+        keyboard = cls.CODE_POOL + [c["symbol"] for c in cls.COMPONENTS] + cls.KEYBOARD_DECOYS
         random.shuffle(keyboard)
+
+        led = "blinkt" if random.random() < cls.BLINK_CHANCE else "leuchtet"
+        scratched = random.choice(color_order) if random.random() < cls.SCRATCH_CHANCE else None
+
+        # Lösung nach den Regeln der Notiz
+        order = list(reversed(color_order)) if led == "blinkt" else list(color_order)
+        by_color = {s["color"]: s["symbol"] for s in stickers}
+        solution = [broken["symbol"] if c == scratched else by_color[c] for c in order]
 
         return {
             "keyboard": keyboard,
             "burning_slot": slot + 1,
             "broken_id": broken["id"],
             "broken_symbol": broken["symbol"],
+            "target_id": target["id"],
+            "target_symbol": target["symbol"],
+            "led": led,
+            "scratched": scratched,
             "code": code,
+            "solution": solution,
             "color_order": color_order,
             "stickers": stickers,
             "switch_ok": False,
             "cmd_ok": False,
         }
+
+    @staticmethod
+    def _cut_index(slot):
+        """Regel ①: Steckplatz-Nummer = slot + 1; gerade → links daneben, ungerade → rechts."""
+        nummer = slot + 1
+        return nummer - 2 if nummer % 2 == 0 else nummer
 
     @classmethod
     def views(cls, state):
@@ -135,17 +165,26 @@ class AlarmTask(PlayableObject):
                 "slots": len(cls.COMPONENTS),
                 "burning_slot": state["burning_slot"],
                 "color_order": state["color_order"],
-                "keyboard": state.get("keyboard") or cls.CODE_POOL + cls.KEYBOARD_DECOYS,
+                "led": state["led"],
+                "keyboard": state["keyboard"],
                 "p_done": state["cmd_ok"],
+                "note": notes.piece(notes.ALARM_NOTE, ROLE_M),
             },
             ROLE_P1: {
                 "type": "main_switches",
                 "switches": [c["symbol"] for c in cls.COMPONENTS],
                 "p_done": state["switch_ok"],
+                "note": notes.piece(notes.ALARM_NOTE, ROLE_P1),
             },
             ROLE_P2: {
                 "type": "code_stickers",
-                "stickers": state["stickers"],
+                # zerkratzt: Farbe noch erkennbar, das Symbol nicht mehr
+                "stickers": [
+                    {"symbol": None, "color": s["color"], "scratched": True}
+                    if s["color"] == state["scratched"] else s
+                    for s in state["stickers"]
+                ],
+                "note": notes.piece(notes.ALARM_NOTE, ROLE_P2),
             },
         }
 
@@ -154,12 +193,12 @@ class AlarmTask(PlayableObject):
         value = str(data.value).strip().lower()
 
         if data.target == "main_switch" and role == ROLE_P1:
-            if value not in (state["broken_symbol"].lower(), state["broken_id"].lower()):
+            if value not in (state["target_symbol"].lower(), state["target_id"].lower()):
                 return StepResult(Outcome.WRONG, state)
             state["switch_ok"] = True
 
         elif data.target == "shutdown_cmd" and role == ROLE_M:
-            expected = ",".join(state["code"]).lower()
+            expected = ",".join(state["solution"]).lower()
             if value.replace(" ", "") != expected:
                 return StepResult(Outcome.WRONG, state)
             state["cmd_ok"] = True

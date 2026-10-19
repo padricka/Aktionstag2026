@@ -2,15 +2,20 @@
 
 Spezifikation: GAME_DESIGN.md, Abschnitt 4 „Aufgabe 1".
 
-  Leitstand  (MASTER): sieht WELCHER Steckplatz brennt (ohne Beschriftung) und die
-                       Farb-Reihenfolge des Codes. Tippt den Shutdown-Code.
-  Vorderseite (FI-SI): sieht die Hauptschalter (Symbole in Steckplatz-Reihenfolge).
-                       Drückt den Schalter des brennenden Steckplatzes.
-  Rückseite  (FI-AE):  sieht die Code-Symbole auf farbigen Aufklebern, gemischt.
-                       Hat keine Eingabe.
+  Leitstand  (MASTER): sieht WELCHER Steckplatz brennt (ohne Beschriftung), ob die LED
+                       blinkt oder dauerhaft leuchtet, und die Farbfolge. Tippt den Code.
+  Vorderseite (FI-SI): sieht die Kabel (Symbole in Steckplatz-Reihenfolge). Kappt eins.
+  Rückseite  (FI-AE):  sieht die Code-Symbole auf farbigen Aufklebern, gemischt;
+                       manchmal ist einer zerkratzt. Hat keine Eingabe.
+
+Dazu hat jeder ein Stück der zerrissenen Wartungsnotiz mit den Regeln:
+  ① Nie das Kabel des brennenden Platzes: gerade Nummer → links daneben,
+    ungerade → rechts daneben.
+  ② Code = Farbfolge; blinkt die LED → rückwärts.
+  ③ Aufkleber zerkratzt → dort gilt das Symbol vom Kabel am Brandplatz.
 
 Kernidee der Tests: Die Lösung lässt sich NUR durch Kombinieren der drei
-Ansichten herleiten (siehe _loesung_aus_ansichten), keine Ansicht allein reicht.
+Ansichten und der Regeln herleiten (siehe _loesung), keine Ansicht allein reicht.
 """
 import json
 import pytest
@@ -55,13 +60,24 @@ def _view(dc, role):
     return dc.snapshot()["tasks"][0]["views"][role]
 
 
+def _loesung(leitstand, vorne, hinten):
+    """So lösen die Spieler die Aufgabe: ihre Bildschirme + die zusammengelesenen Regeln."""
+    platz = leitstand["burning_slot"]
+    # ① nie das eigene Kabel: gerade Nummer → links daneben, ungerade → rechts daneben
+    ziel = platz - 1 if platz % 2 == 0 else platz + 1
+    kabel = vorne["switches"][ziel - 1]
+    # ② Farbfolge, bei blinkender LED rückwärts
+    folge = list(leitstand["color_order"])
+    if leitstand["led"] == "blinkt":
+        folge.reverse()
+    # ③ zerkratzter Aufkleber → Symbol vom Kabel am Brandplatz
+    am_brandplatz = vorne["switches"][platz - 1]
+    symbol = {s["color"]: am_brandplatz if s.get("scratched") else s["symbol"] for s in hinten["stickers"]}
+    return kabel, ",".join(symbol[f] for f in folge)
+
+
 def _loesung_aus_ansichten(dc):
-    """So lösen die Spieler die Aufgabe: nur mit dem, was sie auf ihren Bildschirmen sehen."""
-    leitstand, vorne, hinten = _view(dc, ROLE_M), _view(dc, ROLE_P1), _view(dc, ROLE_P2)
-    schalter = vorne["switches"][leitstand["burning_slot"] - 1]
-    rang = {farbe: i for i, farbe in enumerate(leitstand["color_order"])}
-    code = [s["symbol"] for s in sorted(hinten["stickers"], key=lambda s: rang[s["color"]])]
-    return schalter, ",".join(code)
+    return _loesung(_view(dc, ROLE_M), _view(dc, ROLE_P1), _view(dc, ROLE_P2))
 
 
 # ------------------------------------------------------------------ Ansichten
@@ -95,13 +111,75 @@ def test_rueckseite_sees_all_code_symbols_with_colors_but_no_order(dc):
     stickers = hinten["stickers"]
     assert len(stickers) == 4
     assert {s["color"] for s in stickers} == set(leitstand["color_order"])
-    assert len({s["symbol"] for s in stickers}) == 4
+    lesbar = [s["symbol"] for s in stickers if not s.get("scratched")]
+    assert len(set(lesbar)) == len(lesbar) >= 3          # höchstens einer zerkratzt
+    for s in stickers:
+        if s.get("scratched"):
+            assert s["symbol"] is None                    # zerkratzt = Symbol unlesbar
     assert "color_order" not in hinten and "code" not in hinten
 
 
-def test_burning_slot_matches_the_switch_that_solves(dc):
-    schalter, _ = _loesung_aus_ansichten(dc)
-    assert _press(dc, P1_NAME, "main_switch", schalter)["result"] == "correct"
+def test_cable_from_views_and_note_solves(dc):
+    # früher: test_burning_slot_matches_the_switch_that_solves – seit der
+    # Wartungsnotiz (Regel ①) ist gerade NICHT das Kabel am Brandplatz richtig
+    kabel, _ = _loesung_aus_ansichten(dc)
+    assert _press(dc, P1_NAME, "main_switch", kabel)["result"] == "correct"
+
+
+def test_cutting_the_burning_cable_itself_is_wrong(dc):
+    """Regel ①: NIE das Kabel des brennenden Platzes."""
+    platz = _view(dc, ROLE_M)["burning_slot"]
+    eigenes = _view(dc, ROLE_P1)["switches"][platz - 1]
+    assert _press(dc, P1_NAME, "main_switch", eigenes)["result"] == "wrong"
+
+
+def test_led_state_is_only_on_the_leitstand(dc):
+    assert _view(dc, ROLE_M)["led"] in ("blinkt", "leuchtet")
+    assert "led" not in _view(dc, ROLE_P1) and "led" not in _view(dc, ROLE_P2)
+
+
+def test_every_role_has_its_piece_of_the_note(dc):
+    stuecke = [_view(dc, r)["note"] for r in (ROLE_M, ROLE_P1, ROLE_P2)]
+    assert all(s["lines"] for s in stuecke)
+    texte = [" ".join(z["text"] for z in s["lines"]) for s in stuecke]
+    assert len(set(texte)) == 3                            # drei verschiedene Stücke
+
+
+def test_rules_hold_in_every_variant():
+    """Viele Runden: jede Variante (Platz, Blinken, Kratzer) ist mit den Regeln lösbar,
+    und die alte Regel (Kabel am Brandplatz, Farbfolge vorwärts) scheitert, wo es darauf ankommt."""
+    from backend.playableObject import AlarmTask
+    from backend.schemas import PlayerInput
+
+    gesehen = {"blinkt": 0, "leuchtet": 0, "kratzer": 0, "plaetze": set()}
+    for _ in range(300):
+        st = AlarmTask.create({})
+        v = AlarmTask.views(st)
+        kabel, code = _loesung(v[ROLE_M], v[ROLE_P1], v[ROLE_P2])
+
+        def eingabe(rolle, ziel, wert, state):
+            data = PlayerInput.model_validate({"action_type": "text_input", "target": ziel, "value": wert})
+            return AlarmTask.handle_input(state, "x", rolle, data, 0).outcome.name
+
+        assert eingabe(ROLE_P1, "main_switch", kabel, st) == "PROGRESS"
+        assert eingabe(ROLE_M, "shutdown_cmd", code, st) == "SOLVED"
+
+        alt = AlarmTask.create({})
+        alt_v = AlarmTask.views(alt)
+        platz = alt_v[ROLE_M]["burning_slot"]
+        assert eingabe(ROLE_P1, "main_switch", alt_v[ROLE_P1]["switches"][platz - 1], alt) == "WRONG"
+
+        gesehen[v[ROLE_M]["led"]] += 1
+        gesehen["kratzer"] += any(s.get("scratched") for s in v[ROLE_P2]["stickers"])
+        gesehen["plaetze"].add(v[ROLE_M]["burning_slot"])
+    assert gesehen["blinkt"] and gesehen["leuchtet"] and gesehen["kratzer"]
+    assert gesehen["plaetze"] == {1, 2, 3, 4}
+
+
+def test_keyboard_has_every_symbol_the_code_can_need(dc):
+    """Regel ③ setzt ein Kabel-Symbol in den Code – das muss man auch tippen können."""
+    tastatur = set(_view(dc, ROLE_M)["keyboard"])
+    assert set(_view(dc, ROLE_P1)["switches"]) <= tastatur
 
 
 def test_public_snapshot_hides_raw_state(dc):
@@ -157,7 +235,7 @@ def test_command_alone_does_not_solve(dc):
 def test_unsorted_sticker_order_is_wrong(dc):
     """Wer die Aufkleber nur abliest statt nach Farbe zu sortieren, liegt (fast immer) falsch."""
     _, code = _loesung_aus_ansichten(dc)
-    abgelesen = ",".join(s["symbol"] for s in _view(dc, ROLE_P2)["stickers"])
+    abgelesen = ",".join(str(s["symbol"]) for s in _view(dc, ROLE_P2)["stickers"])
     if abgelesen == code:
         pytest.skip("Zufall: Aufkleber liegen schon in der richtigen Reihenfolge")
     assert _text(dc, MASTER_NAME, "shutdown_cmd", abgelesen)["result"] == "wrong"

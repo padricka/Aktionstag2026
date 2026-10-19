@@ -45,13 +45,18 @@ Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lö
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | LED-Leiste mit 4 Steckplätzen, **einer blinkt rot**. Keine Beschriftung. Außerdem eine Wartungsnotiz mit der **Farb-Reihenfolge** für den Code (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Hauptschalter, beschriftet mit **Symbolen**, in Steckplatz-Reihenfolge 1–4. | Die 4 **Code-Symbole**, jedes auf einem **farbigen** Aufkleber, in zufälliger Reihenfolge. |
-| **Eingabe** | `shutdown_cmd`: 4 Symbole in der richtigen Reihenfolge | `main_switch`: Symbol des brennenden Steckplatzes | – |
+| **Sieht** | LED-Leiste mit 4 Steckplätzen, einer ist rot – die LED **blinkt oder leuchtet dauerhaft** (jede Runde neu). Die **Farbfolge** vom Monitor (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Kabel, beschriftet mit **Symbolen**, in Steckplatz-Reihenfolge 1–4. | Die 4 **Code-Symbole** auf **farbigen** Aufklebern, gemischt. Manchmal ist **einer zerkratzt** (Farbe sichtbar, Symbol nicht). |
+| **Zettel** | Wartungsnotiz Teil 1/3: Regel ② + Falle | Wartungsnotiz Teil 2/3: Regel ① | Wartungsnotiz Teil 3/3: Regel ③ |
+| **Eingabe** | `shutdown_cmd`: 4 Symbole in der richtigen Reihenfolge | `main_switch`: Symbol des richtigen Kabels | – |
 
-**Lösung:**
-1. Leitstand sagt, welcher Steckplatz blinkt → Vorderseite drückt den Schalter an dieser Position.
-2. Rückseite beschreibt die farbigen Aufkleber, Leitstand ordnet sie nach der Farb-Reihenfolge (**Schlussfolgern**) und tippt den Code.
-Gelöst, wenn beide Eingaben stimmen. **Belohnungsziffer sichtbar für:** Rückseite.
+**Die zerrissene Wartungsnotiz** (`backend/notes.py`, `ALARM_NOTE`): Jede Rolle hat ein Stück, oben steht „TEIL x/3“. Das Stück **sieht** zerrissen aus, aber **kein Satz ist zerteilt**: Jedes Stück trägt eine vollständige Regel – genau die, die sein Spieler **nicht allein anwenden** kann, weil die nötigen Fakten bei den anderen stehen. „Ich kenne die Regel, du kennst die Fakten.“
+- **①** *(Vorderseite)* **Nie** das Kabel am brennenden Platz kappen! Gerade Platznummer → das Kabel **links** daneben, ungerade → **rechts** daneben. *Den brennenden Platz kennt nur der Leitstand.*
+- **②** *(Leitstand)* Shutdown-Code = die Farbfolge vom Monitor, Farbe für Farbe. **Blinkt die LED → rückwärts.** *Welches Symbol auf welcher Farbe klebt, kennt nur die Rückseite.*
+- **③** *(Rückseite)* Ist ein Aufkleber zerkratzt, gilt dort **das Symbol vom Kabel am brennenden Platz** – nicht vom gekappten. *Den Platz kennt der Leitstand, das Symbol dort die Vorderseite.*
+- **Falle** *(Leitstand)*: „Code fängt immer mit ★ an.“ – durchgestrichen, „stimmt nicht!“.
+
+**Lösung (Beispiel):** Platz 3 brennt, LED blinkt, GELB zerkratzt. ① 3 ist ungerade → Kabel von Platz 4. ② blinkt → Farbfolge rückwärts. ③ für GELB gilt das Symbol vom Kabel an Platz 3. Die Leitstand-Tastatur enthält deshalb auch die Kabel-Symbole.
+Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Belohnungsziffer sichtbar für:** Rückseite.
 
 ### Aufgabe 2 — Löschprotokoll (`kind: "fire_protocol"`)
 
@@ -98,9 +103,9 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 
 | Aufgabe | Rolle | `view.type` | Felder |
 |---|---|---|---|
-| 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code-Symbole + Ablenker, pro Aufgabe gemischt), `p_done` |
-| 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done` |
-| 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt) |
+| 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `led: "blinkt" / "leuchtet"`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code- und Kabel-Symbole + Ablenker, pro Aufgabe gemischt), `p_done`, `note` |
+| 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done`, `note` |
+| 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt; zerkratzt: `{symbol: null, color, scratched: true}`), `note` |
 | 2 | MASTER | `fire_log` | `clue: {step, valve, color}`, `fragment: {dots, text}` |
 | 2 | FI-SI | `valve_panel` | `valves`, `colors`, `sequence_len`, `step`, `clue: {step, valve, color}`, `last_fragment` (null bis gelöst, dann `{dots, text}`), `p_done` |
 | 2 | FI-AE | `password_input` | `clue: {step, valve, color}`, `fragment: {dots, text}`, `last_fragment` (null bis gelöst), `p_done` |
@@ -108,6 +113,8 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 3 | FI-SI | `ascii_puzzle` | `ascii_codes`, `ascii_half: {"N":78,…"Z":90}`, `button_unlocked` |
 | 3 | FI-AE | `binary_puzzle` | `binary_codes`, `place_values: [8,4,2,1]`, `button_unlocked` |
 | 4 | alle | `reboot` | `digit: 0..9` (eigene Ziffer), `terminal: true` nur bei MASTER |
+
+**Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
 

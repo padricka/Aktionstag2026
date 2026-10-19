@@ -54,8 +54,9 @@ def _views(dc):
 
 def _loese_alarm(dc):
     st = _state(dc)
-    _input(dc, P1_NAME, "main_switch", st["broken_symbol"])
-    return _input(dc, MASTER_NAME, "shutdown_cmd", ",".join(st["code"]))
+    # Lösung direkt aus dem State (Regeln der Wartungsnotiz: test_taskAlarm.py)
+    _input(dc, P1_NAME, "main_switch", st["target_symbol"])
+    return _input(dc, MASTER_NAME, "shutdown_cmd", ",".join(st["solution"]))
 
 
 def _loese_loeschprotokoll(dc):
