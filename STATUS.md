@@ -7,7 +7,7 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **175** grün · 23 übersprungen · **0 rot** (1 Test in `test_taskLoeschprotokoll` überspringt sich per Zufall) | nach `fix/game-over-nur-einmal` (Docker, Python 3.13) |
+| Backend-Tests | **181** grün · 23 übersprungen · **0 rot** | nach `fix/lobby-platz-freigeben` (Docker, Python 3.13) |
 | Frontend-Tests | **132** grün | `main` @ d86e3a3 (Docker, Node 22) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |
@@ -36,4 +36,4 @@ Die grünen Tests in `test_gameConsumer.py`, `test_redisHandler.py`, `test_dataC
 - **Host-Verwaltung:** `HostManager` kann nur `start()`. Alte Tests übersprungen.
 
 ## Zuletzt erledigt
-`game_over` wird pro Runde nur einmal gesendet (`fix/game-over-nur-einmal`) · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
+Lobby: Spieler ohne Rolle geben beim Verbindungsabbruch ihren Platz frei (`fix/lobby-platz-freigeben`) · PR #2–#9 · Cleanup: toter Frontend-Code, Attrappen `HealthBar`/`SwitchPanel`, Spielzeug-`ChannelConsumer`, Root-/Test-`package.json`, `Spam-Schutz.txt`.
