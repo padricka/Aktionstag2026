@@ -802,3 +802,41 @@ async def test_game_id_is_case_insensitive(env):
     assert env.hexists("game:cov_case:players", "A")
     assert not env.exists("game:COV_CASE:state")
     await comm.disconnect()
+# ---------------------------------------------------------------- game_tick vertragskonform
+TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits"}
+
+
+@pytest.mark.asyncio
+async def test_tick_after_player_input_is_complete(env):
+    """Auch der Tick direkt nach einer Eingabe hat alle Felder (vorher fehlte reboot_digits)."""
+    gid = "cov_tick_input"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        set_button_task(env, gid)
+        env.hset(state_key(gid), "time_left", 77)   # Loop-Ticks (300→…) davon unterscheiden
+        await b.send_json_to({"event": "player_input", "payload": {
+            "action_type": "button_press", "target": "reactor_vent", "value": "open"
+        }})
+        await recv_until(b, "input_result")
+        tick = await recv_until(b, "game_tick", lambda p: p["time_left"] in (76, 77))
+        assert set(tick["payload"]) == TICK_FELDER
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_tick_on_late_connect_is_complete_and_has_kind(env):
+    gid = "cov_tick_late"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        late = await verbinden_ohne_initial(gid)
+        tick = await recv_until(late, "game_tick")
+        assert set(tick["payload"]) == TICK_FELDER
+        assert tick["payload"]["tasks"][0]["kind"] == "alarm"
+        await late.disconnect()
+    finally:
+        await beenden(a, b, c, game_ids=[gid])

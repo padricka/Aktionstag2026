@@ -4,6 +4,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from backend.redis_handler import ROLES
 from backend.hostManager import HostManager
 from backend.multiplayerManager import MultiplayerManager
+from backend.dataCenter import tick_payload
 from backend.gameLoop import announce_game_over, games
 
 # Close-Code, wenn die Sitzungs-ID nicht existiert (4000-4999 = anwendungsspezifisch)
@@ -39,12 +40,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             from backend.dataCenter import DataCenter
             self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
             snap = await asyncio.to_thread(self.data_center.snapshot)
-            await self.send_event("game_tick", {
-                "health": snap["health"],
-                "time_left": snap["time_left"],
-                "tasks": self._tasks_for_me(snap["tasks"]),
-                "reboot_digits": snap.get("reboot_digits", [None, None, None]),
-            }, status="alive")
+            await self._send_own_tick(snap)
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -135,16 +131,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         if result["won"]:
             await announce_game_over(self.data_center, self.game_id, "victory", snap)
             return
-        await self.channel_layer.group_send(self.room_group_name, {
-            "type": "game.tick",
-            "status": "alive",
-            "payload": {
-                "health": snap["health"],
-                "time_left": snap["time_left"],
-                "tasks": snap["tasks"],
-                "reboot_digits": snap["reboot_digits"],
-            },
-        })
+        await self._broadcast_tick(snap)
 
     async def handle_reset_lobby(self):
         game = games.pop(self.game_id, None)
@@ -187,12 +174,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 from backend.dataCenter import DataCenter
                 self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
             snap = await asyncio.to_thread(self.data_center.snapshot)
-            await self.send_event("game_tick", {
-                "health": snap["health"],
-                "time_left": snap["time_left"],
-                "tasks": self._tasks_for_me(snap["tasks"]),
-                "reboot_digits": snap.get("reboot_digits", [None, None, None]),
-            }, status="alive")
+            await self._send_own_tick(snap)
 
     async def handle_choose_role(self, payload):
         if not self.player_name:
@@ -253,15 +235,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         elif snap["health"] <= 0 or self.data_center.status == "game_over":
             await announce_game_over(self.data_center, self.game_id, "meltdown", snap)
         else:
-            await self.channel_layer.group_send(self.room_group_name, {
-                "type": "game.tick",
-                "status": "alive",
-                "payload": {
-                    "health": snap["health"],
-                    "time_left": snap["time_left"],
-                    "tasks": snap["tasks"],
-                },
-            })
+            await self._broadcast_tick(snap)
 
     async def handle_start_game(self):
         payload = await self.lobby.lobby_payload()
@@ -272,6 +246,20 @@ class GameConsumer(AsyncWebsocketConsumer):
         result = await self.host.start(self.game_id)
         if result != "started":
             await self.send_error(f"start failed: {result}")
+
+    async def _send_own_tick(self, snap):
+        """Aktueller Stand nur an diese Verbindung (später Beitritt / Reconnect)."""
+        payload = tick_payload(snap)
+        payload["tasks"] = self._tasks_for_me(payload["tasks"])
+        await self.send_event("game_tick", payload, status="alive")
+
+    async def _broadcast_tick(self, snap):
+        """Sofort-Tick an alle; die Ansichten filtert jede Verbindung in game_tick selbst."""
+        await self.channel_layer.group_send(self.room_group_name, {
+            "type": "game.tick",
+            "status": "alive",
+            "payload": tick_payload(snap),
+        })
 
     def _tasks_for_me(self, tasks):
         out = []

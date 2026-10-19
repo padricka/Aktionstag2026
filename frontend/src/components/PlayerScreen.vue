@@ -176,7 +176,7 @@ const props = defineProps({
 defineEmits(['exit'])
 
 const WS_BASE = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8000/ws/game/`
-const MAX_HP = 300
+const DEFAULT_MAX_HP = 300   // nur bis zum ersten game_tick; danach gilt max_health vom Backend
 const ALL_ROLES = ['MASTER', 'FI-SI', 'FI-AE']
 
 const gameId = ref('')      // so wie eingetippt (Anzeige)
@@ -189,7 +189,8 @@ const myRole = ref(null)
 const lobbyPlayers = ref([])
 const rolesTaken = ref([])
 const status = ref('waiting')
-const hp = ref(MAX_HP)
+const maxHp = ref(DEFAULT_MAX_HP)
+const hp = ref(DEFAULT_MAX_HP)
 const timeLeft = ref(300)
 const task = ref(null)
 const currentTask = ref(1)
@@ -245,7 +246,7 @@ const task3Ascii      = computed(() => task.value?.view?.ascii_codes || [])
 const task3Binary     = computed(() => task.value?.view?.binary_codes || [])
 
 const istSpielVorbei = computed(
-  () => isGameOver.value || hp.value <= 0 || status.value === 'game_over' || status.value === 'won'
+  () => isGameOver.value || status.value === 'game_over' || status.value === 'won'
 )
 
 // Sieg: der Tresor im Finale öffnet sich (Task4Reboot wertet das aus).
@@ -276,6 +277,14 @@ function isTaken(r) {
 
 watch(currentTask, () => { lastError.value = '' })
 
+// Welche Aufgabe läuft, sagt das Backend (task.kind). Hier nur: kind → Komponente.
+const TASK_NUMBER = { alarm: 1, fire_protocol: 2, data_rescue: 3, reboot: 4 }
+
+function taskNumber(t) {
+  return TASK_NUMBER[t?.kind] ?? taskNumberFromView(t?.view?.type)
+}
+
+// Übergang: ältere Payloads/Test-Fixtures ohne kind. Entfernen, sobald alle Ticks kind haben.
 function taskNumberFromView(viewType) {
   switch (viewType) {
     case 'alarm_leds':
@@ -337,7 +346,7 @@ const handleServerMessage = (msg) => {
 
     if (status.value === 'waiting' || status.value === 'ready') {
       if (!isGameOver.value) {
-        hp.value = MAX_HP
+        hp.value = maxHp.value
         timeLeft.value = 300
         lastError.value = ''
       }
@@ -354,16 +363,18 @@ const handleServerMessage = (msg) => {
     timeLeft.value = payload.time_left ?? timeLeft.value
     task.value = payload.tasks?.[0] ?? task.value
 
-    const n = taskNumberFromView(task.value?.view?.type)
+    const n = taskNumber(task.value)
     if (n && n !== currentTask.value) {
       currentTask.value = n
       lastError.value = ''
     }
 
+    if (typeof payload.max_health === 'number') maxHp.value = payload.max_health
+
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
       status.value = 'running'
     }
-    if (hp.value <= 0) { isGameOver.value = true; status.value = 'game_over' }
+    // Spielende entscheidet allein das Backend (game_over), nicht hp <= 0 hier.
   }
 
   if (event === 'input_result') {
@@ -371,7 +382,6 @@ const handleServerMessage = (msg) => {
     if (payload.result === 'wrong') {
       lastError.value = 'Falsche Eingabe'
       if (typeof payload.health === 'number') hp.value = payload.health
-      if (hp.value <= 0) { isGameOver.value = true; status.value = 'game_over' }
     } else {
       lastError.value = ''
     }
@@ -467,7 +477,7 @@ function resetRound() {
   myRole.value = null
   task.value = null
   currentTask.value = 1
-  hp.value = MAX_HP
+  hp.value = maxHp.value
   timeLeft.value = 300
   lastError.value = ''
   inputResultNonce.value = 0
