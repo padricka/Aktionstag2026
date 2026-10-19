@@ -120,6 +120,12 @@ describe('PlayerScreen.vue — Neustart', () => {
     expect(wrapper.find('.phase-lobby').exists()).toBe(true)
   })
 
+  it('„Spiel beenden“ im Spielende führt zurück zum Hauptmenü', async () => {
+    const wrapper = await nachSpielende()
+    await wrapper.find('.end-card .end-exit').trigger('click')
+    expect(wrapper.emitted('exit')).toHaveLength(1)
+  })
+
   it('verbindet sich nach Neustart mit derselben bereinigten ID wie beim Beitreten', async () => {
     // Der Beamer zeigt die ID groß; Spieler tippen sie oft genau so (ggf. mit Leerzeichen)
     const wrapper = mount(PlayerScreen, { props: { playerName: NAME }, global: { stubs } })

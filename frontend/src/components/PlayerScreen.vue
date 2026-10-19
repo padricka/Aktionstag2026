@@ -7,8 +7,10 @@
       :score="gameOverScore"
       :survived-seconds="gameOverSurvived"
       :show-restart="true"
+      :show-exit="true"
       :restarting="restarting"
       @restart="handleRestart"
+      @exit="$emit('exit')"
     />
 
     <!-- Phase 1: Verbinden -->
