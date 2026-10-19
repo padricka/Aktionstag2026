@@ -1,6 +1,8 @@
 /**
- * Calculator — Taschenrechner am rechten Rand, für alle Rollen im Spiel.
- * Zu: nur ein Griff am Rand. Auf: schmale Leiste rechts (die Aufgabe rückt zur Seite).
+ * Calculator — Taschenrechner für alle Rollen im Spiel.
+ * Zu: liegt als kleine Grafik schräg und halb im Bild am rechten Rand (wie auf dem Tisch),
+ * Tasten sind dann nicht bedienbar. Klick: wird hereingezogen (CSS-Übergang), die Aufgabe
+ * rückt zur Seite. „Wegschieben“ oder Esc: zurück an den Rand.
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
@@ -13,15 +15,28 @@ async function tippe(w, ...tasten) {
 }
 
 describe('Calculator.vue', () => {
-  it('ist anfangs zu und öffnet sich über den Griff', async () => {
+  it('liegt anfangs halb im Bild: Grafik sichtbar, Tasten gesperrt', () => {
     const w = mount(Calculator)
-    expect(w.find('.calc-panel').exists()).toBe(false)
+    expect(w.find('.calc').classes()).not.toContain('is-open')
+    expect(w.find('.calc-panel').exists()).toBe(true)              // die Grafik ist immer da
+    expect(w.find('.calc-body').attributes('inert')).toBeDefined()  // aber nicht bedienbar
     expect(griff(w).attributes('aria-expanded')).toBe('false')
+  })
 
+  it('Klick zieht ihn herein und gibt die Tasten frei', async () => {
+    const w = mount(Calculator)
     await griff(w).trigger('click')
-    expect(w.find('.calc-panel').exists()).toBe(true)
-    expect(griff(w).attributes('aria-expanded')).toBe('true')
+    expect(w.find('.calc').classes()).toContain('is-open')
+    expect(w.find('.calc-body').attributes('inert')).toBeUndefined()
+    expect(griff(w).exists()).toBe(false)
     expect(w.emitted('update:open')[0]).toEqual([true])
+  })
+
+  it('„Wegschieben“ legt ihn zurück an den Rand', async () => {
+    const w = mount(Calculator, { props: { open: true } })
+    await w.find('button.calc-close').trigger('click')
+    expect(w.find('.calc').classes()).not.toContain('is-open')
+    expect(w.emitted('update:open').at(-1)).toEqual([false])
   })
 
   it('rechnet 64 + 2 + 1 = 67 und merkt sich die Rechnung', async () => {

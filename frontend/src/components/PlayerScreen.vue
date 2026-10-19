@@ -888,10 +888,11 @@ function onTaskSolved(data) {
 
 /* Platz für den offenen Taschenrechner (rechts, auf dem Handy unten), damit
    die Zahlen der Aufgabe sichtbar bleiben */
-.task-main.with-calc { padding-right: 296px; }
+.task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.task-main.with-calc { padding-right: 280px; }
 
 @media (max-width: 700px) {
-  .task-main.with-calc { padding-right: 16px; padding-bottom: calc(50vh + 16px); overflow-y: auto; }
+  .task-main.with-calc { padding-right: 16px; padding-bottom: 400px; overflow-y: auto; }
 }
 
 @media (max-width: 900px) {

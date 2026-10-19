@@ -1,57 +1,65 @@
 <!--
   Calculator — Taschenrechner für alle Rollen während des Spiels.
 
-  Zu: nur ein schmaler Griff am rechten Rand. Auf: Leiste rechts, die Aufgabe
-  rückt zur Seite (PlayerScreen reserviert den Platz über v-model:open), damit
-  die Zahlen der Aufgabe sichtbar bleiben. Auf dem Handy: unten als Leiste.
+  Zu: liegt als kleine Taschenrechner-Grafik schräg und halb im Bild am rechten
+  Rand, wie auf dem Tisch neben dem Bildschirm. Ein Klick zieht ihn herein (CSS-
+  Übergang), die Aufgabe rückt zur Seite (PlayerScreen reserviert den Platz über
+  v-model:open). „Wegschieben“ oder Esc legt ihn zurück. Auf dem Handy liegt er
+  unten rechts. Die letzten Rechnungen hängen als Papierstreifen oben heraus.
   Gerechnet wird in utils/rechner.js (ohne eval). Tastatur geht, solange der
   Rechner den Fokus hat – Eingabefelder der Aufgaben bleiben unberührt.
 -->
 <template>
   <div class="calc" :class="{ 'is-open': offen }">
-    <button
-      class="calc-handle"
-      type="button"
-      :aria-expanded="offen ? 'true' : 'false'"
-      aria-controls="calc-panel"
-      :title="offen ? 'Rechner schließen' : 'Rechner öffnen'"
-      @click="umschalten"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="5" y="3" width="14" height="18" rx="1.5" />
-        <path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 14h2M12 14h2M8 17h2M12 17h2M16 14v3" />
-      </svg>
-      <span>Rechner</span>
-    </button>
-
     <section
-      v-if="offen"
-      id="calc-panel"
       ref="panel"
       class="calc-panel"
       tabindex="-1"
       aria-label="Taschenrechner"
       @keydown="taste"
     >
-      <div class="calc-display">
-        <span class="calc-expr">{{ ausdruck }}</span>
-        <span class="calc-result" :class="{ 'is-error': ergebnis === 'Fehler' }">{{ ergebnis }}</span>
-      </div>
+      <!-- Zu: der ganze sichtbare Teil ist der Griff -->
+      <button
+        v-if="!offen"
+        class="calc-handle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="calc-body"
+        aria-label="Taschenrechner hervorziehen"
+        title="Taschenrechner"
+        @click="oeffnen"
+      ></button>
 
-      <div class="calc-keys">
-        <button
-          v-for="k in TASTEN"
-          :key="k"
-          class="calc-key"
-          :class="tastenKlasse(k)"
-          type="button"
-          @click="druecke(k)"
-        >{{ k }}</button>
-      </div>
-
-      <ol v-if="verlauf.length" class="calc-history" aria-label="Letzte Rechnungen">
+      <ol v-if="offen && verlauf.length" class="calc-history" aria-label="Letzte Rechnungen">
         <li v-for="(zeile, i) in verlauf" :key="i">{{ zeile }}</li>
       </ol>
+
+      <div class="calc-top" aria-hidden="true">
+        <span class="calc-brand">DRV<b>·</b>CALC</span>
+        <span class="calc-solar"><i></i><i></i><i></i><i></i></span>
+      </div>
+
+      <div id="calc-body" class="calc-body" :inert="offen ? null : true">
+        <div class="calc-display">
+          <span class="calc-expr">{{ ausdruck }}</span>
+          <span class="calc-result" :class="{ 'is-error': ergebnis === 'Fehler' }">{{ ergebnis }}</span>
+        </div>
+
+        <div class="calc-keys">
+          <button
+            v-for="k in TASTEN"
+            :key="k"
+            class="calc-key"
+            :class="tastenKlasse(k)"
+            type="button"
+            @click="druecke(k)"
+          >{{ k }}</button>
+        </div>
+
+        <button class="calc-close" type="button" @click="schliessen">
+          Wegschieben <span aria-hidden="true">›</span>
+        </button>
+      </div>
     </section>
   </div>
 </template>
@@ -78,13 +86,16 @@ let gerechnet = false   // nach "=": Ziffer startet neu, Operator rechnet weiter
 
 watch(() => props.open, (v) => { offen.value = v })
 
-async function umschalten() {
-  offen.value = !offen.value
-  emit('update:open', offen.value)
-  if (offen.value) {
-    await nextTick()
-    panel.value?.focus()
-  }
+async function oeffnen() {
+  offen.value = true
+  emit('update:open', true)
+  await nextTick()
+  panel.value?.focus({ preventScroll: true })
+}
+
+function schliessen() {
+  offen.value = false
+  emit('update:open', false)
 }
 
 function endetMitOperator() {
@@ -155,10 +166,10 @@ function alles() {
 const TASTATUR = { '*': '×', x: '×', '/': '÷', '-': '−', '+': '+', ',': ',', '.': ',', Enter: '=', '=': '=', Backspace: '⌫', Delete: 'C', c: 'C', C: 'C' }
 
 function taste(e) {
+  if (!offen.value) return
   if (e.key === 'Escape') {
     e.preventDefault()
-    offen.value = false
-    emit('update:open', false)
+    schliessen()
     return
   }
   const k = /^[0-9]$/.test(e.key) ? e.key : TASTATUR[e.key]
@@ -178,127 +189,204 @@ function tastenKlasse(k) {
 </script>
 
 <style scoped>
-.calc {
-  --calc-w: 280px;
+/* ------------------------------------------------------------- Lage und Bewegung */
+.calc-panel {
+  --calc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  width: 236px;
+  padding: 14px 14px 10px;
+  box-sizing: border-box;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #3a3f48 0%, #262a31 55%, #1d2026 100%);
+  box-shadow:
+    -6px 22px 34px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -4px 0 rgba(0, 0, 0, 0.45);
+  outline: none;
+  transform-origin: 100% 100%;
+  /* zu: halb über den rechten Rand hinaus, schräg wie auf dem Tisch abgelegt */
+  transform: translateX(62%) translateY(14px) rotate(-14deg);
+  transition: transform 0.6s var(--calc-ease), box-shadow 0.6s var(--calc-ease);
+}
+
+.calc:not(.is-open) .calc-panel:hover {
+  transform: translateX(54%) translateY(8px) rotate(-11deg);
+}
+
+.is-open .calc-panel {
+  transform: none;
+  box-shadow:
+    -10px 26px 44px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -4px 0 rgba(0, 0, 0, 0.45);
 }
 
 .calc-handle {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 40;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: none;
+  border-radius: 18px;
+  background: transparent;
+  cursor: grab;
+}
+
+.calc-handle:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+/* ------------------------------------------------------------------- Gehäuse */
+.calc-top {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 14px 8px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-  border-right: none;
-  color: var(--fg-2);
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.calc-brand {
   font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #c9ced6;
 }
 
-.calc-handle span { writing-mode: vertical-rl; transform: rotate(180deg); }
-.calc-handle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; }
-.calc-handle:hover { color: var(--green); border-color: var(--green-border); }
+.calc-brand b { color: var(--green); }
 
-.is-open .calc-handle { right: var(--calc-w); color: var(--green); }
+.calc-solar {
+  display: grid;
+  grid-template-columns: repeat(4, 14px);
+  gap: 2px;
+  padding: 2px;
+  background: #15171b;
+  border-radius: 3px;
+}
 
-.calc-panel {
-  position: fixed;
-  top: 56px;
-  right: 0;
-  bottom: 16px;
-  width: var(--calc-w);
-  z-index: 40;
+.calc-solar i {
+  display: block;
+  height: 12px;
+  background: linear-gradient(180deg, #4a3a2c, #2c2219);
+}
+
+.calc-body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-2);
-  border-right: none;
-  box-shadow: -12px 0 24px rgba(0, 0, 0, 0.35);
-  outline: none;
-  overflow-y: auto;
+  gap: 10px;
 }
 
-.calc-panel:focus-visible { border-color: var(--green-border); }
-
+/* Display: grünliches LCD */
 .calc-display {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
-  min-height: 78px;
-  padding: 12px 14px;
-  background: var(--bg);
-  border: 1px solid var(--border-2);
+  gap: 2px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #b7c6a0, #a6b78e);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45);
+  color: #1c2818;
   font-family: var(--mono);
   overflow-wrap: anywhere;
-}
-
-.calc-expr { font-size: 16px; color: var(--fg-2); min-height: 20px; text-align: right; }
-.calc-result { font-size: 30px; font-weight: 700; color: var(--green); min-height: 34px; }
-.calc-result.is-error { color: var(--red); font-size: 22px; }
-
-.calc-keys {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
-.calc-key {
-  padding: 14px 0;
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-  color: var(--fg);
-  font-family: var(--mono);
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.calc-key:hover { border-color: var(--border-3); }
-.calc-key:active { transform: translateY(1px); }
-.calc-key.is-op { color: var(--amber); }
-.calc-key.is-fn { color: var(--fg-3); }
-.calc-key.is-eq { background: var(--green-bg); border-color: var(--green-border); color: var(--green); grid-row: span 2; }
-.calc-key.is-wide { grid-column: span 2; }
-
-.calc-history {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--fg-3);
   text-align: right;
 }
 
-.calc-history li:first-child { color: var(--fg-2); }
+.calc-expr { font-size: 13px; min-height: 16px; opacity: 0.75; }
+.calc-result { font-size: 28px; font-weight: 700; min-height: 32px; line-height: 1.1; }
+.calc-result.is-error { color: #8a1c14; font-size: 20px; }
 
-/* Handy: unten als Leiste statt rechts */
+/* Tasten */
+.calc-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+
+.calc-key {
+  padding: 11px 0;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #4a505a, #353a42);
+  box-shadow: 0 3px 0 #15171b, inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  color: #eef1f5;
+  font-family: var(--mono);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.calc-key:active { transform: translateY(3px); box-shadow: 0 0 0 #15171b, inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.calc-key.is-op { background: linear-gradient(180deg, #6a5a3a, #4f4329); color: #ffd27a; }
+.calc-key.is-fn { background: linear-gradient(180deg, #6b3b3b, #4e2a2a); color: #ffc9c4; }
+.calc-key.is-eq {
+  grid-row: span 2;
+  background: linear-gradient(180deg, #2f7a4f, #1f5a39);
+  color: #e6ffef;
+}
+.calc-key.is-wide { grid-column: span 2; }
+
+.calc-close {
+  align-self: center;
+  padding: 4px 10px;
+  border: none;
+  background: none;
+  color: #9aa3ae;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.calc-close:hover { color: var(--green); }
+
+/* Papierstreifen mit den letzten Rechnungen, hängt oben heraus */
+.calc-history {
+  position: absolute;
+  bottom: calc(100% - 6px);
+  left: 26px;
+  right: 26px;
+  z-index: -1;
+  margin: 0;
+  padding: 10px 10px 12px;
+  list-style: none;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 3px;
+  background: #f3eee1;
+  color: #2a2a2a;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.25);
+  /* gezackte Abrisskante oben */
+  clip-path: polygon(0 6px, 6% 0, 12% 6px, 18% 0, 24% 6px, 30% 0, 36% 6px, 42% 0, 48% 6px, 54% 0, 60% 6px, 66% 0, 72% 6px, 78% 0, 84% 6px, 90% 0, 96% 6px, 100% 0, 100% 100%, 0 100%);
+  animation: druck 0.3s ease-out;
+}
+
+.calc-history li { opacity: 0.6; }
+.calc-history li:first-child { opacity: 1; font-weight: 700; }
+
+@keyframes druck {
+  from { transform: translateY(12px); }
+  to { transform: none; }
+}
+
+/* Handy: liegt unten rechts, kommt von unten */
 @media (max-width: 700px) {
   .calc-panel {
-    top: auto;
-    left: 0;
-    width: auto;
-    height: 50vh;
-    bottom: 0;
-    border-right: 1px solid var(--border-2);
-    box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.35);
+    right: 12px;
+    bottom: 12px;
+    transform: translateY(62%) translateX(10%) rotate(-10deg) scale(0.85);
   }
-  .is-open .calc-handle { right: 0; top: auto; bottom: calc(50vh + 8px); transform: none; }
-  .calc-key { padding: 10px 0; }
+  .calc:not(.is-open) .calc-panel:hover { transform: translateY(56%) translateX(10%) rotate(-8deg) scale(0.85); }
+  .is-open .calc-panel { transform: scale(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calc-panel, .calc-key { transition: none; }
+  .calc-history { animation: none; }
 }
 </style>
