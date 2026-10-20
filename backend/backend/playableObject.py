@@ -23,6 +23,8 @@ class Outcome(str, Enum):
 class StepResult:
     outcome: Outcome
     state: dict
+    message: str = ""        # bei WRONG: was falsch war (geht an den Spieler)
+    persist: bool = False    # bei WRONG: Zustand trotzdem speichern (z. B. Schlüssel zurück)
 
 
 def hint(hint_id: str, label: str, text: str, done: bool) -> dict:
@@ -621,45 +623,218 @@ class DataRescueTask(PlayableObject):
         return StepResult(Outcome.IGNORED, state)
 
 
-# --------------------------------------------------------------------------- Reboot
-class RebootTask(PlayableObject):
-    kind = "reboot"
-    instruction = "Server neu starten!"
+# --------------------------------------------------------------------------- Reparatur
+class RepairTask(PlayableObject):
+    kind = "repair"
+    instruction = "Server reparieren und hochfahren!"
 
-    # Finale (GAME_DESIGN.md): Jede Rolle kennt EINE Ziffer des Neustart-Codes,
-    # die Reihenfolge ist die der Aufgaben. Nur der Leitstand hat das Terminal.
-    #   Ziffer 1 (Alarm)          -> Rückseite
-    #   Ziffer 2 (Löschprotokoll) -> Leitstand
-    #   Ziffer 3 (Datenrettung)   -> Vorderseite
-    DIGIT_FOR_ROLE = {ROLE_P2: 0, ROLE_M: 1, ROLE_P1: 2}
+    # Finale (GAME_DESIGN.md): die Teile aus den Fundorten einbauen, dann der
+    # Drei-Schlüssel-Start. Wer was sieht und welche Regel wo steht: test_taskReparatur.py.
+    BAYS = 4
+    FAN_SLOTS = 3
+    PSU_BAYS = 2
+    KEY_ORDER = [(ROLE_P2, "strom"), (ROLE_P1, "kuehlung"), (ROLE_M, "system")]
+    KEY_WINDOW = 5.0   # Sekunden zwischen zwei Schlüsseln
+    PARTS = {
+        "disk": {"name": "Backup-Platte", "role": ROLE_P1},
+        "fan": {"name": "Lüfter", "role": ROLE_P1},
+        "psu": {"name": "Netzteil", "role": ROLE_P2},
+    }
+    ORDER = ["disk", "fan", "psu"]
 
     @classmethod
-    def create(cls, players, digits=None):
-        return {"digits": list(digits or [])}
+    def create(cls, players, parts_spec=None):
+        spec = parts_spec or {}
+        disk_label = (spec.get("disk") or {}).get("label") or f"RAID-Platz {random.randint(1, cls.BAYS)}"
+        psu_label = (spec.get("psu") or {}).get("label") or random.choice(["115 V", "230 V"])
+        disk_bay = int(disk_label.split()[-1])
 
-    @classmethod
-    def views(cls, state):
-        digits = state.get("digits") or []
+        # Schächte: Ziel leer, dazu ein weiterer leerer, einer mit roter LED (defekt), einer belegt
+        andere = [n for n in range(1, cls.BAYS + 1) if n != disk_bay]
+        random.shuffle(andere)
+        bays = ["aus"] * cls.BAYS
+        bays[andere[0] - 1] = "rot"
+        bays[andere[1] - 1] = "gruen"
+
+        gang = random.choice(["Warmgang", "Kaltgang"])   # Schild auf der Rückseite
+        psu_bay = random.randint(1, cls.PSU_BAYS)
+        fuses = ["durch"] * cls.PSU_BAYS
+        fuses[psu_bay - 1] = "ok"
+
         return {
-            role: {
-                "type": "reboot",
-                "digit": digits[idx] if idx < len(digits) else None,
-                "terminal": role == ROLE_M,
-            }
-            for role, idx in cls.DIGIT_FOR_ROLE.items()
+            "labels": {"disk": disk_label, "psu": psu_label, "fan": (spec.get("fan") or {}).get("label", "")},
+            "disk_bay": disk_bay,
+            "bays": bays,
+            "fan_slot": random.randint(1, cls.FAN_SLOTS),
+            "gang": gang,
+            # Luft strömt vom Kaltgang zum Warmgang: hinten Warmgang → Pfeil nach hinten
+            "fan_dir": "hinten" if gang == "Warmgang" else "vorne",
+            "psu_bay": psu_bay,
+            "fuses": fuses,
+            "volt": psu_label.split()[0],
+            "orte": {teil: "kiste" for teil in cls.PARTS},
+            "wartung": [],
+            "keys": [],
         }
 
     @classmethod
+    def _eingebaut(cls, state):
+        return {teil: state["orte"][teil] == "eingebaut" for teil in cls.PARTS}
+
+    @classmethod
+    def _phase(cls, state):
+        return "start" if all(cls._eingebaut(state).values()) else "einbau"
+
+    @classmethod
+    def _hand(cls, state, role):
+        return [{"id": t, "name": cls.PARTS[t]["name"]} for t in cls.ORDER if state["orte"][t] == role]
+
+    @classmethod
+    def views(cls, state):
+        gemeinsam = {
+            "installed": cls._eingebaut(state),
+            "phase": cls._phase(state),
+            "keys": [k["key"] for k in state["keys"]],
+        }
+        return {
+            ROLE_M: {
+                "type": "repair_console",
+                "parts": [
+                    {"id": t, "name": cls.PARTS[t]["name"], "label": state["labels"][t], "ort": state["orte"][t]}
+                    for t in cls.ORDER
+                ],
+                "console": {"bay": cls.BAYS, "fan": cls.FAN_SLOTS, "psu": cls.PSU_BAYS},
+                "wartung": list(state["wartung"]),
+                "note": notes.piece(notes.REPAIR_NOTE, ROLE_M),
+                **gemeinsam,
+            },
+            ROLE_P1: {
+                "type": "repair_front",
+                # eingebaute Platte: ihr Schacht leuchtet jetzt grün
+                "bays": [
+                    {"nr": i + 1, "led": "gruen" if gemeinsam["installed"]["disk"] and i + 1 == state["disk_bay"] else led}
+                    for i, led in enumerate(state["bays"])
+                ],
+                "fan_slots": [{"nr": n, "belegt": n != state["fan_slot"] or gemeinsam["installed"]["fan"]}
+                              for n in range(1, cls.FAN_SLOTS + 1)],
+                "hand": cls._hand(state, ROLE_P1),
+                "note": notes.piece(notes.REPAIR_NOTE, ROLE_P1),
+                **gemeinsam,
+            },
+            ROLE_P2: {
+                "type": "repair_back",
+                "psu_bays": [{"nr": i + 1, "sicherung": f} for i, f in enumerate(state["fuses"])],
+                "gang": state["gang"],
+                "hand": cls._hand(state, ROLE_P2),
+                "note": notes.piece(notes.REPAIR_NOTE, ROLE_P2),
+                **gemeinsam,
+            },
+        }
+
+    @staticmethod
+    def _fehler(state, text, persist=False):
+        return StepResult(Outcome.WRONG, state, message=text, persist=persist)
+
+    @classmethod
     def handle_input(cls, state, player_name, role, data, now):
-        if data.target != "reboot_code" or role != ROLE_M or not state.get("digits"):
+        target = data.target
+        value = str(data.value).strip()
+
+        if role == ROLE_M and target == "give":
+            teil, _, an = value.partition(":")
+            if teil not in cls.PARTS or an not in (ROLE_P1, ROLE_P2) or state["orte"].get(teil) == "eingebaut":
+                return StepResult(Outcome.IGNORED, state)
+            state["orte"][teil] = an
+            return StepResult(Outcome.PROGRESS, state)
+
+        if target == "return" and role in (ROLE_P1, ROLE_P2):
+            if state["orte"].get(value) != role:
+                return StepResult(Outcome.IGNORED, state)
+            state["orte"][value] = "kiste"
+            return StepResult(Outcome.PROGRESS, state)
+
+        if role == ROLE_M and target == "maintenance":
+            art, _, idx = value.partition(":")
+            grenzen = {"bay": cls.BAYS, "fan": cls.FAN_SLOTS, "psu": cls.PSU_BAYS}
+            if art not in grenzen or not idx.isdigit() or int(idx) >= grenzen[art]:
+                return StepResult(Outcome.IGNORED, state)
+            platz = f"{art}:{int(idx)}"
+            if platz in state["wartung"]:
+                state["wartung"].remove(platz)
+            else:
+                state["wartung"].append(platz)
+            return StepResult(Outcome.PROGRESS, state)
+
+        if target in ("install_disk", "install_fan", "install_psu"):
+            return cls._einbau(state, role, target, value)
+
+        if target == "key":
+            return cls._schluessel(state, role, value, now)
+
+        return StepResult(Outcome.IGNORED, state)
+
+    @classmethod
+    def _einbau(cls, state, role, target, value):
+        teil = target.removeprefix("install_")
+        if state["orte"].get(teil) != role:
+            return StepResult(Outcome.IGNORED, state)   # Teil nicht in der Hand
+
+        vorher = cls.ORDER[: cls.ORDER.index(teil)]
+        if any(state["orte"][t] != "eingebaut" for t in vorher):
+            return cls._fehler(state, "Falsche Reihenfolge – erst Platte, dann Lüfter, Netzteil zuletzt.")
+
+        nummer, _, extra = value.partition(":")
+        if not nummer.isdigit():
             return StepResult(Outcome.IGNORED, state)
-        versuch = "".join(str(data.value).split())
-        if versuch != "".join(str(d) for d in state["digits"]):
-            return StepResult(Outcome.WRONG, state)
-        return StepResult(Outcome.SOLVED, state)
+        nummer = int(nummer)
+        art = {"disk": "bay", "fan": "fan", "psu": "psu"}[teil]
+        if f"{art}:{nummer - 1}" not in state["wartung"]:
+            return cls._fehler(state, f"Stromschlag! Platz {nummer} war nicht in Wartung.")
+
+        if teil == "disk":
+            led = state["bays"][nummer - 1] if 1 <= nummer <= cls.BAYS else None
+            if led == "rot":
+                return cls._fehler(state, f"Schacht {nummer} hat eine rote LED – dort ist alles defekt.")
+            if led == "gruen":
+                return cls._fehler(state, f"Schacht {nummer} ist schon belegt.")
+            if nummer != state["disk_bay"]:
+                return cls._fehler(state, "Falscher Schacht – die Nummer steht auf dem Etikett der Platte.")
+        elif teil == "fan":
+            if nummer != state["fan_slot"]:
+                return cls._fehler(state, f"Lüfterplatz {nummer} ist schon belegt.")
+            if extra != state["fan_dir"]:
+                return cls._fehler(state, "Lüfter verkehrt herum – die Luft muss vom Kaltgang zum Warmgang.")
+        else:
+            if not 1 <= nummer <= cls.PSU_BAYS or state["fuses"][nummer - 1] != "ok":
+                return cls._fehler(state, f"Schacht {nummer}: Sicherung durchgebrannt.")
+            if extra != state["volt"]:
+                return cls._fehler(state, "Falsche Spannung – sie steht auf dem Etikett des Netzteils.")
+
+        state["orte"][teil] = "eingebaut"
+        return StepResult(Outcome.PROGRESS, state)
+
+    @classmethod
+    def _schluessel(cls, state, role, value, now):
+        if cls._phase(state) != "start" or (role, value) not in cls.KEY_ORDER:
+            return StepResult(Outcome.IGNORED, state)
+        if state["wartung"]:
+            state["keys"] = []
+            return cls._fehler(state, "Not-Aus: Ein Platz ist noch in Wartung.", persist=True)
+
+        keys = state["keys"]
+        if keys and now - keys[-1]["t"] > cls.KEY_WINDOW:
+            keys = []   # zu langsam: von vorn
+        if (role, value) != cls.KEY_ORDER[len(keys)]:
+            state["keys"] = []
+            return cls._fehler(state, "Falsche Reihenfolge der Schlüssel – alle zurück, von vorn.", persist=True)
+
+        state["keys"] = keys + [{"key": value, "t": now}]
+        if len(state["keys"]) == len(cls.KEY_ORDER):
+            return StepResult(Outcome.SOLVED, state)
+        return StepResult(Outcome.PROGRESS, state)
 
 
 TASK_TYPES = {
     cls.kind: cls
-    for cls in (ButtonTask, AlarmTask, FireProtocolTask, DataRescueTask, RebootTask)
+    for cls in (ButtonTask, AlarmTask, FireProtocolTask, DataRescueTask, RepairTask)
 }

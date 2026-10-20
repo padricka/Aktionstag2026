@@ -65,7 +65,7 @@ def test_each_task_opens_its_place_and_gives_its_part(dc):
 def test_the_finale_gives_no_part(dc):
     for _ in range(3):
         dc.skip_task()
-    assert dc.current_task()["kind"] == "reboot"
+    assert dc.current_task()["kind"] == "repair"
     dc.skip_task()
     assert _ids(dc) == ["psu", "fan", "disk"]
 

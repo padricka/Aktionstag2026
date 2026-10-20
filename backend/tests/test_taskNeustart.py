@@ -12,6 +12,12 @@ import fakeredis
 from unittest.mock import patch
 
 from backend.dataCenter import DataCenter, MISTAKE_DAMAGE
+
+# Das Finale ist seit feat/finale-reparatur „Server reparieren“ (test_taskReparatur.py),
+# den Neustart-Code mit Belohnungsziffern gibt es nicht mehr.
+pytestmark = pytest.mark.skip(
+    reason="veraltet: Finale ist jetzt die Reparatur (feat/finale-reparatur), kein Neustart-Code mehr (TRIAGE.md)"
+)
 from backend.playableObject import (
     DataRescueTask, Outcome, StepResult, ROLE_M, ROLE_P1, ROLE_P2,
 )

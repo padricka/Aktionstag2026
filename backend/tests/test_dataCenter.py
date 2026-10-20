@@ -297,13 +297,13 @@ def test_skip_task_moves_to_next_task_without_score(dev_game):
     assert dev_game.current_task()["kind"] == "fire_protocol"
     assert dev_game.task_points == 0
     assert dev_game.health == dev_game.max_health        # kein HP-Bonus
-    assert dev_game.snapshot()["reboot_digits"][0] is not None   # Ziffer fürs Finale aufgedeckt
+    assert [t["id"] for t in dev_game.snapshot()["parts"]] == ["psu"]   # Teil fürs Finale gefunden
 
 
 def test_skip_all_tasks_wins(dev_game):
     for _ in range(3):
         assert dev_game.skip_task()["won"] is False
-    assert dev_game.current_task()["kind"] == "reboot"
+    assert dev_game.current_task()["kind"] == "repair"
     assert dev_game.skip_task() == {"result": "skipped", "won": True}
     assert dev_game.status == "won"
 
@@ -362,15 +362,15 @@ def test_tick_payload_has_all_contract_fields(data_center):
     from backend.dataCenter import tick_payload
     data_center.start()
     payload = tick_payload(data_center.snapshot())
-    assert set(payload) == {"health", "max_health", "time_left", "tasks", "reboot_digits", "hints", "parts"}
-    assert payload["reboot_digits"] == [None, None, None]
+    assert set(payload) == {"health", "max_health", "time_left", "tasks", "hints", "parts"}
+    assert payload["parts"] == []
 
 
 def test_tick_payload_fills_defaults():
     from backend.dataCenter import tick_payload
     payload = tick_payload({"health": 5, "time_left": 7, "tasks": []})
     assert payload["max_health"] == 300
-    assert payload["reboot_digits"] == [None, None, None]
+    assert payload["parts"] == []
 
 
 # ---------------------------------------------------------------- Eingaben nacheinander

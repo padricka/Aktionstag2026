@@ -74,8 +74,22 @@ def _loese(dc):
         _eingabe(dc, R, "mount_disk", st["serial"])
         _eingabe(dc, V, "terminal_login", st["login"])
         return _eingabe(dc, V, "rescue_word", st["word"])
-    if kind == "reboot":
-        return _eingabe(dc, M, "reboot_code", "".join(str(d) for d in dc.reboot_code))
+    if kind == "repair":
+        # Finale: Teile weitergeben, je Platz Wartung an → einbauen → Wartung aus, drei Schlüssel
+        _eingabe(dc, M, "give", "disk:FI-SI")
+        _eingabe(dc, M, "give", "fan:FI-SI")
+        _eingabe(dc, M, "give", "psu:FI-AE")
+        for platz, wer, ziel, wert in (
+            (f"bay:{st['disk_bay'] - 1}", V, "install_disk", str(st["disk_bay"])),
+            (f"fan:{st['fan_slot'] - 1}", V, "install_fan", f"{st['fan_slot']}:{st['fan_dir']}"),
+            (f"psu:{st['psu_bay'] - 1}", R, "install_psu", f"{st['psu_bay']}:{st['volt']}"),
+        ):
+            _eingabe(dc, M, "maintenance", platz)
+            _eingabe(dc, wer, ziel, wert)
+            _eingabe(dc, M, "maintenance", platz)
+        _eingabe(dc, R, "key", "strom")
+        _eingabe(dc, V, "key", "kuehlung")
+        return _eingabe(dc, M, "key", "system")
     raise AssertionError(kind)
 
 
@@ -125,7 +139,7 @@ def test_mistakes_still_cost_lives(dc):
 
 # ------------------------------------------------------------------ Aufgabenpunkte und ×2
 def test_points_and_limits_per_task():
-    assert TASK_POINTS == {"alarm": 200, "fire_protocol": 250, "data_rescue": 300, "reboot": 0}
+    assert TASK_POINTS == {"alarm": 200, "fire_protocol": 250, "data_rescue": 300, "repair": 0}
     assert FAST_LIMIT == {"alarm": 90, "fire_protocol": 150, "data_rescue": 210}
 
 

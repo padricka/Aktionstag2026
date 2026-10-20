@@ -17,7 +17,7 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 1. **Niemand hat die Lösung, jeder hat ein Teil.** Keine Ansicht enthält genug Information, um eine Aufgabe allein zu lösen.
 2. **Hinweise sind Fundstücke, keine Anleitung.** Sie sehen aus wie Dinge im Serverraum: LED-Leiste, Aufkleber, Logzeile, Notizzettel, Kabelbeschriftung.
 3. **Kombinieren statt Diktieren.** Mindestens eine Aufgabe verlangt Schlussfolgern (z. B. Reihenfolge aus Farben ableiten), nicht nur Weitersagen.
-4. **Die Rätsel hängen zusammen.** Jede gelöste Aufgabe gibt eine Ziffer frei. Am Ende tippen die drei gemeinsam den **Neustart-Code** ein. Das ist der Escape-Moment.
+4. **Die Rätsel hängen zusammen.** Jede gelöste Aufgabe öffnet einen Fundort mit einem Hardware-Teil. Im Finale bauen die drei damit den Server wieder zusammen und fahren ihn mit drei Schlüsseln hoch. Das ist der Escape-Moment.
 5. **Jeder kommt dran.** Über das Spiel verteilt hat jede Rolle Eingaben, keine ist nur Zuschauer.
 
 ## 3. Rollen: drei gleichberechtigte Techniker
@@ -34,7 +34,7 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 
 ## 4. Die Aufgaben
 
-Ablauf: **Alarm → Löschprotokoll → Datenrettung → Neustart**. Danach ist das Spiel gewonnen (`status: "won"`).
+Ablauf: **Alarm → Löschprotokoll → Datenrettung → Reparatur (Finale)**. Danach ist das Spiel gewonnen (`status: "won"`).
 Es gelten: **9 Minuten** Startzeit (`DEFAULT_TIME` = 540 s, per `owner_settings` 60–1800 s). **Der Server brennt:** alle 3 s kostet das Feuer 1 Leben (`FIRE_EVERY`, in 9 Minuten ≈ 180 von 300), falsche Eingabe −60, gelöste Aufgabe +15 (max. 300). Sind die Leben weg oder läuft die Zeit ab (Leben → 0), ist der Server verloren. **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +60 s (`TIME_BONUS`); DEV-Modus: Zeit und Feuer stehen, Überspringen gibt keinen Bonus.
 
 ### Einsatzbesprechung (Intro am Beamer)
@@ -62,7 +62,7 @@ Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung*
 - **Niederlage:** Leben sind 0, Restzeit zählt nicht – es bleiben die Aufgabenpunkte minus Hilfen.
 - DEV-Überspringen gibt keine Aufgabenpunkte.
 
-Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lösen wird sie für das Finale gespeichert und erscheint auf dem Beamer und bei der in der Tabelle genannten Rolle.
+Jede der drei Aufgaben öffnet beim Lösen einen **Fundort** mit einem Teil fürs Finale (siehe „Fundorte und Teilekiste“).
 
 ### Aufgabe 1 — Alarm verifizieren (`kind: "alarm"`)
 
@@ -81,7 +81,7 @@ Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lö
 - **Falle** *(Leitstand)*: „Code fängt immer mit ★ an.“ – durchgestrichen, „stimmt nicht!“.
 
 **Lösung (Beispiel):** Platz 3 brennt, LED blinkt, GELB zerkratzt. ① 3 ist ungerade → Kabel von Platz 4. ② blinkt → Farbfolge rückwärts. ③ für GELB gilt das Symbol vom Kabel an Platz 3. Die Leitstand-Tastatur enthält deshalb auch die Kabel-Symbole.
-Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Belohnungsziffer sichtbar für:** Rückseite.
+Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Fundort:** Ersatzteilschrank → Netzteil.
 
 ### Aufgabe 2 — Löschprotokoll (`kind: "fire_protocol"`)
 
@@ -103,7 +103,7 @@ Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Belohnungsziffer sich
 **Garantiert in jeder Runde:** Wer die Uhrzeiten ohne ③ vergleicht, bekommt die falsche Reihenfolge. Mindestens ein brennendes Rack mit Papier/Kabel steht unter Strom (① Strom-Regel). Ein USV-Akku brennt in etwa jeder zweiten Runde.
 
 **Lösung (Beispiel):** Log: `09:41 BMZ A-02`, `09:44 BMZ [TEST] B-02`, `11:38 RM B-01`, `11:47 RM A-01`. Mit ③: B-01 = 09:38, A-01 = 09:47 UTC → Reihenfolge **B-01, A-02, A-01** (TEST ignoriert). Rückseite: B-01 Kabelbaum, A-02 USV-Akku, A-01 Papierarchiv. Vorderseite: B-01 Strom an, A-01 stromlos. ① → `B-01:CO2`, `A-02:ABSCHOTTEN`, `A-01:WASSER`. Danach drücken Leitstand und Rückseite auf „3, 2, 1“ die Freigabe.
-Falsches Rack/Löschmittel kostet Leben; wer zu spät drückt, wartet nur erneut (der andere muss nochmal). **Belohnungsziffer sichtbar für:** Leitstand.
+Falsches Rack/Löschmittel kostet Leben; wer zu spät drückt, wartet nur erneut (der andere muss nochmal). **Fundort:** Lager → Lüfter.
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
@@ -132,16 +132,24 @@ Falsches Rack/Löschmittel kostet Leben; wer zu spät drückt, wartet nur erneut
 3. Paket-Kopf `KEY-ID 0110` → ④ 6 → ⑤ aktiver Schlüssel mit ID 6 = `0011` → k = 3 (der REVOKED-Zwilling `0111` wäre falsch).
 4. Pakete `0 1010101`, `0 1001000`, `1 1001011`, `1 1010001`, `1 1010111`, `0 1001000` → ③ Paket 3 (5 Einsen) weg → ④ 85, 72, 81, 87, 72 → U H Q W H → ⑥ je 3 zurück → **RENTE**.
 
-Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Belohnungsziffer sichtbar für:** Vorderseite.
+Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Fundort:** Datentresor → Backup-Platte.
 
-### Finale — Neustart (`kind: "reboot"`, neu)
+### Finale — Server reparieren (`kind: "repair"`)
+
+**Geschichte:** Mit den drei Teilen aus den Fundorten wird der Server repariert und hochgefahren. Keine Aufgabenpunkte, keine Hilfen; die Lage wird jede Runde neu ausgelost (`RepairTask`, Tests: `test_taskReparatur.py`).
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | Ziffer aus Aufgabe 2, Neustart-Terminal | Ziffer aus Aufgabe 3 | Ziffer aus Aufgabe 1 |
-| **Eingabe** | `reboot_code`: 3 Ziffern in Aufgabenreihenfolge (1-2-3) | – | – |
+| **Sieht** | **Teilekiste** mit Etiketten (Platte „RAID-Platz n“, Netzteil „115/230 V“, Lüfter) und wo jedes Teil gerade ist · **Management-Konsole** BAY 0–3, FAN 0–2, PSU 0–1 mit Schalter Wartung | 4 Plattenschächte (LED grün = belegt, rot = defekt, aus = leer) · Lüfterwand mit einer Lücke · Teile in der Hand | 2 Netzteilschächte (Sicherung ok/durch) · Gang-Schild an der Rückwand (Warmgang/Kaltgang) · Teile in der Hand |
+| **Zettel** | Einbauanleitung Teil 1/3: ① Reihenfolge + wer was einbaut, ④ Wartung vor jedem Einbau, Konsole zählt ab 0, ⑤ vor dem Hochfahren alle Wartungen aus | Teil 2/3: ② Platte in den Schacht vom Etikett, rote LED = defekt; Lüfterpfeil vom Kaltgang zum Warmgang (Falle: „immer nach vorne“) | Teil 3/3: ③ Netzteil nur in den Schacht mit heiler Sicherung, Spannung vom Etikett; ⑥ Schlüssel Strom → Kühlung → System, je max. 5 s |
+| **Eingabe** | `give` `"disk:FI-SI"` · `maintenance` `"bay:2"` (Umschalter) · `key` `"system"` | `install_disk` `"3"` · `install_fan` `"2:hinten"` · `return` `"psu"` · `key` `"kuehlung"` | `install_psu` `"1:230"` · `return` `"disk"` · `key` `"strom"` |
 
-Jeder kennt **eine** Ziffer, die Reihenfolge ist die der Aufgaben. Richtig → `status: "won"`, der Beamer zeigt den Sieg. Falsch → −60 HP wie überall.
+- **Reihenfolge:** Platte → Lüfter → Netzteil. Jeder Einbau braucht den Platz in der Konsole auf **Wartung** (sonst Stromschlag); die Konsole zählt ab 0 (Schacht 3 = BAY 2).
+- **Lüfter:** Die Luft strömt vom Kaltgang zum Warmgang – das Schild sieht nur die Rückseite, einbauen muss die Vorderseite.
+- **Weitergeben:** Wer ein Teil bekommt, das bei ihm nicht passt, gibt es ohne Strafe zurück (kostet nur Zeit).
+- **Drei-Schlüssel-Start:** Wenn alles eingebaut und keine Wartung mehr an ist. Falsche Reihenfolge oder Wartung noch an → Fehler, alle Schlüssel zurück; mehr als 5 s Pause → von vorn.
+- **Fehler** kosten 60 Leben und `input_result.message` sagt, was falsch war (z. B. „Stromschlag! Platz 3 war nicht in Wartung.“).
+- **Sieg:** dritter Schlüssel → `status: "won"`; auf den Handys „Server fährt hoch“, am Beamer geht das Feuer aus.
 
 ### Fundorte und Teilekiste
 
@@ -188,14 +196,16 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 3 | MASTER | `rescue_log` | `login_hex: ["0x52", …]`, `backups: [{date: "TT.MM.", serial, status: "OK"/"FEHLER"} ×4]`, `keys: [{id, key: "0011", status: "aktiv"/"REVOKED"/"abgelaufen"} ×4]`, `note` |
 | 3 | FI-SI | `rescue_terminal` | `ascii_table: {"A":65,…"Z":90}`, `login_len`, `logged_in`, `word_len: 5`, `note` |
 | 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_id: "0110"` / `packets: ["01010101", …]` (beide null bis eingelegt), `note` |
-| 4 | alle | `reboot` | `digit: 0..9` (eigene Ziffer), `terminal: true` nur bei MASTER |
+| 4 | MASTER | `repair_console` | `parts: [{id, name, label, ort: kiste/FI-SI/FI-AE/eingebaut}]`, `console: {bay: 4, fan: 3, psu: 2}`, `wartung: ["bay:2", …]`, `installed`, `phase: einbau/start`, `keys`, `note` |
+| 4 | FI-SI | `repair_front` | `bays: [{nr, led: gruen/rot/aus}]`, `fan_slots: [{nr, belegt}]`, `hand: [{id, name}]`, `installed`, `phase`, `keys`, `note` |
+| 4 | FI-AE | `repair_back` | `psu_bays: [{nr, sicherung: ok/durch}]`, `gang: Warmgang/Kaltgang`, `hand`, `installed`, `phase`, `keys`, `note` |
 
 **Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
-**Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
+**Beamer:** `game_tick` erhält zusätzlich `parts` (gefundene Teile), damit der Beamer sie neben dem brennenden Server zeigt.
 `game_tick` enthält außerdem `hints: {total, cost, available: [{id, label}], opened: [{id, label, text}]}` – Themen auf dem Abreißblock und abgerissene Zettel der laufenden Aufgabe (Texte nur der abgerissenen).
 
-Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), Finale: `give`, `maintenance`, `install_disk`/`install_fan`/`install_psu`, `return`, `key` (siehe Finale), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

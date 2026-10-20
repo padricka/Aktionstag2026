@@ -185,7 +185,7 @@ export const SLIDES = [
     speaker: 'So läuft der Einsatz',
     text: 'Kurz die Regeln – dann rettet den Server!',
     tutorial: [
-      { icon: '①', text: 'Drei Aufgaben, dann das Finale. Jede gelöste Aufgabe verrät eine Ziffer des Neustart-Codes.' },
+      { icon: '①', text: 'Drei Aufgaben, dann das Finale. Jede gelöste Aufgabe bringt ein Teil – im Finale baut ihr damit den Server wieder zusammen.' },
       { icon: '♥', text: 'Das Feuer frisst laufend Leben, falsche Eingaben noch mehr. Sind die Leben weg oder läuft die Zeit ab, ist der Server verloren.' },
       { icon: '✎', text: 'Eure Notizzettel (wie links) sagen, wie ihr vorgehen müsst: Die Nummern ①②③ geben die Reihenfolge vor, Rechenbeispiele stehen gleich dabei.' },
       { icon: '⌗', text: 'Rechts auf dem Handy liegt ein Taschenrechner – antippen, dann gleitet er herein.' },

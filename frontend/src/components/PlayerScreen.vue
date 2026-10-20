@@ -162,6 +162,7 @@
               :time-left="timeLeft"
               :victory="currentTask === 4 ? sieg : undefined"
               @solved="onTaskSolved"
+              @eingabe="sendeEingabe"
               @task-failed="onTaskFailed"
               @failed="onTaskFailed"
             />
@@ -206,7 +207,9 @@ import Task2Master from './tasks/task2/Task2Master.vue'
 import Task3P1 from './tasks/task3/Task3P1.vue'
 import Task3P2 from './tasks/task3/Task3P2.vue'
 import Task3Master from './tasks/task3/Task3Master.vue'
-import Task4Reboot from './tasks/task4/Task4Reboot.vue'
+import Task4Leitstand from './tasks/task4/Task4Leitstand.vue'
+import Task4Vorderseite from './tasks/task4/Task4Vorderseite.vue'
+import Task4Rueckseite from './tasks/task4/Task4Rueckseite.vue'
 
 const props = defineProps({
   playerName: { type: String, default: '' }
@@ -270,15 +273,15 @@ const normalizedRole = computed(() => {
 const currentTaskComponent = computed(() => {
   if (!myRole.value) return null
   if (myRole.value === 'MASTER') {
-    const masterMap = { 1: Task1Master, 2: Task2Master, 3: Task3Master, 4: Task4Reboot }
+    const masterMap = { 1: Task1Master, 2: Task2Master, 3: Task3Master, 4: Task4Leitstand }
     return masterMap[currentTask.value] || null
   }
-  // Finale: alle Rollen sehen dieselbe Komponente, jeder seine eigene Ziffer.
+  // Finale (Reparatur): jede Rolle hat ihre eigene Ansicht
   const playerMap = {
     '1-P1': Task1P1, '1-P2': Task1P2,
     '2-P1': Task2P1, '2-P2': Task2P2,
     '3-P1': Task3P1, '3-P2': Task3P2,
-    '4-P1': Task4Reboot, '4-P2': Task4Reboot,
+    '4-P1': Task4Vorderseite, '4-P2': Task4Rueckseite,
   }
   return playerMap[`${currentTask.value}-${normalizedRole.value}`] || null
 })
@@ -346,7 +349,7 @@ function isTaken(r) {
 watch(currentTask, () => { lastError.value = '' })
 
 // Welche Aufgabe läuft, sagt das Backend (task.kind). Hier nur: kind → Komponente.
-const TASK_NUMBER = { alarm: 1, fire_protocol: 2, data_rescue: 3, reboot: 4 }
+const TASK_NUMBER = { alarm: 1, fire_protocol: 2, data_rescue: 3, repair: 4 }
 
 function taskNumber(t) {
   return TASK_NUMBER[t?.kind] ?? taskNumberFromView(t?.view?.type)
@@ -370,7 +373,9 @@ function taskNumberFromView(viewType) {
     case 'task3_master':
     case 'task3_p1':
     case 'task3_p2':          return 3
-    case 'reboot':            return 4
+    case 'repair_console':
+    case 'repair_front':
+    case 'repair_back':       return 4
     default:                  return null
   }
 }
@@ -468,7 +473,8 @@ const handleServerMessage = (msg) => {
     // Fehler zuerst setzen, dann Nonce — Tasks können beides auswerten.
     // Auch "error"/"ignored" melden, sonst bleibt der Knopf der Aufgabe auf „Prüfe …“ stehen.
     if (payload.result === 'wrong') {
-      lastError.value = 'Falsche Eingabe'
+      // was falsch war, sagt der Server (z. B. „Stromschlag!“), sonst allgemein
+      lastError.value = payload.message || 'Falsche Eingabe'
       if (typeof payload.health === 'number') hp.value = payload.health
     } else if (payload.result === 'error') {
       lastError.value = 'Nicht angekommen – bitte erneut versuchen'
@@ -622,6 +628,12 @@ function onTaskFailed() {
   sendEvent('player_input', { action_type: 'button_press', target: 'penalty', value: 'wrong' })
 }
 
+// Finale: die Ansichten melden jede Handlung direkt (Teil geben, Wartung, Einbau, Schlüssel)
+function sendeEingabe({ target, value }) {
+  lastError.value = ''
+  sendEvent('player_input', { action_type: 'button_press', target, value: String(value) })
+}
+
 function onTaskSolved(data) {
   let payloadData = {}
 
@@ -652,10 +664,6 @@ function onTaskSolved(data) {
       const target = data?.target === 'terminal_login' ? 'terminal_login' : 'rescue_word'
       payloadData = { action_type: 'text_input', target, value: data?.answer || '' }
     }
-  } else if (currentTask.value === 4) {
-    // Finale: nur der Leitstand hat das Terminal (reboot_code), die anderen sagen ihre Ziffer an.
-    if (myRole.value !== 'MASTER') return
-    payloadData = { action_type: 'text_input', target: 'reboot_code', value: String(data?.value ?? '') }
   }
 
   lastError.value = ''

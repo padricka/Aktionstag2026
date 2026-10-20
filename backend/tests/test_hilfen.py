@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 from backend.dataCenter import DataCenter, HINT_COST, tick_payload
 from backend.playableObject import (
-    AlarmTask, FireProtocolTask, DataRescueTask, RebootTask, ROLE_M, ROLE_P1, ROLE_P2,
+    AlarmTask, FireProtocolTask, DataRescueTask, RepairTask, ROLE_M, ROLE_P1, ROLE_P2,
 )
 
 GAME = "hilfe_session"
@@ -68,8 +68,8 @@ def test_each_task_has_its_topics(cls, ids):
 
 
 def test_finale_has_no_hints():
-    assert RebootTask.HINTS == 0
-    assert RebootTask.hints(RebootTask.create({}, digits=[1, 2, 3])) == []
+    assert RepairTask.HINTS == 0
+    assert RepairTask.hints(RepairTask.create({})) == []
 
 
 def test_alarm_hints_fit_the_round_and_know_what_is_done():
@@ -230,7 +230,7 @@ def test_finale_offers_no_hints(dc):
     dc.redis.r.hset(dc._key, "dev_mode", "1")
     for _ in range(3):
         dc.skip_task()
-    assert dc.current_task()["kind"] == "reboot"
+    assert dc.current_task()["kind"] == "repair"
     assert _hints(dc) == {"total": 0, "available": [], "opened": [], "cost": HINT_COST}
     assert dc.open_hint("cable")["result"] == "error"
 

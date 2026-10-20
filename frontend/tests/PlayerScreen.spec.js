@@ -35,6 +35,16 @@ const rebootStub = {
   `,
 }
 
+// Finale (Reparatur): alle drei Ansichten melden über `eingabe` { target, value }.
+const finaleStub = {
+  name: 'Task4FinaleStub',
+  template: `
+    <div class="finale-stub">
+      <button class="finale-stub-eingabe" @click="$emit('eingabe', { target: 'key', value: 'system' })">key</button>
+    </div>
+  `,
+}
+
 // Aufgabe 3: Platte (Rückseite), Login und Wort (Vorderseite) melden über `solved`.
 const datenrettungStub = {
   name: 'Task3Stub',
@@ -69,6 +79,9 @@ const stubs = {
   Task3P2: datenrettungStub,
   Task3Master: datenrettungStub,
   Task4Reboot: rebootStub,
+  Task4Leitstand: finaleStub,
+  Task4Vorderseite: finaleStub,
+  Task4Rueckseite: finaleStub,
 }
 
 async function joinAs(wrapper, id = 'abcd') {
@@ -396,7 +409,8 @@ describe('PlayerScreen.vue', () => {
     expect(wrapper.find('button.calc-handle').exists()).toBe(false)
   })
 
-  it('sendet beim Finale (Aufgabe 4) reboot_code vom Leitstand', async () => {
+  it.skip('sendet beim Finale (Aufgabe 4) reboot_code vom Leitstand', async () => {
+    // veraltet: Finale ist jetzt die Reparatur (feat/finale-reparatur), kein reboot_code (TRIAGE.md)
     const wrapper = mount(PlayerScreen, {
       props: { playerName: 'Patrick' },
       global: { stubs },
@@ -505,7 +519,8 @@ describe('PlayerScreen.vue', () => {
     },
   )
 
-  it('zeigt das Finale auch der Vorderseite, ohne reboot_code zu senden', async () => {
+  it.skip('zeigt das Finale auch der Vorderseite, ohne reboot_code zu senden', async () => {
+    // veraltet: Finale ist jetzt die Reparatur (feat/finale-reparatur), kein reboot_code (TRIAGE.md)
     const wrapper = mount(PlayerScreen, {
       props: { playerName: 'Patrick' },
       global: { stubs },
@@ -575,6 +590,39 @@ describe('PlayerScreen.vue', () => {
     expect(namen).toEqual(['Anna', 'Bene', 'wartet'])
   })
 
+  describe('Finale: Server reparieren (feat/finale-reparatur)', () => {
+    async function imFinale(rolle) {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: rolle } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: rolle }], status: 'running', ready_to_start: true } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 200, tasks: [{ task_id: 't4', kind: 'repair', view: { type: 'repair_console' } }] } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it.each(['MASTER', 'FI-SI', 'FI-AE'])('%s sieht seine Finale-Ansicht', async (rolle) => {
+      expect((await imFinale(rolle)).find('.finale-stub').exists()).toBe(true)
+    })
+
+    it('Eingaben der Ansicht gehen als player_input an den Server', async () => {
+      const wrapper = await imFinale('MASTER')
+      await wrapper.find('.finale-stub-eingabe').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({
+        event: 'player_input',
+        payload: { action_type: 'button_press', target: 'key', value: 'system' },
+      })
+    })
+
+    it('zeigt, was falsch war (Meldung aus input_result)', async () => {
+      const wrapper = await imFinale('FI-SI')
+      simulateMessage({ event: 'input_result', payload: { result: 'wrong', message: 'Stromschlag! Platz 3 war nicht in Wartung.' } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.findComponent({ name: 'Task4FinaleStub' }).attributes('server-error'))
+        .toBe('Stromschlag! Platz 3 war nicht in Wartung.')
+    })
+  })
+
   describe('Fundorte und Teilekiste (feat/fundorte)', () => {
     const NETZTEIL = { id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' }
 
@@ -634,22 +682,22 @@ describe('PlayerScreen.vue', () => {
       expect(kennung()).toBe(id)
     })
 
-    it('Sieg im Finale: erst geht der Tresor auf, dann kommt das Ergebnis', async () => {
+    it('Sieg im Finale: erst fährt der Server hoch, dann kommt das Ergebnis', async () => {
       const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
       await joinAs(wrapper)
       simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
       simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'running', ready_to_start: true } })
-      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 100, tasks: [{ task_id: 't4', kind: 'reboot', view: {} }] } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 100, tasks: [{ task_id: 't4', kind: 'repair', view: {} }] } })
       await wrapper.vm.$nextTick()
-      expect(wrapper.find('.reboot-stub').exists()).toBe(true)
+      expect(wrapper.find('.finale-stub').exists()).toBe(true)
 
       vi.useFakeTimers()
       simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 900, survived_seconds: 200 } })
       simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'won', ready_to_start: true } })
       await wrapper.vm.$nextTick()
-      // Tresor bleibt sichtbar und bekommt victory = true
-      expect(wrapper.find('.reboot-stub').exists()).toBe(true)
-      expect(wrapper.findComponent({ name: 'Task4RebootStub' }).attributes('victory')).toBe('true')
+      // Finale bleibt sichtbar und bekommt victory = true („Server fährt hoch“)
+      expect(wrapper.find('.finale-stub').exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'Task4FinaleStub' }).attributes('victory')).toBe('true')
       expect(wrapper.find('.end').exists()).toBe(false)
 
       vi.advanceTimersByTime(2500)
@@ -664,7 +712,7 @@ describe('PlayerScreen.vue', () => {
       await joinAs(wrapper)
       simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
       simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'running', ready_to_start: true } })
-      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 1, tasks: [{ task_id: 't4', kind: 'reboot', view: {} }] } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 1, tasks: [{ task_id: 't4', kind: 'repair', view: {} }] } })
       simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 0, survived_seconds: 300 } })
       await wrapper.vm.$nextTick()
       expect(wrapper.find('.end').exists()).toBe(true)
