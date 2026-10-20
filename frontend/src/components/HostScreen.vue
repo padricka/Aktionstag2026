@@ -63,23 +63,21 @@
             </div>
             <p v-if="devError" class="dev-error">{{ devError }}</p>
 
+            <!-- feste Plätze je Rolle (Leitstand, Vorderseite, Rückseite), egal wer zuerst kam -->
             <div class="slots">
               <div
-                v-for="i in 3"
-                :key="i"
+                v-for="s in rollenPlaetze"
+                :key="s.role"
                 class="slot"
-                :class="{ filled: playerList[i - 1] }"
+                :class="{ filled: s.spieler }"
               >
-                <span class="slot-name">
-                  {{ playerList[i - 1] ? playerList[i - 1].name : 'wartet' }}
-                </span>
-                <span class="slot-role">
-                  {{ playerList[i - 1] && playerList[i - 1].role
-                      ? roleLabel(playerList[i - 1].role)
-                      : '–' }}
-                </span>
+                <span class="slot-name">{{ s.spieler ? s.spieler.name : 'wartet' }}</span>
+                <span class="slot-role">{{ roleLabel(s.role) }}</span>
               </div>
             </div>
+            <p v-if="ohneRolle.length" class="slot-pending">
+              Wählt noch eine Rolle: {{ ohneRolle.map((p) => p.name).join(', ') }}
+            </p>
 
             <p class="lobby-count">{{ playerList.length }} / 3</p>
 
@@ -165,10 +163,16 @@ const hintError = ref('')
 const restarting = ref(false)   // Neustart vom Beamer gesendet, wartet auf lobby_update
 const status = ref('waiting')
 const playerList = ref([])
+const ROLLEN = ['MASTER', 'FI-SI', 'FI-AE']
+const rollenPlaetze = computed(() =>
+  ROLLEN.map((role) => ({ role, spieler: playerList.value.find((p) => p.role === role) || null }))
+)
+const ohneRolle = computed(() => playerList.value.filter((p) => !p.role))
 const readyToStart = ref(false)
 const maxHp = ref(300)   // bis zum ersten game_tick; danach max_health vom Backend
 const hp = ref(300)
-const timeLeft = ref(300)
+const START_ZEIT = 540   // bis zum ersten game_tick (Backend: DEFAULT_TIME)
+const timeLeft = ref(START_ZEIT)
 const rebootDigits = ref([null, null, null])
 
 const isGameOver = ref(false)
@@ -252,7 +256,7 @@ function handleMessage(msg) {
     devMode.value = !!payload.dev_mode
     if (status.value === 'waiting' || status.value === 'ready') {
       hp.value = maxHp.value
-      timeLeft.value = 300
+      timeLeft.value = START_ZEIT
       rebootDigits.value = [null, null, null]
       isGameOver.value = false
       gameOverResult.value = 'meltdown'
@@ -630,6 +634,13 @@ onMounted(async () => {
   font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--green);
+}
+
+.slot-pending {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--fg-2);
+  margin: 0;
 }
 
 .lobby-count {

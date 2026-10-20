@@ -100,7 +100,7 @@
           <p class="wait-sub">{{ lobbyPlayers.length }} / 3 verbunden</p>
 
           <ul class="wait-list">
-            <li v-for="p in lobbyPlayers" :key="p.name" class="wait-item">
+            <li v-for="p in lobbySortiert" :key="p.name" class="wait-item">
               <span class="wait-name">{{ p.name }}</span>
               <span class="wait-role">{{ p.role ? roleLabel(p.role) : '–' }}</span>
             </li>
@@ -213,7 +213,8 @@ const rolesTaken = ref([])
 const status = ref('waiting')
 const maxHp = ref(DEFAULT_MAX_HP)
 const hp = ref(DEFAULT_MAX_HP)
-const timeLeft = ref(300)
+const START_ZEIT = 540   // bis zum ersten game_tick (Backend: DEFAULT_TIME)
+const timeLeft = ref(START_ZEIT)
 const task = ref(null)
 const currentTask = ref(1)
 const isGameOver = ref(false)
@@ -234,6 +235,11 @@ const rechnerOffen = ref(false)     // Taschenrechner offen → Aufgabe rückt z
 const inputResultNonce = ref(0)   // ← wird bei jedem Server-input_result inkrementiert
 
 const allRoles = ALL_ROLES
+// Warteliste in Rollen-Reihenfolge (Leitstand, Vorderseite, Rückseite), ohne Rolle zuletzt
+const lobbySortiert = computed(() => {
+  const rang = (p) => (p.role ? ALL_ROLES.indexOf(p.role) : ALL_ROLES.length)
+  return [...lobbyPlayers.value].sort((a, b) => rang(a) - rang(b))
+})
 
 const normalizedRole = computed(() => {
   if (myRole.value === 'FI-SI') return 'P1'
@@ -401,7 +407,7 @@ const handleServerMessage = (msg) => {
     if (status.value === 'waiting' || status.value === 'ready') {
       if (!isGameOver.value) {
         hp.value = maxHp.value
-        timeLeft.value = 300
+        timeLeft.value = START_ZEIT
         lastError.value = ''
       }
     }
@@ -576,7 +582,7 @@ function resetRound() {
   task.value = null
   currentTask.value = 1
   hp.value = maxHp.value
-  timeLeft.value = 300
+  timeLeft.value = START_ZEIT
   lastError.value = ''
   inputResultNonce.value = 0
 }

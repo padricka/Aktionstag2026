@@ -9,9 +9,10 @@ from .playableObject import TASK_TYPES, Outcome
 
 MAX_HEALTH = 300
 HEALTH_BONUS = 15
-# Sekunden extra pro echt gelöster Aufgabe (nicht beim DEV-Überspringen):
-# die Rätsel brauchen Absprache, 5 Minuten für alles wären zu knapp
-TIME_BONUS = 90
+# Sekunden extra pro echt gelöster Aufgabe (nicht beim DEV-Überspringen)
+TIME_BONUS = 60
+# Der Server brennt: alle FIRE_EVERY Sekunden kostet das Feuer ein Leben (DEV: steht)
+FIRE_EVERY = 3
 
 # Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
 INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
@@ -203,6 +204,7 @@ class DataCenter:
             "score": 0,
             "hint_penalty": 0,
             "solved_count": 0,
+            "fire_seconds": 0,
             "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
             "reboot_revealed": json.dumps([]),
         })
@@ -223,7 +225,8 @@ class DataCenter:
         return _s(self.redis.r.hget(self._key, "dev_mode")) == "1"
 
     def tick(self) -> dict:
-        """Eine Sekunde: nur die Zeit läuft. Ist sie abgelaufen, fallen die Leben auf 0.
+        """Eine Sekunde: die Zeit läuft, und alle FIRE_EVERY Sekunden frisst das Feuer ein
+        Leben. Ist die Zeit abgelaufen oder sind die Leben weg, ist der Server verloren.
 
         Nur für eine laufende Runde und unter der Eingabe-Sperre: so überschreibt ein Tick
         weder einen Sieg in der letzten Sekunde noch eine zurückgesetzte Lobby, und ein
@@ -234,6 +237,8 @@ class DataCenter:
             if acquired and self.status == "running":
                 if self.redis.r.hincrby(self._key, "time_left", -1) <= 0:
                     self.redis.r.hset(self._key, mapping={"time_left": 0, "health": 0, "status": "game_over"})
+                elif self.redis.r.hincrby(self._key, "fire_seconds", 1) % FIRE_EVERY == 0:
+                    self.apply_tick(1)
         return self.snapshot()
 
     def finish(self):

@@ -4,6 +4,7 @@ import pytest
 import fakeredis
 from unittest.mock import patch
 from backend.dataCenter import DataCenter
+from backend.redis_handler import DEFAULT_TIME
 from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
 
 GAME = "test_session"
@@ -94,12 +95,15 @@ def test_health_over_zero(data_center):
 
 
 # ---------------------------------------------------------------- Start + Tick
-def test_tick_costs_time_not_health(data_center):
-    """Neue Punktevergabe: Leben sinken nur durch Fehler, nicht mit der Zeit."""
+def test_tick_costs_time_and_the_fire_takes_lives(data_center):
+    """feat/zeit-und-feuer: der Server brennt – jede Sekunde Zeit, alle FIRE_EVERY s ein Leben."""
+    from backend.dataCenter import FIRE_EVERY
     data_center.start()
     data_center.tick()
-    assert data_center.health == data_center.max_health
-    assert data_center.time_left == 299
+    assert data_center.time_left == DEFAULT_TIME - 1
+    for _ in range(FIRE_EVERY - 1):
+        data_center.tick()
+    assert data_center.health == data_center.max_health - 1
 
 
 def test_tick_snapshot_matches_contract(button_game):
@@ -110,7 +114,7 @@ def test_tick_snapshot_matches_contract(button_game):
     snap = button_game.tick()
 
     assert {"health", "time_left", "tasks"} <= set(snap)
-    assert snap["time_left"] == 299
+    assert snap["time_left"] == DEFAULT_TIME - 1
     assert set(snap["tasks"][0]) == {"task_id", "kind", "assigned_to_player", "instruction"}
 
 
@@ -264,7 +268,7 @@ def dev_game(data_center):
 def test_dev_mode_tick_freezes_time_and_health(dev_game):
     snap = dev_game.tick()
     assert snap["health"] == dev_game.max_health
-    assert snap["time_left"] == 300
+    assert snap["time_left"] == DEFAULT_TIME
     assert dev_game.status == "running"
 
 
@@ -283,7 +287,7 @@ def test_without_dev_mode_time_runs_and_mistake_hurts(data_center):
     data_center.tick()
     _druecke(data_center, "penalty", "wrong")
     assert data_center.health == data_center.max_health - 60
-    assert data_center.time_left == 299
+    assert data_center.time_left == DEFAULT_TIME - 1
 
 
 def test_skip_task_moves_to_next_task_without_score(dev_game):
