@@ -21,10 +21,12 @@ Doch es gibt ein Problem:
 
 | Rolle | Sicht |
 |---|---|
-|**Host**| Zeigt den Spielstand auf dem Beamer, *spielt nicht mit* |
-|**Master** | Spielt mit und hat das Manual mit den Guides für Spieler 1 und 2. Die beiden beschreiben ihm, was sie sehen, und er sagt ihnen anhand des Manuals, was sie tun müssen |
-|**Spieler 1** | Vorderseite des Servers mit eigenen Aufgaben (keine Anleitung), beschreibt dem Master, was er sieht |
-|**Spieler 2** | Rückseite des Servers mit eigenen Aufgaben (keine Anleitung), beschreibt dem Master, was er sieht |
+|**Host**| Zeigt den Spielstand auf dem Beamer, *spielt nicht mit*: Einsatzbesprechung vor dem Start, Zeit, Leben, Neustart-Code und die Hilfe-Notizen |
+|**Master** (Leitstand) | Sitzt im Kontrollraum: Monitore, Logs, Terminal |
+|**Spieler 1** (Vorderseite) | Steht vor dem Server-Rack: Steckplätze, Schalter, Ventile |
+|**Spieler 2** (Rückseite) | Steht hinter dem Server-Rack: Kabel, Aufkleber, Backup-Platten |
+
+Es gibt kein Handbuch: Jede Rolle hat ein Stück einer zerrissenen Notiz mit Regeln, die sie allein nicht anwenden kann – die nötigen Fakten sehen die anderen. Details: `GAME_DESIGN.md`.
 
 Dadurch müssen die Spieler ständig miteinander kommunizieren, Informationen weitergeben und gemeinsam Entscheidungen treffen.
 
@@ -36,9 +38,11 @@ Nur wenn das Team schnell und effektiv zusammenarbeitet, kann der Server gerette
 
 ## Die drei Aufgaben
 
-1. **Alarm verifizieren:** Der Master findet die defekte Komponente und erfährt ihre Seriennummer. Spieler 1 betätigt den richtigen Hauptschalter, Spieler 2 tippt den Shutdown-Befehl mit der Seriennummer ein.
+1. **Alarm verifizieren:** Der Master sieht, welcher Steckplatz brennt, ob die LED blinkt oder leuchtet, und die Farbfolge. Spieler 1 sieht die Kabel mit Symbolen und kappt das richtige – nie das am brennenden Platz. Spieler 2 sieht, welches Symbol auf welcher Farbe klebt (manchmal ist ein Aufkleber zerkratzt). Mit der dreigeteilten Wartungsnotiz tippt der Master den Shutdown-Code.
 2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (mit Zeitzonen und Probealarm), Spieler 1 sieht den Strom an den Racks und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
 3. **Datenrettung:** Spieler 2 legt die richtige Backup-Platte ein und liest danach die Datenpakete vor (binär, eins beschädigt). Spieler 1 meldet sich mit einem Hex-codierten Namen am Backup-Terminal an und hat die ASCII-Tabelle. Der Master hat das Log mit Backups und Schlüsselbund. Mit der dreigeteilten Anleitung (mit Rechenbeispielen) entschlüsseln sie das Wort RENTE.
+
+**Finale – Neustart:** Jede gelöste Aufgabe deckt eine Ziffer des Neustart-Codes auf, jede Rolle kennt eine. Der Master tippt die drei Ziffern in Aufgabenreihenfolge – dann öffnet sich der Tresor.
 
 ---
 
