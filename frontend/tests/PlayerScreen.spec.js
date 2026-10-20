@@ -248,6 +248,17 @@ describe('PlayerScreen.vue', () => {
     expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
   })
 
+  it('zeigt während der Einsatzbesprechung „schaut auf den Beamer“ statt des Start-Knopfs', async () => {
+    const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+    simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'briefing', ready_to_start: true } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.briefing-note').text()).toContain('Einsatzbesprechung')
+    expect(wrapper.find('.start-btn').exists()).toBe(false)
+  })
+
   it('zeigt Task-UI und HP nach game_tick', async () => {
     const wrapper = mount(PlayerScreen, {
       props: { playerName: 'Patrick' },

@@ -44,6 +44,8 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        if self.is_host:
+            await asyncio.to_thread(self.lobby.redis.change_hosts_online, self.game_id, -1)
         # Wer noch keine Rolle hat, blockiert sonst einen der 3 Plätze (z. B. Tab geschlossen)
         if self.player_name and not self.role:
             if await self.lobby.release_player(self.player_name, self.channel_name):
@@ -96,6 +98,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error(f"unknown event: {event}")
 
     async def handle_host_register(self):
+        if not self.is_host:
+            await asyncio.to_thread(self.lobby.redis.change_hosts_online, self.game_id, 1)
         self.is_host = True
         payload = await self.lobby.lobby_payload()
         await self.send_event("lobby_update", payload)
@@ -259,6 +263,17 @@ class GameConsumer(AsyncWebsocketConsumer):
         if not payload.get("ready_to_start"):
             await self.send_error(f"Es werden {len(ROLES)} Spieler mit Rollen benötigt")
             return
+
+        # Mit Beamer: erst die Einsatzbesprechung (Intro), der Host startet danach.
+        # Ohne Beamer (oder vom Host selbst) startet das Spiel sofort.
+        if not self.is_host and payload["status"] in ("ready", "briefing"):
+            beamer = await asyncio.to_thread(self.lobby.redis.hosts_online, self.game_id)
+            if beamer:
+                if await asyncio.to_thread(self.lobby.redis.begin_briefing, self.game_id):
+                    await self.channel_layer.group_send(self.room_group_name, {
+                        "type": "lobby_update", "payload": await self.lobby.lobby_payload(),
+                    })
+                return
 
         result = await self.host.start(self.game_id)
         if result != "started":

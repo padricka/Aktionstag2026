@@ -102,7 +102,13 @@
           </li>
         </ul>
 
+        <!-- Einsatzbesprechung am Beamer: gestartet wird dort -->
+        <div v-if="status === 'briefing'" class="briefing-note">
+          <span class="briefing-title">Einsatzbesprechung läuft</span>
+          <span class="briefing-sub">Schaut auf den Beamer – gleich geht's los.</span>
+        </div>
         <button
+          v-else
           class="start-btn"
           :disabled="!readyToStart || starting"
           @click="startGame"
@@ -823,6 +829,27 @@ function onTaskSolved(data) {
   color: var(--green);
   font-size: 12px;
   letter-spacing: 0.1em;
+}
+
+.briefing-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 28px;
+  border: 1px solid var(--green-border);
+  background: var(--green-bg);
+  text-align: center;
+  animation: briefing-puls 1.6s ease-in-out infinite;
+}
+
+.briefing-title { font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.12em; color: var(--green); }
+.briefing-sub { font-size: 14px; color: var(--fg-2); }
+
+@keyframes briefing-puls { 50% { border-color: var(--green); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .briefing-note { animation: none; }
 }
 
 .start-btn {

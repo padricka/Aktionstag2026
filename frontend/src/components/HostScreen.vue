@@ -14,6 +14,9 @@
       @exit="$emit('exit')"
     />
 
+    <!-- Einsatzbesprechung: Story + Tutorial, erst danach startet das Spiel -->
+    <IntroStory v-else-if="status === 'briefing'" class="host-intro" @start="introFertig" />
+
     <template v-else>
 
       <header class="host-top">
@@ -71,7 +74,7 @@
 
         <p class="lobby-note">
           {{ readyToStart
-              ? 'Alle Rollen besetzt — Spiel kann gestartet werden.'
+              ? 'Alle Rollen besetzt — ein Spieler startet die Runde, dann folgt hier die Einsatzbesprechung.'
               : 'Warte auf Spieler (gleiche ID) und Rollenwahl …' }}
         </p>
       </section>
@@ -132,6 +135,7 @@ import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import VaultDoor from './VaultDoor.vue'
 import HintBoard from './HintBoard.vue'
+import IntroStory from './IntroStory.vue'
 
 defineEmits(['exit'])
 
@@ -277,6 +281,11 @@ function toggleDevMode() {
   sendEvent('dev_mode', { enabled: !devMode.value })
 }
 
+// Intro durchgeklickt: jetzt startet das Spiel (und die Zeit)
+function introFertig() {
+  sendEvent('start_game', {})
+}
+
 // Hilfe-Notiz: Host reißt den Zettel zu einem Thema ab, der Server schickt ihn im game_tick an alle
 function oeffneHilfe(id) {
   hintError.value = ''
@@ -320,6 +329,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Intro füllt den ganzen Beamer, ohne den Rand der Lobby */
+.host-intro { margin: -32px -48px; }
+
 .host {
   flex: 1;
   min-height: 0;
