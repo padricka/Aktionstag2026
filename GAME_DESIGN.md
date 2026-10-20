@@ -161,7 +161,7 @@ Nach jeder der drei Aufgaben öffnet sich ein Fundort und das Team bekommt ein T
 | 2 Löschprotokoll | **Lager** hinter der Brandschutztür – entriegelt nach dem Löschen | **Lüfter** | Pfeil = Luftstrom |
 | 3 Datenrettung | **Datentresor** | **Backup-Platte** mit den geretteten Daten | RAID-Platz 1–4 |
 
-- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, die Zeit läuft weiter): Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
+- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, beim Datentresor gut 5 s): **Uhr und Feuer stehen** so lange (`PAUSE_NACH`: 5 s, Datentresor 6 s), das ×2-Fenster der nächsten Aufgabe beginnt erst danach.: Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
 - **Teilekiste** (`Teilekiste.vue`, nur Leitstand): liegt halb im Bild am linken Rand wie der Taschenrechner rechts, ein Klick zieht sie herein. Drei Fächer mit Zeichnung (`TeilGrafik.vue`), gefundene Teile mit Etikett – die Etiketten braucht das Team im Finale.
 
 ### Hilfe-Notizen (Beamer)

@@ -216,7 +216,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // "schrank", Etikett "115 V" | "230 V"), Aufgabe 2 → Lüfter (fan, "lager", "Pfeil = Luftstrom"),
 // Aufgabe 3 → Backup-Platte (disk, "tresor", "RAID-Platz 1…4"). Etiketten pro Runde
 // ausgelost, auch beim DEV-Überspringen; das Finale gibt kein Teil. Wird die Liste länger,
-// zeigen Handys und Beamer die Zwischenszene (Fundort öffnet sich, Titel der nächsten Aufgabe).
+// zeigen Handys und Beamer die Zwischenszene (Fundort öffnet sich, Titel der nächsten Aufgabe);
+// so lange (5 s, Datentresor 6 s) bleiben time_left und health stehen.
 
 // 3. Spielende (Broadcast)
 // result: "meltdown" (HP 0 oder Zeit abgelaufen – dann HP 0) | "victory" (Server repariert und hochgefahren).

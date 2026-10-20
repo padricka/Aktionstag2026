@@ -16,7 +16,7 @@ import pytest
 import fakeredis
 from unittest.mock import patch
 
-from backend.dataCenter import DataCenter, TASK_POINTS, FAST_LIMIT, HINT_COST, MISTAKE_DAMAGE, TIME_BONUS, FIRE_EVERY
+from backend.dataCenter import DataCenter, TASK_POINTS, FAST_LIMIT, HINT_COST, MISTAKE_DAMAGE, TIME_BONUS, FIRE_EVERY, PAUSE_NACH
 from backend.redis_handler import DEFAULT_TIME
 from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
 
@@ -214,6 +214,7 @@ def test_victory_adds_the_remaining_time(dc, uhr):
 def test_defeat_keeps_task_points_but_no_lives_and_no_time(dc, uhr):
     uhr.t += 10
     _loese(dc)                                         # +400
+    uhr.t += PAUSE_NACH["alarm"]                       # Zwischenszene vorbei (feat/pause-zwischenszene)
     dc.redis.r.hset(dc._key, "time_left", 1)
     dc.tick()                                          # Zeit abgelaufen → Leben 0
     snap = dc.snapshot()
