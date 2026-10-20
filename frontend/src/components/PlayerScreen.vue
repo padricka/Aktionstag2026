@@ -889,10 +889,21 @@ function onTaskSolved(data) {
   flex-direction: column;
   padding: 16px;
   overflow: hidden;
+  /* Spielstart: Aufgabe blendet weich ein (statt hart umzuschalten) */
+  animation: aufgabe-rein 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Platz für den offenen Taschenrechner (rechts, auf dem Handy unten), damit
    die Zahlen der Aufgabe sichtbar bleiben */
+@keyframes aufgabe-rein {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-main { animation: none; }
+}
+
 .task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .task-main.with-calc { padding-right: 280px; }
 

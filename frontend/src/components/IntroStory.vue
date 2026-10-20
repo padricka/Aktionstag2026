@@ -15,7 +15,7 @@
   <div class="intro" tabindex="-1" ref="root" @keydown="taste">
     <header class="intro-top">
       <span class="intro-brand">DRV-BOX · EINSATZBESPRECHUNG</span>
-      <button v-if="!istLetzte" class="intro-skip" type="button" @click="springeZumTutorial">
+      <button v-if="!istLetzte && !outroAktiv" class="intro-skip" type="button" @click="springeZumTutorial">
         Intro überspringen ⏭
       </button>
     </header>
@@ -80,7 +80,7 @@
       </section>
     </Transition>
 
-    <footer class="intro-nav">
+    <footer v-if="!outroAktiv" class="intro-nav">
       <button class="intro-back" type="button" :disabled="index === 0" @click="zurueck">‹ Zurück</button>
 
       <div class="intro-dots" aria-hidden="true">
@@ -97,6 +97,15 @@
         {{ gestartet ? 'Startet …' : 'Einsatz starten ▶' }}
       </button>
     </footer>
+
+    <!-- Übergang ins Spiel: Kamerafahrt aufs brennende Rack, Verbinden, 3 – 2 – 1 – LOS! -->
+    <div v-if="outroAktiv" class="intro-outro" :style="{ '--outro-ms': `${outroSpeed * OUTRO.length}ms` }">
+      <img class="outro-bild" :src="START_BILD" alt="" />
+      <div class="outro-text">
+        <p v-if="schritt === 0" class="outro-connect">Verbinde mit Rechenzentrum B-04<span class="outro-dots">…</span></p>
+        <span v-else :key="schritt" class="outro-count" :class="{ 'is-los': schritt === OUTRO.length - 1 }">{{ OUTRO[schritt] }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -225,6 +234,10 @@ export const BEISPIEL_NOTIZ = {
 }
 
 const MINI_TASTEN = ['C', '⌫', '÷', '×', '7', '8', '9', '−', '4', '5', '6', '+', '1', '2', '3', '=']
+
+// Übergang ins Spiel: ein Schritt je outroSpeed ms, danach start
+const OUTRO = ['VERBINDE', '3', '2', '1', 'LOS!']
+const START_BILD = startScreen
 </script>
 
 <script setup>
@@ -234,6 +247,8 @@ import TornNote from './TornNote.vue'
 const props = defineProps({
   // ms pro Zeichen in der Sprechblase (0 = sofort, z. B. in Tests)
   typeSpeed: { type: Number, default: 24 },
+  // ms je Schritt des Übergangs (Verbinden, 3, 2, 1, LOS!); 0 = sofort starten
+  outroSpeed: { type: Number, default: 900 },
 })
 const emit = defineEmits(['start'])
 
@@ -241,6 +256,9 @@ const root = ref(null)
 const index = ref(0)
 const zeichen = ref(0)
 const gestartet = ref(false)
+const schritt = ref(-1)   // Übergang: -1 = noch nicht, 0 = Verbinden, 1–3 = Countdown, 4 = LOS!
+const outroAktiv = computed(() => schritt.value >= 0)
+let outroTimer = null
 let timer = null
 
 const slide = computed(() => SLIDES[index.value])
@@ -273,7 +291,10 @@ function tippen() {
 
 watch(index, tippen)
 onMounted(() => { tippen(); root.value?.focus({ preventScroll: true }) })
-onUnmounted(stopp)
+onUnmounted(() => {
+  stopp()
+  if (outroTimer) clearInterval(outroTimer)
+})
 
 // Erst fertig tippen lassen, dann weiterblättern
 function weiter() {
@@ -292,10 +313,22 @@ function springeZumTutorial() {
 function starten() {
   if (gestartet.value) return
   gestartet.value = true
-  emit('start')
+  if (!props.outroSpeed) { emit('start'); return }
+  // erst der Übergang, dann startet das Spiel (die Zeit läuft also erst nach „LOS!“)
+  schritt.value = 0
+  outroTimer = setInterval(() => {
+    schritt.value += 1
+    if (schritt.value >= OUTRO.length) {
+      clearInterval(outroTimer)
+      outroTimer = null
+      schritt.value = OUTRO.length - 1   // „LOS!“ bleibt stehen, bis das Spiel da ist
+      emit('start')
+    }
+  }, props.outroSpeed)
 }
 
 function taste(e) {
+  if (outroAktiv.value) return
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); weiter() }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); zurueck() }
   else if (e.key === 'Enter') { e.preventDefault(); istLetzte.value ? starten() : weiter() }
@@ -304,6 +337,7 @@ function taste(e) {
 
 <style scoped>
 .intro {
+  position: relative;
   --neon: #39ff5a;
   --neon-dim: rgba(57, 255, 90, 0.35);
   flex: 1;
@@ -755,6 +789,90 @@ function taste(e) {
 .szene-enter-from { opacity: 0; transform: translateX(30px); }
 .szene-leave-to { opacity: 0; transform: translateX(-30px); }
 
+/* ------------------------------------------------- Übergang ins Spiel (Outro) */
+.intro-outro {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+  animation: outro-rein 0.4s ease-out both;
+}
+
+/* Kamera fährt aufs brennende Rack zu und wird dabei dunkler */
+.outro-bild {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform-origin: 86% 42%;
+  animation: outro-zoom var(--outro-ms, 4500ms) cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+.intro-outro::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.9) 75%),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0 2px, transparent 2px 4px);
+}
+
+.outro-text {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.outro-connect {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(22px, 2.4vw, 40px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--neon);
+  text-shadow: 0 0 18px var(--neon-dim);
+}
+
+.outro-dots { animation: blink 0.6s steps(1) infinite; }
+
+.outro-count {
+  display: block;
+  font-family: var(--mono);
+  font-size: clamp(140px, 22vw, 320px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--neon);
+  text-shadow: 0 0 40px var(--neon), 0 0 120px rgba(57, 255, 90, 0.5);
+  animation: zahl 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.outro-count.is-los {
+  font-size: clamp(120px, 18vw, 260px);
+  color: #fff;
+  text-shadow: 0 0 30px var(--neon), 0 0 90px var(--neon);
+  animation: los 0.9s ease-out both;
+}
+
+@keyframes outro-rein { from { opacity: 0; } }
+@keyframes outro-zoom {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(3.4); filter: brightness(0.35); }
+}
+@keyframes zahl {
+  from { transform: scale(1.8); opacity: 0; }
+  25% { opacity: 1; }
+  to { transform: scale(0.9); opacity: 0.85; }
+}
+@keyframes los {
+  from { transform: scale(0.6); opacity: 0; }
+  30% { transform: scale(1.1); opacity: 1; }
+  to { transform: scale(1.4); opacity: 0; }
+}
+
 @media (max-width: 900px) {
   .intro { padding: 16px; }
   .intro-scene.is-side, .intro-scene.is-tutorial { grid-template-columns: 1fr; }
@@ -762,7 +880,8 @@ function taste(e) {
 
 @media (prefers-reduced-motion: reduce) {
   .bubble, .tutorial li, .intro-start, .intro-note, .scene-tag,
-  .intro-scene-frame img.is-crop, .intro-scene-frame.is-alarm::before, .scene-hud { animation: none; }
+  .intro-scene-frame img.is-crop, .intro-scene-frame.is-alarm::before, .scene-hud,
+  .outro-bild, .outro-count, .intro-outro { animation: none; }
   .szene-enter-active, .szene-leave-active { transition: none; }
 }
 </style>

@@ -4,7 +4,7 @@
  * Tutorial. Erst „Einsatz starten“ meldet start (dann startet das Spiel und die Zeit).
  * Die Sieg-/Niederlage-Bilder kommen im Intro nicht vor.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import IntroStory, { SLIDES } from '../src/components/IntroStory.vue'
 
@@ -12,7 +12,7 @@ const weiter = (w) => w.find('button.intro-next')
 const zurueck = (w) => w.find('button.intro-back')
 
 function mountIntro() {
-  return mount(IntroStory, { props: { typeSpeed: 0 } })
+  return mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0 } })
 }
 
 async function bisZumEnde(w) {
@@ -107,5 +107,42 @@ describe('IntroStory.vue – Bilder und letzte Seite (Feedback)', () => {
     expect(punkte.some((p) => /Reihenfolge/.test(p))).toBe(true)
     expect(punkte.some((p) => /Taschenrechner/.test(p))).toBe(true)
     expect(punkte.join(' ')).not.toMatch(/Hilfe-Zettel/)
+  })
+})
+
+describe('IntroStory.vue – Übergang ins Spiel', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('nach „Einsatz starten“: Verbinden, Countdown 3-2-1, LOS – erst dann start', async () => {
+    vi.useFakeTimers()
+    const w = mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 900 } })
+    await bisZumEnde(w)
+    await w.find('button.intro-start').trigger('click')
+
+    const outro = () => w.find('.intro-outro')
+    expect(outro().exists()).toBe(true)
+    expect(outro().text()).toMatch(/Verbinde/i)
+    expect(w.emitted('start')).toBeUndefined()
+
+    const gesehen = []
+    for (let i = 0; i < 4; i++) {
+      vi.advanceTimersByTime(900)
+      await w.vm.$nextTick()
+      gesehen.push(w.find('.outro-count').exists() ? w.find('.outro-count').text() : '')
+    }
+    expect(gesehen).toEqual(['3', '2', '1', 'LOS!'])
+    expect(w.emitted('start')).toBeUndefined()
+
+    vi.advanceTimersByTime(900)
+    await w.vm.$nextTick()
+    expect(w.emitted('start')).toHaveLength(1)
+  })
+
+  it('Navigation ist während des Übergangs weg (kein Zurückblättern)', async () => {
+    vi.useFakeTimers()
+    const w = mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 900 } })
+    await bisZumEnde(w)
+    await w.find('button.intro-start').trigger('click')
+    expect(w.find('.intro-nav').exists()).toBe(false)
   })
 })

@@ -564,8 +564,18 @@ onMounted(async () => {
   align-items: center;
   gap: 18px;
   overflow: hidden;
+  /* nach dem Intro-Countdown weich ins Spiel */
+  animation: spiel-rein 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes spiel-rein {
+  from { opacity: 0; transform: scale(1.04); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .running { animation: none; }
+}
 
 /* Hilfe-Notizen: rechts neben Zeit/Server/Tresor; schmaler Beamer → darunter */
 .running { position: relative; }

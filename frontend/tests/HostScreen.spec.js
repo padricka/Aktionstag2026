@@ -139,7 +139,7 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
   })
 
   describe('Einsatzbesprechung (Intro)', () => {
-    it('zeigt bei status briefing das Intro statt der Lobby; „Einsatz starten“ schickt start_game', async () => {
+    it('zeigt bei status briefing das Intro; „Einsatz starten“ schickt start_game nach dem Countdown', async () => {
       const wrapper = mount(HostScreen)
       await new Promise((r) => setTimeout(r, 10))
       simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true } })
@@ -148,7 +148,11 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       expect(wrapper.find('.intro').exists()).toBe(true)
       expect(wrapper.find('.lobby').exists()).toBe(false)
       await wrapper.find('button.intro-skip').trigger('click')
+      vi.useFakeTimers()
       await wrapper.find('button.intro-start').trigger('click')
+      expect(getSentEvents().some((e) => e.event === 'start_game')).toBe(false)   // erst der Countdown
+      vi.advanceTimersByTime(5000)
+      vi.useRealTimers()
       expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
     })
 
