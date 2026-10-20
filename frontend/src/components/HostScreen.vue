@@ -113,10 +113,9 @@
               </div>
             </div>
 
-            <!-- Finale: Neustart-Code, füllt sich mit jeder gelösten Aufgabe -->
+            <!-- Der Server brennt: Feuer nach Leben, daneben die Teile fürs Finale -->
             <div class="finale">
-              <span class="host-label">Neustart-Code</span>
-              <VaultDoor mode="display" :digits="rebootDigits" :state="vaultState" />
+              <BrennenderServer :hp="hp" :max-hp="maxHp" :teile="teile" :sieg="istSieg" />
               <p v-if="istSieg" class="finale-win">SERVER ONLINE · SIEG</p>
               <button v-if="istSieg" class="host-restart" :disabled="restarting" @click="neueRunde">
                 {{ restarting ? 'Neustart …' : 'Neue Runde' }}
@@ -157,7 +156,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
-import VaultDoor from './VaultDoor.vue'
+import BrennenderServer from './BrennenderServer.vue'
 import HintBoard from './HintBoard.vue'
 import Zwischenszene from './Zwischenszene.vue'
 import IntroStory from './IntroStory.vue'
@@ -190,7 +189,6 @@ const maxHp = ref(300)   // bis zum ersten game_tick; danach max_health vom Back
 const hp = ref(300)
 const START_ZEIT = 540   // bis zum ersten game_tick (Backend: DEFAULT_TIME)
 const timeLeft = ref(START_ZEIT)
-const rebootDigits = ref([null, null, null])
 
 const isGameOver = ref(false)
 const gameOverResult = ref('meltdown')
@@ -205,7 +203,6 @@ const istSpielVorbei = computed(
 
 // Sieg: der Tresor bleibt sichtbar und öffnet sich, statt im Overlay zu verschwinden.
 const istSieg = computed(() => status.value === 'won' && gameOverResult.value === 'victory')
-const vaultState = computed(() => (istSieg.value ? 'open' : 'locked'))
 
 const statusLabel = computed(() => {
   if (istSpielVorbei.value) return gameOverResult.value === 'victory' ? 'Sieg' : 'Niederlage'
@@ -274,7 +271,6 @@ function handleMessage(msg) {
     if (status.value === 'waiting' || status.value === 'ready') {
       hp.value = maxHp.value
       timeLeft.value = START_ZEIT
-      rebootDigits.value = [null, null, null]
       isGameOver.value = false
       gameOverResult.value = 'meltdown'
       gameOverScore.value = 0
@@ -302,9 +298,6 @@ function handleMessage(msg) {
     if (skipping.value && aktuelleAufgabe !== skipVonAufgabe) skipping.value = false
     if (typeof payload.health === 'number') hp.value = payload.health
     timeLeft.value = payload.time_left ?? timeLeft.value
-    if (Array.isArray(payload.reboot_digits)) {
-      rebootDigits.value = [0, 1, 2].map((i) => payload.reboot_digits[i] ?? null)
-    }
     if (typeof payload.max_health === 'number') maxHp.value = payload.max_health
     if (payload.hints) hints.value = payload.hints
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
@@ -769,10 +762,10 @@ onMounted(async () => {
   transition: width 0.3s;
 }
 
-/* Finale — Neustart-Code, gut sichtbar für den ganzen Raum */
+/* Der brennende Server mit den Teilen, gut sichtbar für den ganzen Raum */
 .finale {
   width: 100%;
-  max-width: min(640px, 58vh);
+  max-width: 980px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -813,7 +806,6 @@ onMounted(async () => {
   .id-value { font-size: 56px; letter-spacing: 0.12em; }
   .time-value { font-size: 120px; }
   .slots { grid-template-columns: 1fr; }
-  .finale { max-width: 420px; }
   .finale-win { font-size: 20px; }
 }
 </style>
