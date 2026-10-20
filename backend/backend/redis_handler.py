@@ -8,6 +8,9 @@ REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 REDIS_DB = int(os.environ.get("REDIS_DB", 1))
 
 DEFAULT_TIME = 300
+# erlaubte Spielzeit über owner_settings (Sekunden)
+MIN_TIME = 60
+MAX_TIME = 1800
 ROLES = ["MASTER", "FI-SI", "FI-AE"]
 
 # Eine wartende Lobby lebt lange (Beamer läuft oft stundenlang), ein gestartetes Spiel 1 h.
@@ -59,11 +62,14 @@ class RedisHandler:
         players_key = self._k_players(game_id)
         # DEV-Modus gehört zur Sitzung, nicht zur Runde: übersteht den Neustart
         dev_mode = _s(self.r.hget(state_key, "dev_mode")) or "0"
+        # ebenso die eingestellte Spielzeit (owner_settings)
+        start_time = int(_s(self.r.hget(state_key, "start_time")) or DEFAULT_TIME)
 
         self.r.delete(state_key, players_key)
         self.r.hset(state_key, mapping={
             "health": 300,
-            "time_left": DEFAULT_TIME,
+            "time_left": start_time,
+            "start_time": start_time,
             "status": "waiting",
             "dev_mode": dev_mode,
         })
@@ -85,11 +91,13 @@ class RedisHandler:
                 "status": "waiting",
             })
 
-    def register_player(self, game_id: str, name: str, conn: str | None = None) -> dict:
+    def register_player(self, game_id: str, name: str, conn: str | None = None,
+                        client: str | None = None) -> dict:
         """Spieler registriert sich OHNE Rolle. Rolle wird per choose_role gewählt.
 
         conn = Kennung der WebSocket-Verbindung, damit release_player nur die
         jeweils neueste Verbindung eines Spielers zählt.
+        client = Kennung des Browser-Tabs (client_id), übersteht ein Neuladen.
         """
         self._ensure_state(game_id)
         state_key = self._k_state(game_id)
@@ -100,7 +108,10 @@ class RedisHandler:
             data = json.loads(_s(known))
             if conn is not None:
                 with self.lock(f"choose_role:{game_id}"):
-                    self.r.hset(players_key, name, json.dumps({**data, "conn": conn}))
+                    neu = {**data, "conn": conn}
+                    if client:
+                        neu["client"] = client
+                    self.r.hset(players_key, name, json.dumps(neu))
             return {
                 "event": "registered",
                 "role": data.get("role"),
@@ -116,7 +127,12 @@ class RedisHandler:
             self.r.hincrby(state_key, "player_counter", -1)
             return {"event": "error", "payload": {"message": "Lobby ist bereits voll!"}}
 
-        self.r.hset(players_key, name, json.dumps({"role": None, "conn": conn}))
+        eintrag = {"role": None, "conn": conn}
+        if client:
+            eintrag["client"] = client
+        self.r.hset(players_key, name, json.dumps(eintrag))
+        # Der Hash entsteht erst hier – ohne Ablauf bliebe er für immer in Redis
+        self.r.expire(players_key, LOBBY_TTL)
         return {
             "event": "registered",
             "role": None,
@@ -255,12 +271,15 @@ class RedisHandler:
         try:
             time_int = int(time_val)
         except (ValueError, TypeError):
+            time_int = None
+        if time_int is None or not MIN_TIME <= time_int <= MAX_TIME:
             return {
                 "event": "error",
-                "payload": {"message": "Ungültige Einstellungen für Zeit"},
+                "payload": {"message": f"Ungültige Einstellungen für Zeit ({MIN_TIME}–{MAX_TIME} s)"},
             }
 
-        self.r.hset(self._k_state(game_id), "time_left", time_int)
+        # start_time gilt für jede neue Runde der Sitzung, time_left zeigt sie in der Lobby
+        self.r.hset(self._k_state(game_id), mapping={"time_left": time_int, "start_time": time_int})
         return {
             "event": "settings_updated",
             "payload": self.get_lobby_payload(game_id),

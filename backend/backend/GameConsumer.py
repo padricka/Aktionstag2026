@@ -10,6 +10,10 @@ from backend.gameLoop import announce_game_over, games, resume_game_for
 # Close-Code, wenn die Sitzungs-ID nicht existiert (4000-4999 = anwendungsspezifisch)
 CLOSE_UNKNOWN_GAME = 4404
 
+# Offene Verbindungen dieses Servers (channel_name). Damit erkennt player_register, ob
+# ein gleichnamiger Spieler auf einem anderen Gerät noch da ist (Name vergeben).
+_live_conns = set()
+
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -25,6 +29,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         self.closed = False
 
         await self.accept()
+        _live_conns.add(self.channel_name)
         # Vertippte ID: nicht still eine leere Lobby anlegen. Erst annehmen, dann
         # schließen, damit der Browser die Fehlermeldung noch lesen kann.
         if not await self.lobby.exists():
@@ -53,6 +58,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self._send_own_tick(snap)
 
     async def disconnect(self, close_code):
+        _live_conns.discard(self.channel_name)
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         if self.is_host:
             await asyncio.to_thread(self.lobby.redis.drop_host, self.game_id, self.channel_name)
@@ -164,13 +170,23 @@ class GameConsumer(AsyncWebsocketConsumer):
             from backend.dataCenter import DataCenter
             self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
 
-        result = await asyncio.to_thread(self.data_center.open_hint, (payload or {}).get("id"))
+        payload = payload or {}
+        result = await asyncio.to_thread(
+            self.data_center.open_hint, payload.get("id"), payload.get("task_id")
+        )
         if result["result"] != "opened":
             await self.send_error(result["message"], code="hint_denied")
             return
         await self._broadcast_tick(await asyncio.to_thread(self.data_center.snapshot))
 
     async def handle_reset_lobby(self):
+        # Spieler dürfen nur eine beendete Runde neu starten; eine laufende Runde
+        # (oder die Einsatzbesprechung) beendet nur der Beamer
+        if not self.is_host:
+            status = (await self.lobby.lobby_payload())["status"]
+            if status in ("running", "briefing"):
+                await self.send_error("Eine laufende Runde kann nur der Beamer beenden", code="reset_denied")
+                return
         game = games.pop(self.game_id, None)
         if game:
             await game.stop_game()
@@ -186,7 +202,12 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error("player_name required")
             return
 
-        result = await self.lobby.register_player(name, self.channel_name)
+        client = payload.get("client_id") if isinstance(payload.get("client_id"), str) else None
+        if await self._name_besetzt(name, client):
+            await self.send_error("Name schon vergeben – bitte einen anderen wählen", code="register_denied")
+            return
+
+        result = await self.lobby.register_player(name, self.channel_name, client)
         if result["event"] == "error":
             await self.send_error(result["payload"]["message"], code="register_denied")
             return
@@ -212,6 +233,21 @@ class GameConsumer(AsyncWebsocketConsumer):
                 self.data_center = await asyncio.to_thread(DataCenter, self.game_id)
             snap = await asyncio.to_thread(self.data_center.snapshot)
             await self._send_own_tick(snap)
+
+    async def _name_besetzt(self, name, client):
+        """In der Lobby darf ein Name nur einmal da sein: Meldet sich ein anderer Tab
+        (andere client_id) mit dem Namen an, während dessen Verbindung noch offen ist,
+        ist das ein zweiter Spieler. Derselbe Tab (Neuladen) darf immer. Läuft das
+        Spiel, gilt es als Wiederkehr (z. B. anderes Gerät) und die neue Verbindung übernimmt."""
+        status = (await self.lobby.lobby_payload())["status"]
+        if status not in ("waiting", "ready", "briefing"):
+            return False
+        players = await asyncio.to_thread(self.lobby.redis._load_players, self.game_id)
+        bekannt = players.get(name) or {}
+        conn, alter_client = bekannt.get("conn"), bekannt.get("client")
+        if not (client and alter_client) or client == alter_client:
+            return False
+        return bool(conn) and conn != self.channel_name and conn in _live_conns
 
     async def handle_choose_role(self, payload):
         if not self.player_name:
@@ -239,6 +275,12 @@ class GameConsumer(AsyncWebsocketConsumer):
         )
 
     async def handle_owner_settings(self, payload):
+        if not self.is_host:
+            await self.send_error("Einstellungen ändert nur der Beamer", code="settings_denied")
+            return
+        if (await self.lobby.lobby_payload())["status"] not in ("waiting", "ready"):
+            await self.send_error("Einstellungen nur vor dem Start änderbar", code="settings_denied")
+            return
         result = await self.lobby.set_settings(payload)
         if result["event"] == "error":
             await self.send_error(result["payload"]["message"])

@@ -68,3 +68,9 @@ def test_input_arriving_after_the_win_is_ignored(dc):
     res = dc._apply_input("Ben", data)
     assert res["result"] == "ignored"
     assert dc.health == dc.max_health
+
+
+def test_start_uses_the_configured_start_time(dc):
+    dc.redis.r.hset(dc._key, "start_time", 420)
+    dc.start()
+    assert dc.time_left == 420

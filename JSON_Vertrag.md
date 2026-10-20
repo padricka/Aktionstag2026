@@ -23,14 +23,23 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 ## Client -> Server
 
 // 1. Spieler registriert sich in der Lobby
+// client_id (optional) = Kennung des Browser-Tabs, übersteht ein Neuladen (F5).
+// In der Lobby (waiting/ready/briefing) wird ein Name abgelehnt, den ein ANDERER Tab
+// (andere client_id) mit noch offener Verbindung hat → error "register_denied"
+// („Name schon vergeben“). Derselbe Tab darf immer neu anmelden; im laufenden Spiel
+// übernimmt die neue Verbindung (Wiederkehr auf anderem Gerät).
 {
   "event": "player_register",
   "payload": {
-    "player_name": "Patrick"
+    "player_name": "Patrick",
+    "client_id": "3f1c…"
   }
 }
 
-// 2. Ersteller passt Einstellungen an (nur vor dem Start)
+// 2. Spielzeit einstellen (nur Host, nur in waiting/ready)
+// time = Sekunden (60–1800). Gilt als Startzeit für jede neue Runde der Sitzung
+// (übersteht reset_game). Abgelehnt → error "settings_denied" (nicht Host, Spiel läuft)
+// bzw. error ohne code bei ungültiger Zeit.
 {
   "event": "owner_settings",
   "payload": {
@@ -87,10 +96,12 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // (DEV-Modus: gratis). Themen je Aufgabe: 1 → 4, 2 → 5, 3 → 6, Finale → 0.
 // Danach game_tick an alle.
 // Abgelehnt (nicht Host, id fehlt/unbekannt/schon abgerissen/Schritt erledigt, keine Hilfen,
-// Spiel läuft nicht) → error "hint_denied".
+// Spiel läuft nicht, task_id passt nicht) → error "hint_denied".
+// task_id (optional, aus game_tick.hints.task_id): der Zettel gilt nur für diese Aufgabe.
+// Hat das Team sie inzwischen gelöst, wird nichts abgerissen und nichts abgezogen.
 {
   "event": "open_hint",
-  "payload": { "id": "key" }
+  "payload": { "id": "key", "task_id": "c0ffee…" }
 }
 
 // 9. Beamer meldet sich (nur Host, alle ~10 s)
@@ -143,7 +154,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
       }
     ],
     "reboot_digits": [4, null, null],
-    "hints": { "total": 4, "cost": 50,
+    "hints": { "task_id": "c0ffee…", "total": 4, "cost": 50,
                "available": [{ "id": "cable", "label": "Welches Kabel?" }, { "id": "symbols", "label": "Welches Symbol zuerst?" }, { "id": "scratch", "label": "Zerkratzter Aufkleber" }],
                "opened": [{ "id": "order", "label": "LED und Farbfolge", "text": "Die LED blinkt – der Code ist die Farbfolge rückwärts: …" }] }
   }
@@ -168,6 +179,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // "hints": Abreißblock der laufenden Aufgabe für den Beamer: available = Themen, die noch passen
 // (nicht abgerissen, Schritt laut Spielstand nicht erledigt; nur id + label), opened = abgerissene
 // Zettel mit Text (in Abriss-Reihenfolge). Texte nicht abgerissener Themen gehen nie raus.
+// task_id = die Aufgabe, zu der der Block gehört (fehlt, wenn es keine Hilfen gibt).
 // "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
 // Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 
@@ -216,12 +228,16 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
 //                    Kommt direkt nach dem Verbinden; danach schließt der Server die
 //                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
-//   "register_denied" = player_register abgelehnt (Spiel läuft schon, Lobby voll) → das
+//   "register_denied" = player_register abgelehnt (Spiel läuft schon, Lobby voll, Name
+//                    schon vergeben) → das
 //                    Frontend geht zurück zur ID-Eingabe und zeigt die Meldung.
 //   "start_failed" = start_game abgelehnt (Lobby nicht vollständig, läuft schon, unbekannt);
 //                    der Beamer macht das Intro wieder bedienbar.
 //   "hint_denied"  = open_hint abgelehnt (nicht Host, Thema nicht auf dem Block, Aufgabe ohne
 //                    Hilfen, Spiel läuft nicht).
+//   "reset_denied" = reset_game / new_lobby von einem Spieler, während die Runde läuft
+//                    (running/briefing) – eine laufende Runde beendet nur der Beamer.
+//   "settings_denied" = owner_settings abgelehnt (nicht Host, Spiel läuft schon).
 //   "dev_denied"   = dev_mode / dev_skip_task abgelehnt (nicht Host, DEV-Modus aus,
 //                    Spiel läuft schon bzw. noch nicht, enabled kein true/false).
 {

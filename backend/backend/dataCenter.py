@@ -3,7 +3,7 @@ import random
 import time
 from pydantic import ValidationError
 from . import leaderboard
-from .redis_handler import RedisHandler, _s, DEFAULT_TIME, ROLES
+from .redis_handler import RedisHandler, _s, DEFAULT_TIME, LOBBY_TTL, ROLES
 from .schemas import PlayerInput
 from .playableObject import TASK_TYPES, Outcome
 
@@ -71,6 +71,8 @@ class DataCenter:
                 "time_left": DEFAULT_TIME,
                 "status": "waiting",
             })
+            # neu angelegt (Sitzung war abgelaufen): nicht für immer liegen lassen
+            self.redis.r.expire(state_key, LOBBY_TTL)
 
     @property
     def _key(self) -> str:
@@ -157,6 +159,7 @@ class DataCenter:
         offen = task.get("hints_opened", [])
         nach_id = {h["id"]: h for h in alle}
         return {
+            "task_id": task.get("task_id"),   # der Host schickt sie bei open_hint mit
             "total": task_cls.HINTS,
             "available": [{"id": h["id"], "label": h["label"]}
                           for h in alle if h["id"] not in offen and not h["done"]],
@@ -164,9 +167,11 @@ class DataCenter:
             "cost": HINT_COST,
         }
 
-    def open_hint(self, hint_id: str | None) -> dict:
+    def open_hint(self, hint_id: str | None, task_id: str | None = None) -> dict:
         """Host reißt den Zettel zum Thema hint_id ab (kostet HINT_COST, DEV gratis).
-        Nur Themen, die noch auf dem Block stehen: nicht schon offen, Schritt nicht erledigt."""
+        Nur Themen, die noch auf dem Block stehen: nicht schon offen, Schritt nicht erledigt.
+        task_id (falls mitgeschickt) muss die laufende Aufgabe sein – sonst hat das Team
+        sie gerade gelöst und der Klick galt der alten Aufgabe."""
         if self.status != "running":
             return {"result": "error", "message": "Spiel läuft nicht"}
         # Gleiche Sperre wie bei Eingaben: sonst überschreibt ein gleichzeitiges
@@ -178,6 +183,8 @@ class DataCenter:
             task_cls = TASK_TYPES.get((task or {}).get("kind"))
             if not task or not task_cls or not task_cls.HINTS:
                 return {"result": "error", "message": "Für diese Aufgabe gibt es keine Hilfen"}
+            if task_id is not None and task_id != task.get("task_id"):
+                return {"result": "error", "message": "Die Aufgabe ist schon gelöst – Hilfe nicht geöffnet"}
             verfuegbar = {h["id"]: h for h in self._hints(task)["available"]}
             if hint_id not in verfuegbar:
                 return {"result": "error", "message": "Diese Hilfe gibt es gerade nicht"}
@@ -191,7 +198,7 @@ class DataCenter:
         self.redis.r.hset(self._key, mapping={
             "status": "running",
             "health": self.max_health,
-            "time_left": DEFAULT_TIME,
+            "time_left": int(_s(self.redis.r.hget(self._key, "start_time")) or DEFAULT_TIME),
             "started_at": int(time.time()),
             "score": 0,
             "hint_penalty": 0,

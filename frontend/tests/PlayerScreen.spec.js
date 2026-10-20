@@ -111,7 +111,7 @@ describe('PlayerScreen.vue', () => {
 
     expect(wrapper.find('.phase-lobby').exists()).toBe(true)
     expect(getSentEvents()).toEqual([
-      { event: 'player_register', payload: { player_name: 'Patrick' } },
+      { event: 'player_register', payload: { player_name: 'Patrick', client_id: expect.any(String) } },
     ])
   })
 
@@ -560,6 +560,64 @@ describe('PlayerScreen.vue', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('.end-status').text()).toBe('Mission erfüllt')
+  })
+
+  describe('Kleinkram (fix/kleinkram)', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+      sessionStorage.clear()
+    })
+
+    const kennung = () => getSentEvents().filter((e) => e.event === 'player_register').at(-1).payload.client_id
+
+    it('schickt eine Tab-Kennung mit, die ein Neuladen übersteht (gleicher Name auf zwei Geräten wird erkannt)', async () => {
+      const erster = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(erster)
+      const id = kennung()
+      expect(id).toMatch(/\S{8,}/)
+      erster.unmount()
+
+      resetGameSocketMock()   // „F5“: neue Komponente, gleicher Tab
+      const nachReload = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(nachReload)
+      expect(kennung()).toBe(id)
+    })
+
+    it('Sieg im Finale: erst geht der Tresor auf, dann kommt das Ergebnis', async () => {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'running', ready_to_start: true } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 100, tasks: [{ task_id: 't4', kind: 'reboot', view: {} }] } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.reboot-stub').exists()).toBe(true)
+
+      vi.useFakeTimers()
+      simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 900, survived_seconds: 200 } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'won', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      // Tresor bleibt sichtbar und bekommt victory = true
+      expect(wrapper.find('.reboot-stub').exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'Task4RebootStub' }).attributes('victory')).toBe('true')
+      expect(wrapper.find('.end').exists()).toBe(false)
+
+      vi.advanceTimersByTime(2500)
+      await wrapper.vm.$nextTick()
+      await flushPromises()
+      expect(wrapper.find('.end').exists()).toBe(true)
+      expect(wrapper.find('.end-status').text()).toBe('Mission erfüllt')
+    })
+
+    it('Niederlage im Finale: Ergebnis sofort', async () => {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'running', ready_to_start: true } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 1, tasks: [{ task_id: 't4', kind: 'reboot', view: {} }] } })
+      simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 0, survived_seconds: 300 } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.end').exists()).toBe(true)
+    })
   })
 
   it('emittiert exit bei Zurück', async () => {

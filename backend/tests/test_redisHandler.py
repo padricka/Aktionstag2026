@@ -365,3 +365,20 @@ def test_create_game_keeps_dev_mode(handler):
     handler.set_dev_mode("g", True)
     handler.create_game("g")
     assert handler.get_lobby_payload("g")["dev_mode"] is True
+
+
+# ---------------------------------------------------------------- fix/kleinkram
+def test_player_list_expires_like_the_lobby(handler, env):
+    """Der Spieler-Hash bekam nach create_game keine Lebensdauer (expire auf einen
+    gerade gelöschten Schlüssel wirkt nicht) – jetzt beim Anmelden."""
+    from backend.redis_handler import LOBBY_TTL
+    handler.create_game("g")
+    handler.register_player("g", "Anna", "c1")
+    assert 0 < env.ttl("game:g:players") <= LOBBY_TTL
+
+
+def test_start_time_setting_survives_new_round(handler, env):
+    handler.create_game("g")
+    handler.update_owner_settings("g", {"time": 420})
+    handler.create_game("g")
+    assert int(env.hget("game:g:state", "start_time")) == 420
