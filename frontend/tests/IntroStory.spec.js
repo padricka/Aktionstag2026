@@ -22,7 +22,7 @@ async function bisZumEnde(w) {
 describe('IntroStory.vue', () => {
   it('beginnt mit Bild und Sprechblase der ersten Szene', () => {
     const w = mountIntro()
-    expect(w.find('.intro-image img').exists()).toBe(true)
+    expect(w.find('.intro-image img, .intro-scene-frame img').exists()).toBe(true)
     expect(w.find('.bubble').text()).toContain(SLIDES[0].text)
     expect(w.find('.bubble-speaker').text()).toContain(SLIDES[0].speaker)
     expect(w.findAll('.intro-dot')).toHaveLength(SLIDES.length)
@@ -79,5 +79,33 @@ describe('IntroStory.vue', () => {
     await w.find('button.intro-start').trigger('click')
     await w.find('button.intro-start').trigger('click')
     expect(w.emitted('start')).toHaveLength(1)
+  })
+})
+
+describe('IntroStory.vue – Bilder und letzte Seite (Feedback)', () => {
+  it('keine Icon-Bilder mehr: die Szenen sind Ausschnitte des Startbilds, eigene Bilder oder die echten Zettel', () => {
+    for (const s of SLIDES) {
+      if (s.image) expect(s.image).not.toMatch(/_role/)
+    }
+    expect(SLIDES.slice(1, 5).every((s) => s.visual === 'scene' || s.visual === 'notes')).toBe(true)
+  })
+
+  it('die Notiz-Szene zeigt die drei echten Zettel-Stücke', async () => {
+    const w = mountIntro()
+    const n = SLIDES.findIndex((s) => s.visual === 'notes')
+    for (let i = 0; i < n; i++) await weiter(w).trigger('click')
+    expect(w.findAll('.intro-notes .tn')).toHaveLength(3)
+  })
+
+  it('letzte Seite: großes Beispiel-Notizblatt und der Taschenrechner', async () => {
+    const w = mountIntro()
+    await bisZumEnde(w)
+    expect(w.find('.tutorial-note .tn').exists()).toBe(true)
+    expect(w.find('.calc-mini').exists()).toBe(true)
+    const punkte = w.findAll('.tutorial li').map((li) => li.text())
+    expect(punkte).toHaveLength(5)
+    expect(punkte.some((p) => /Reihenfolge/.test(p))).toBe(true)
+    expect(punkte.some((p) => /Taschenrechner/.test(p))).toBe(true)
+    expect(punkte.join(' ')).not.toMatch(/Hilfe-Zettel/)
   })
 })
