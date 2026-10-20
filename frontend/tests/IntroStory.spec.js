@@ -146,3 +146,43 @@ describe('IntroStory.vue – Übergang ins Spiel', () => {
     expect(w.find('.intro-nav').exists()).toBe(false)
   })
 })
+
+describe('IntroStory.vue — wartet auf „Bereit“ der Spieler', () => {
+  const bereit = (count, all = count === 3) => ({ count, total: 3, all })
+
+  function mountMitBereit(b) {
+    return mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0, bereit: b } })
+  }
+
+  it('hält die letzte Folie an, solange nicht alle bereit sind', async () => {
+    const w = mountMitBereit(bereit(1))
+    await bisZumEnde(w)
+    expect(w.find('button.intro-start').attributes('disabled')).toBeDefined()
+    expect(w.find('.intro-ready').text()).toContain('1/3')
+    expect(w.emitted('start')).toBeUndefined()
+  })
+
+  it('startet von selbst, sobald auf der letzten Folie alle bereit sind', async () => {
+    const w = mountMitBereit(bereit(2))
+    await bisZumEnde(w)
+    await w.setProps({ bereit: bereit(3) })
+    expect(w.emitted('start')).toHaveLength(1)
+  })
+
+  it('waren schon vorher alle bereit, gibt der Knopf frei, aber der Host entscheidet', async () => {
+    const w = mountMitBereit(bereit(3))
+    await bisZumEnde(w)
+    expect(w.emitted('start')).toBeUndefined()   // Tutorial bleibt lesbar
+    expect(w.find('button.intro-start').attributes('disabled')).toBeUndefined()
+    await w.find('button.intro-start').trigger('click')
+    expect(w.emitted('start')).toHaveLength(1)
+  })
+
+  it('ohne bereit-Angabe bleibt der Knopf frei (Tests, DEV-Modus)', async () => {
+    const w = mountIntro()
+    await bisZumEnde(w)
+    expect(w.find('button.intro-start').attributes('disabled')).toBeUndefined()
+    expect(w.find('.intro-ready').exists()).toBe(false)
+  })
+})
+

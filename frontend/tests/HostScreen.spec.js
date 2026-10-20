@@ -142,7 +142,7 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     it('zeigt bei status briefing das Intro; „Einsatz starten“ schickt start_game nach dem Countdown', async () => {
       const wrapper = mount(HostScreen)
       await new Promise((r) => setTimeout(r, 10))
-      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true, all_ready: true } })
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('.intro').exists()).toBe(true)
@@ -154,6 +154,34 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       vi.advanceTimersByTime(5000)
       vi.useRealTimers()
       expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
+    })
+
+    it('wartet auf der letzten Folie, bis alle Spieler „Bereit“ gedrückt haben', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      const spieler = (r1, r2, r3) => [
+        { name: 'A', role: 'MASTER', ready: r1 },
+        { name: 'B', role: 'FI-SI', ready: r2 },
+        { name: 'C', role: 'FI-AE', ready: r3 },
+      ]
+      simulateMessage({ event: 'lobby_update', payload: { players: spieler(true, false, false), status: 'briefing', ready_to_start: true, all_ready: false } })
+      await wrapper.vm.$nextTick()
+      await wrapper.find('button.intro-skip').trigger('click')
+      expect(wrapper.find('button.intro-start').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.intro-ready').text()).toContain('1/3')
+
+      simulateMessage({ event: 'lobby_update', payload: { players: spieler(true, true, true), status: 'briefing', ready_to_start: true, all_ready: true } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.intro-outro').exists()).toBe(true)   // Countdown startet von selbst
+    })
+
+    it('im DEV-Modus bleibt der Start-Knopf auch ohne „Bereit“ frei', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true, all_ready: false, dev_mode: true } })
+      await wrapper.vm.$nextTick()
+      await wrapper.find('button.intro-skip').trigger('click')
+      expect(wrapper.find('button.intro-start').attributes('disabled')).toBeUndefined()
     })
 
     it('nach dem Start (game_tick) ist das Intro weg', async () => {
