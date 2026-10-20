@@ -102,7 +102,13 @@
           </li>
         </ul>
 
+        <!-- Einsatzbesprechung am Beamer: gestartet wird dort -->
+        <div v-if="status === 'briefing'" class="briefing-note">
+          <span class="briefing-title">Einsatzbesprechung läuft</span>
+          <span class="briefing-sub">Schaut auf den Beamer – gleich geht's los.</span>
+        </div>
         <button
+          v-else
           class="start-btn"
           :disabled="!readyToStart || starting"
           @click="startGame"
@@ -825,6 +831,27 @@ function onTaskSolved(data) {
   letter-spacing: 0.1em;
 }
 
+.briefing-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 28px;
+  border: 1px solid var(--green-border);
+  background: var(--green-bg);
+  text-align: center;
+  animation: briefing-puls 1.6s ease-in-out infinite;
+}
+
+.briefing-title { font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.12em; color: var(--green); }
+.briefing-sub { font-size: 14px; color: var(--fg-2); }
+
+@keyframes briefing-puls { 50% { border-color: var(--green); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .briefing-note { animation: none; }
+}
+
 .start-btn {
   margin-top: 16px;
   padding: 16px 64px;
@@ -862,10 +889,21 @@ function onTaskSolved(data) {
   flex-direction: column;
   padding: 16px;
   overflow: hidden;
+  /* Spielstart: Aufgabe blendet weich ein (statt hart umzuschalten) */
+  animation: aufgabe-rein 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Platz für den offenen Taschenrechner (rechts, auf dem Handy unten), damit
    die Zahlen der Aufgabe sichtbar bleiben */
+@keyframes aufgabe-rein {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-main { animation: none; }
+}
+
 .task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .task-main.with-calc { padding-right: 280px; }
 

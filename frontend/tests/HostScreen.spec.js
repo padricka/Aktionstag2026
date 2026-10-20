@@ -138,6 +138,36 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
+  describe('Einsatzbesprechung (Intro)', () => {
+    it('zeigt bei status briefing das Intro; „Einsatz starten“ schickt start_game nach dem Countdown', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('.intro').exists()).toBe(true)
+      expect(wrapper.find('.lobby').exists()).toBe(false)
+      await wrapper.find('button.intro-skip').trigger('click')
+      vi.useFakeTimers()
+      await wrapper.find('button.intro-start').trigger('click')
+      expect(getSentEvents().some((e) => e.event === 'start_game')).toBe(false)   // erst der Countdown
+      vi.advanceTimersByTime(5000)
+      vi.useRealTimers()
+      expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
+    })
+
+    it('nach dem Start (game_tick) ist das Intro weg', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'running', ready_to_start: true } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [] } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.intro').exists()).toBe(false)
+      expect(wrapper.find('.running').exists()).toBe(true)
+    })
+  })
+
   describe('Hilfe-Notizen am Beamer', () => {
     async function imSpiel(hints) {
       const wrapper = mount(HostScreen)

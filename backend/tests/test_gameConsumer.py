@@ -649,13 +649,15 @@ async def host_verbinden(game_id):
 
 
 async def dev_spiel(env, gid, dev=True):
-    """Host + 3 Spieler, optional DEV-Modus, Spiel läuft."""
+    """Host + 3 Spieler, optional DEV-Modus, Spiel läuft (nach der Einsatzbesprechung)."""
     host = await host_verbinden(gid)
     (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
     if dev:
         await host.send_json_to({"event": "dev_mode", "payload": {"enabled": True}})
         await recv_until(a, "lobby_update", lambda p: p["dev_mode"] is True)
     await a.send_json_to({"event": "start_game", "payload": {}})
+    await recv_until(a, "lobby_update", lambda p: p["status"] == "briefing")
+    await host.send_json_to({"event": "start_game", "payload": {}})   # Intro am Beamer fertig
     await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
     return host, a, b, c
 
@@ -907,3 +909,91 @@ async def test_same_hint_twice_or_unknown_is_refused(env):
         assert (await recv_until(host, "error"))["payload"]["code"] == "hint_denied"
     finally:
         await beenden(host, a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Einsatzbesprechung (Intro am Beamer)
+@pytest.mark.asyncio
+async def test_player_start_with_beamer_opens_the_briefing_first(env):
+    gid = "cov_briefing"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        msg = await recv_until(host, "lobby_update", lambda p: p["status"] == "briefing")
+        assert msg["payload"]["ready_to_start"] is True
+        assert gid not in games                                   # Zeit läuft noch nicht
+        assert env.hget(state_key(gid), "status").decode() == "briefing"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_host_starts_the_game_after_the_intro(env):
+    gid = "cov_briefing_go"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(host, "lobby_update", lambda p: p["status"] == "briefing")
+        await host.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(b, "lobby_update", lambda p: p["status"] == "running")
+        await recv_until(b, "game_tick")
+        assert games[gid].is_active
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_players_cannot_skip_the_briefing(env):
+    gid = "cov_briefing_noskip"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(host, "lobby_update", lambda p: p["status"] == "briefing")
+        await b.send_json_to({"event": "start_game", "payload": {}})
+        await c.send_json_to({"event": "choose_role", "payload": {"role": "MASTER"}})
+        await recv_until(c, "error")
+        assert gid not in games
+        assert env.hget(state_key(gid), "status").decode() == "briefing"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_without_beamer_the_game_starts_directly(env):
+    gid = "cov_briefing_nohost"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_beamer_gone_during_briefing_players_can_start(env):
+    gid = "cov_briefing_hostgone"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "briefing")
+        await host.disconnect()
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_host_cannot_start_before_all_roles_are_taken(env):
+    gid = "cov_briefing_notready"
+    host = await host_verbinden(gid)
+    (a,) = await spieler(gid, ("A", "MASTER"))
+    try:
+        await host.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(host, "error")
+        assert gid not in games
+    finally:
+        await beenden(host, a, game_ids=[gid])

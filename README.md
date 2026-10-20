@@ -135,7 +135,7 @@ Voraussetzung: `docker compose up --build -d` ist durchgelaufen (siehe oben).
 1. `http://localhost:5173/` als **Host (Beamer)** öffnen → „Als Host“. Der Host **erzeugt die Sitzungs-ID** und zeigt sie groß an.
 2. Auf den Spieler-Laptops `http://localhost:5173/` → „Als Spieler“, **genau diese ID** und einen Namen eingeben, dann Rolle wählen (Master / Spieler 1 / Spieler 2).
 3. Am Beamer müssen die drei Slots gefüllt sein (gleiche ID!). Weitere Beitritte über die maximale Spielerzahl hinaus werden abgelehnt.
-4. Spiel starten: `http://localhost:8000/force-start/?game_id=<ID-vom-Beamer>`
+4. Ein Spieler drückt „Runde starten“ → am Beamer läuft die **Einsatzbesprechung** (Story + Tutorial). Dort durchklicken und „Einsatz starten“ drücken – nach dem Countdown beginnt das Spiel. (Notfall ohne Intro: `http://localhost:8000/force-start/?game_id=<ID-vom-Beamer>`)
 5. Host wechselt auf Live-Ansicht (Zeit + Server-HP). Die Zeit läuft (300 Sekunden), die Leben sinken nur durch Fehler.
 6. Aufgaben lösen: richtig gibt +15 HP (max. 300) und eine neue Aufgabe, falsch kostet 60 HP.
 7. Bei 0 HP oder abgelaufener Zeit (dann fallen die Leben auf 0) erscheint Game Over bei allen. Punkte: siehe GAME_DESIGN.md, Abschnitt „Punkte“.

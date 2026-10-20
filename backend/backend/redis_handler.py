@@ -56,6 +56,8 @@ class RedisHandler:
         players_key = self._k_players(game_id)
         # DEV-Modus gehört zur Sitzung, nicht zur Runde: übersteht den Neustart
         dev_mode = _s(self.r.hget(state_key, "dev_mode")) or "0"
+        # Verbundene Beamer gehören ebenfalls zur Sitzung (Einsatzbesprechung vor dem Start)
+        hosts_online = _s(self.r.hget(state_key, "hosts_online")) or "0"
 
         self.r.delete(state_key, players_key)
         self.r.hset(state_key, mapping={
@@ -63,6 +65,7 @@ class RedisHandler:
             "time_left": DEFAULT_TIME,
             "status": "waiting",
             "dev_mode": dev_mode,
+            "hosts_online": hosts_online,
         })
         self.refresh_ttl(game_id, LOBBY_TTL)
 
@@ -105,7 +108,7 @@ class RedisHandler:
             }
 
         status = _s(self.r.hget(state_key, "status")) or "waiting"
-        if status in ("running", "game_over", "won"):
+        if status in ("running", "game_over", "won", "briefing"):
             return {"event": "error", "payload": {"message": "Das Spiel läuft bereits."}}
 
         slot = self.r.hincrby(state_key, "player_counter", 1)
@@ -148,7 +151,7 @@ class RedisHandler:
         players_key = self._k_players(game_id)
 
         status = _s(self.r.hget(state_key, "status")) or "waiting"
-        if status in ("running", "game_over", "won"):
+        if status in ("running", "game_over", "won", "briefing"):
             return {"event": "error", "payload": {"message": "Das Spiel läuft bereits."}}
 
         players = self._load_players(game_id)
@@ -213,6 +216,28 @@ class RedisHandler:
             "roles_free": free,
             "dev_mode": state.get("dev_mode") == "1",
         }
+
+    # ------------------------------------------------------------ Beamer / Einsatzbesprechung
+    def change_hosts_online(self, game_id: str, delta: int) -> int:
+        """Zählt verbundene Beamer der Sitzung (+1 beim host_register, −1 beim Trennen)."""
+        state_key = self._k_state(game_id)
+        count = self.r.hincrby(state_key, "hosts_online", delta)
+        if count < 0:
+            self.r.hset(state_key, "hosts_online", 0)
+            count = 0
+        return count
+
+    def hosts_online(self, game_id: str) -> int:
+        return int(_s(self.r.hget(self._k_state(game_id), "hosts_online")) or 0)
+
+    def begin_briefing(self, game_id: str) -> bool:
+        """Lobby → Einsatzbesprechung (Intro am Beamer). True, wenn umgeschaltet."""
+        state_key = self._k_state(game_id)
+        status = _s(self.r.hget(state_key, "status")) or "waiting"
+        if status not in ("waiting", "ready"):
+            return False
+        self.r.hset(state_key, "status", "briefing")
+        return True
 
     def set_dev_mode(self, game_id: str, enabled: bool) -> dict:
         """DEV-Modus nur in der Lobby umschalten (vor dem Start)."""
