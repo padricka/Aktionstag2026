@@ -4,8 +4,8 @@
   (feat/zeit-und-feuer). Läuft die Zeit ab, fallen die Leben auf 0 (Niederlage).
 
   Endpunkte = restliche Leben                         (Basiswert)
-            + Aufgabenpunkte je gelöster Aufgabe      (200 / 250 / 300, Finale 0)
-              ×2, wenn innerhalb des Zeitlimits gelöst (1:30 / 2:30 / 3:30 ab Aufgabenstart)
+            + Aufgabenpunkte je gelöster Aufgabe      (200 / 250 / 300, Finale 350)
+              ×2, wenn innerhalb des Zeitlimits gelöst (1:30 / 2:30 / 3:30 / Finale 3:00 ab Aufgabenstart)
             + Restzeit in Sekunden                    (nur bei Sieg)
             − 50 je geöffneter Hilfe-Notiz
   nie unter 0. Der ×2 ist für die Spieler unsichtbar (kein score_gain in input_result).
@@ -139,8 +139,8 @@ def test_mistakes_still_cost_lives(dc):
 
 # ------------------------------------------------------------------ Aufgabenpunkte und ×2
 def test_points_and_limits_per_task():
-    assert TASK_POINTS == {"alarm": 200, "fire_protocol": 250, "data_rescue": 300, "repair": 0}
-    assert FAST_LIMIT == {"alarm": 90, "fire_protocol": 150, "data_rescue": 210}
+    assert TASK_POINTS == {"alarm": 200, "fire_protocol": 250, "data_rescue": 300, "repair": 350}
+    assert FAST_LIMIT == {"alarm": 90, "fire_protocol": 150, "data_rescue": 210, "repair": 180}
 
 
 @pytest.mark.parametrize("kind", ["alarm", "fire_protocol", "data_rescue"])
@@ -168,13 +168,24 @@ def test_timer_starts_when_the_task_starts(dc, uhr):
     assert dc.task_points == 2 * 200 + 2 * 250
 
 
-def test_finale_gives_no_task_points(dc):
+def test_finale_gives_task_points_too(dc, uhr):
+    """feat/finale-hilfen-punkte: das Finale zählt jetzt mit (350, ×2 innerhalb 3:00)."""
     for _ in range(3):
         _loese(dc)
     vorher = dc.task_points
+    uhr.t += 10                                   # Zwischenszene vorbei, Finale läuft
     _loese(dc)
     assert dc.status == "won"
-    assert dc.task_points == vorher
+    assert dc.task_points == vorher + 2 * TASK_POINTS["repair"]
+
+
+def test_slow_finale_gives_the_plain_points(dc, uhr):
+    for _ in range(3):
+        _loese(dc)
+    vorher = dc.task_points
+    uhr.t += 10 + FAST_LIMIT["repair"] + 1
+    _loese(dc)
+    assert dc.task_points == vorher + TASK_POINTS["repair"]
 
 
 def test_double_is_invisible_to_players(dc):
@@ -207,7 +218,7 @@ def test_victory_adds_the_remaining_time(dc, uhr):
         _loese(dc)
     snap = dc.snapshot()
     assert dc.status == "won"
-    erwartet = dc.health + (400 + 500 + 600) + snap["time_left"]
+    erwartet = dc.health + (400 + 500 + 600 + 700) + snap["time_left"]   # Finale 350 ×2
     assert snap["score"] == erwartet
 
 

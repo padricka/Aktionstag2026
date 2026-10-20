@@ -731,6 +731,46 @@ class RepairTask(PlayableObject):
             },
         }
 
+    # ------------------------------------------------------------- Hilfe-Notizen
+    # In Lösungs-Reihenfolge; „done“ nach Spielstand (eingebaut, weitergegeben)
+    HINTS = 6
+
+    @classmethod
+    def hints(cls, state):
+        orte, eingebaut = state["orte"], cls._eingebaut(state)
+        bay, slot, psu = state["disk_bay"], state["fan_slot"], state["psu_bay"]
+        rot = state["bays"].index("rot") + 1
+        richtig_verteilt = (orte["disk"] in (ROLE_P1, "eingebaut") and orte["fan"] in (ROLE_P1, "eingebaut")
+                            and orte["psu"] in (ROLE_P2, "eingebaut"))
+        richtung = "nach hinten ins Rack" if state["fan_dir"] == "hinten" else "nach vorne zu euch"
+        return [
+            hint("give", "Wer bekommt was?",
+                 "Platte und Lüfter gehören zur Vorderseite, das Netzteil zur Rückseite. "
+                 "Eingebaut wird in dieser Reihenfolge: Platte → Lüfter → Netzteil.",
+                 richtig_verteilt),
+            hint("maintenance", "Wartung und Konsole",
+                 "Vor jedem Einbau schaltet der Leitstand den Platz auf WARTUNG, danach wieder zurück. "
+                 f"Die Konsole zählt ab 0: Schacht {bay} = BAY {bay - 1}, Lüfterplatz {slot} = FAN {slot - 1}, "
+                 f"Netzteilschacht {psu} = PSU {psu - 1}.",
+                 all(eingebaut.values())),
+            hint("disk", "Welcher Plattenschacht?",
+                 f"Auf dem Etikett steht {state['labels']['disk']}: Die Platte kommt in Schacht {bay}. "
+                 f"Schacht {rot} mit der roten LED ist defekt.",
+                 eingebaut["disk"]),
+            hint("fan", "Wie herum der Lüfter?",
+                 f"Hinter dem Rack ist der {state['gang']}. Die Luft strömt vom Kaltgang zum Warmgang – "
+                 f"der Pfeil zeigt {richtung} ({state['fan_dir']}). Er kommt in die Lücke, Platz {slot}.",
+                 eingebaut["fan"]),
+            hint("psu", "Netzteil",
+                 f"Heil ist die Sicherung in Schacht {psu}. Den Spannungsschalter vorher auf "
+                 f"{state['labels']['psu']} stellen – so steht es auf dem Etikett.",
+                 eingebaut["psu"]),
+            hint("keys", "Hochfahren",
+                 "Erst alle Plätze in der Konsole aus der Wartung nehmen. Dann die Schlüssel: Strom "
+                 "(Rückseite) → Kühlung (Vorderseite) → System (Leitstand), jeweils innerhalb von 5 Sekunden.",
+                 False),
+        ]
+
     @staticmethod
     def _fehler(state, text, persist=False):
         return StepResult(Outcome.WRONG, state, message=text, persist=persist)

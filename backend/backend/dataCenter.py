@@ -46,17 +46,18 @@ def _neue_etiketten() -> dict:
 
 # Punkte (GAME_DESIGN.md, „Punkte“): Endpunkte = restliche Leben + Aufgabenpunkte
 # (×2, wenn innerhalb FAST_LIMIT Sekunden ab Aufgabenstart gelöst) + Restzeit bei Sieg
-# − HINT_COST je Hilfe-Notiz. Das Finale bringt keine eigenen Aufgabenpunkte.
+# − HINT_COST je Hilfe-Notiz. Auch das Finale zählt (feat/finale-hilfen-punkte).
 TASK_POINTS = {
     "alarm": 200,
     "fire_protocol": 250,
     "data_rescue": 300,
-    "repair": 0,
+    "repair": 350,
 }
 FAST_LIMIT = {
     "alarm": 90,
     "fire_protocol": 150,
     "data_rescue": 210,
+    "repair": 180,
 }
 
 

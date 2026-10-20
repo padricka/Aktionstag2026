@@ -93,7 +93,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 
 // 8. Hilfe-Zettel vom Abreißblock reißen (nur Host, Spiel läuft)
 // id = ein Thema aus game_tick.hints.available (beliebige Reihenfolge). Kostet 50 Punkte
-// (DEV-Modus: gratis). Themen je Aufgabe: 1 → 4, 2 → 5, 3 → 6, Finale → 0.
+// (DEV-Modus: gratis). Themen je Aufgabe: 1 → 4, 2 → 5, 3 → 6, Finale → 6.
 // Danach game_tick an alle.
 // Abgelehnt (nicht Host, id fehlt/unbekannt/schon abgerissen/Schritt erledigt, keine Hilfen,
 // Spiel läuft nicht, task_id passt nicht) → error "hint_denied".

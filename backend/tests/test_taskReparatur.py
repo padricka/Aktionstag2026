@@ -86,8 +86,8 @@ def _alles_einbauen(dc):
 # ------------------------------------------------------------------ Aufbau
 def test_after_three_tasks_comes_the_repair(dc):
     assert dc.current_task()["kind"] == "repair"
-    assert TASK_POINTS["repair"] == 0
-    assert RepairTask.HINTS == 0
+    assert TASK_POINTS["repair"] == 350          # feat/finale-hilfen-punkte
+    assert RepairTask.HINTS == 6
 
 
 def test_the_round_fits_the_labels_in_the_parts_box(dc):
