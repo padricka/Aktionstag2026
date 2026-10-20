@@ -37,6 +37,15 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 Ablauf: **Alarm → Löschprotokoll → Datenrettung → Neustart**. Danach ist das Spiel gewonnen (`status: "won"`).
 Es gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP (max. 300). **Leben sinken nicht mehr mit der Zeit**, nur durch Fehler; läuft die Zeit ab, fallen die Leben auf 0 (Niederlage). **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +90 s (`TIME_BONUS`); DEV-Überspringen gibt keinen Bonus.
 
+### Einsatzbesprechung (Intro am Beamer)
+
+Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung** (`IntroStory.vue`).
+- **Ablauf:** Alle Rollen gewählt → ein Spieler drückt „Runde starten“ → ist ein Beamer verbunden, wechselt die Lobby in `status: "briefing"` (Handys: „Einsatzbesprechung läuft – schaut auf den Beamer“, Rollen sind fest). Ohne Beamer startet das Spiel wie bisher sofort.
+- **Story** (M. Kaiser, IT-Leitung, per Funk; Sprechblasen bauen sich wie getippt auf): ① Startbild, Brand in Raum B-04 · ② Nahaufnahme des Racks, „Systemausfall in 05:00“ · ③ das Rechenzentrum mit LEITSTAND / VORDERSEITE / RÜCKSEITE · ④ die drei echten Notizzettel · ⑤ „Redet miteinander – nicht durcheinander!“
+- **Tutorial (letzte Seite):** ein echtes Notizblatt mit nummerierten Schritten (die Nummern geben die Reihenfolge vor) und der Taschenrechner, dazu die Regeln (Aufgaben + Finale, Fehler kosten Leben, Notizen, Taschenrechner, Punkte).
+- **Start:** Erst „Einsatz starten“ am Beamer → Übergang (Kamerafahrt, „Verbinde mit Rechenzentrum B-04…“, 3 – 2 – 1 – LOS!) → Host sendet `start_game` → das Spiel startet, Beamer und Handys blenden weich ein.
+- **Bilder:** Szenen 2, 3, 5 sind Ausschnitte des Startbilds; eigene Bilder unter `frontend/src/assets/intro/szene-<n>.jpg` ersetzen sie automatisch (Prompts in `LIESMICH.md` dort). Die Sieg-/Niederlage-Bilder gehören nicht ins Intro.
+
 ### Punkte
 
 **Endpunkte = restliche Leben + Aufgabenpunkte + Restzeit (nur bei Sieg) − 50 je Hilfe-Notiz**, nie unter 0 (`DataCenter.snapshot`, ins Leaderboard geht dieser Wert).

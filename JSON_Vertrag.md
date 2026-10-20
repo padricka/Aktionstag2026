@@ -49,7 +49,11 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   }
 }
 
-// 4. Spiel starten (Host, aktuell ohne Host-Check)
+// 4. Spiel starten (wenn alle drei Rollen besetzt sind)
+// Vom Spieler: Ist ein Beamer (Host) verbunden, startet zuerst die Einsatzbesprechung –
+//   status "briefing" (lobby_update an alle), das Spiel läuft noch NICHT. Ohne Beamer
+//   startet das Spiel sofort. Während "briefing" ignoriert der Server weitere Starts von Spielern.
+// Vom Host: startet das Spiel (nach dem Intro am Beamer: „Einsatz starten“ + Countdown).
 {
   "event": "start_game",
   "payload": {}
@@ -93,7 +97,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 ## Server -> Client
 
 // 1. Updates für den Raum/die Lobby (Broadcast an alle)
-// status: "waiting" | "ready" | "running"
+// status: "waiting" | "ready" | "briefing" (Einsatzbesprechung am Beamer, Rollen fest,
+//          Zeit läuft noch nicht) | "running" | "game_over" | "won"
 {
   "event": "lobby_update",
   "payload": {
