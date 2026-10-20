@@ -16,8 +16,10 @@ import {
   resetGameSocketMock,
   getSentEvents,
 } from './mocks/useGameSocket.js'
+import * as sound from '../src/composables/useSound.js'
 
 vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
+vi.mock('../src/composables/useSound.js')
 
 describe('HostScreen.vue (mit Fake-WebSocket)', () => {
   beforeEach(() => {
@@ -409,4 +411,100 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       expect(wrapper.find('.dev-error').text()).toContain('nur vor dem Start')
     })
   })
+
+  describe('Ton am Beamer', () => {
+    async function beamer() {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      vi.clearAllMocks()
+      return wrapper
+    }
+    const lobby = (status) => simulateMessage({ event: 'lobby_update', payload: { players: [], status, ready_to_start: true } })
+    const tick = (extra = {}) => simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 200, tasks: [], ...extra } })
+
+    it('startet in der Einsatzbesprechung die leise Ambience', async () => {
+      const wrapper = await beamer()
+      lobby('briefing')
+      await wrapper.vm.$nextTick()
+      expect(sound.startBed).toHaveBeenCalledWith(expect.any(Number))
+      expect(sound.startBed.mock.calls[0][0]).toBeLessThan(1)
+    })
+
+    it('hebt beim Spielstart die Ambience an und spielt „System online“', async () => {
+      const wrapper = await beamer()
+      lobby('briefing')
+      await wrapper.vm.$nextTick()
+      lobby('running')
+      await wrapper.vm.$nextTick()
+      expect(sound.startBed).toHaveBeenLastCalledWith(1)
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-online')
+    })
+
+    it('spielt bei verlorenen Leben den Fehler-Buzz', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ health: 300 })
+      await wrapper.vm.$nextTick()
+      vi.clearAllMocks()
+      tick({ health: 240 })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-error')
+    })
+
+    it('spielt kein Fehlergeräusch, wenn die Leben steigen', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ health: 200 })
+      await wrapper.vm.$nextTick()
+      vi.clearAllMocks()
+      tick({ health: 215 })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).not.toHaveBeenCalledWith('sfx-error')
+    })
+
+    it('bestätigt eine neue Ziffer des Neustart-Codes', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ reboot_digits: [null, null, null] })
+      await wrapper.vm.$nextTick()
+      tick({ reboot_digits: [4, null, null] })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-solved')
+    })
+
+    it('meldet eine aufgerissene Hilfe-Notiz', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ hints: { total: 4, available: [], opened: [], cost: 50 } })
+      await wrapper.vm.$nextTick()
+      tick({ hints: { total: 4, available: [], opened: [{ id: 'cable' }], cost: 50 } })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-hint')
+    })
+
+    it('spielt zum Sieg und zur Niederlage je einen eigenen Ton und beendet die Ambience', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 10, survived_seconds: 5 } })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-win')
+      expect(sound.stopBed).toHaveBeenCalled()
+
+      const zweiter = await beamer()
+      lobby('running')
+      simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 0, survived_seconds: 5 } })
+      await zweiter.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-gameover')
+    })
+
+    it('ist in der Lobby still', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      await wrapper.vm.$nextTick()
+      lobby('waiting')
+      await wrapper.vm.$nextTick()
+      expect(sound.stopBed).toHaveBeenCalled()
+    })
+  })
 })
+

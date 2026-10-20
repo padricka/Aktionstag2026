@@ -252,6 +252,7 @@ const START_BILD = startScreen
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import TornNote from './TornNote.vue'
+import { playSfx, playVoice, stopVoice } from '../composables/useSound.js'
 
 const props = defineProps({
   // ms pro Zeichen in der Sprechblase (0 = sofort, z. B. in Tests)
@@ -260,6 +261,10 @@ const props = defineProps({
   outroSpeed: { type: Number, default: 900 },
   // Bereit-Stand der Spieler { count, total, all }; null = nicht warten (DEV-Modus, Tests)
   bereit: { type: Object, default: null },
+  // Funkspruch zu jeder Folie und Töne im Countdown (am Beamer an, in Tests aus)
+  sound: { type: Boolean, default: false },
+  // Folien laufen von selbst (nach dem Funkspruch bzw. der Lesezeit); die letzte wartet auf die Spieler
+  auto: { type: Boolean, default: false },
 })
 const emit = defineEmits(['start'])
 
@@ -301,10 +306,40 @@ function tippen() {
   }, props.typeSpeed)
 }
 
-watch(index, tippen)
-onMounted(() => { tippen(); root.value?.focus({ preventScroll: true }) })
+// Lesezeit ohne Ton: mindestens 3 s, sonst ~55 ms pro Zeichen; nach dem Spruch kurze Pause
+const LESEZEIT_MIN_MS = 3000
+const LESEZEIT_PRO_ZEICHEN_MS = 55
+const PAUSE_NACH_SPRUCH_MS = 900
+let autoTimer = null
+
+/** Spielt den Funkspruch der aktuellen Folie. Rückgabe: true, wenn er läuft (beiEnde kommt). */
+function sprechen(beiEnde) {
+  if (!props.sound) return false
+  const name = `intro-slide-${index.value + 1}`
+  return beiEnde ? playVoice(name, beiEnde) : playVoice(name)
+}
+
+function szeneStart() {
+  tippen()
+  clearTimeout(autoTimer)
+  if (!props.auto || istLetzte.value) { sprechen(); return }   // die letzte Folie wartet
+  const nummer = index.value
+  const lesezeit = Math.max(LESEZEIT_MIN_MS, slide.value.text.length * LESEZEIT_PRO_ZEICHEN_MS)
+  const begonnen = Date.now()
+  const blaettern = (wartezeit) => {
+    autoTimer = setTimeout(() => { if (index.value === nummer) index.value += 1 }, wartezeit)
+  }
+  // Mit Ton entscheidet das Ende des Spruchs; ohne Ton oder bei Blockade die Lesezeit
+  const spricht = sprechen(() => blaettern(Math.max(PAUSE_NACH_SPRUCH_MS, lesezeit - (Date.now() - begonnen))))
+  if (!spricht) blaettern(lesezeit)
+}
+
+watch(index, szeneStart)
+onMounted(() => { szeneStart(); root.value?.focus({ preventScroll: true }) })
 onUnmounted(() => {
   stopp()
+  clearTimeout(autoTimer)
+  if (props.sound) stopVoice()
   if (outroTimer) clearInterval(outroTimer)
 })
 
@@ -325,6 +360,8 @@ function springeZumTutorial() {
 function starten() {
   if (gestartet.value) return
   gestartet.value = true
+  clearTimeout(autoTimer)
+  if (props.sound) stopVoice()   // der Funkspruch läuft nicht in den Countdown
   if (!props.outroSpeed) { emit('start'); return }
   // erst der Übergang, dann startet das Spiel (die Zeit läuft also erst nach „LOS!“)
   schritt.value = 0
@@ -338,6 +375,13 @@ function starten() {
     }
   }, props.outroSpeed)
 }
+
+// Countdown 3 – 2 – 1 piept, LOS! gibt das Startsignal
+watch(schritt, (n) => {
+  if (!props.sound) return
+  if (n >= 1 && n <= 3) playSfx('sfx-count')
+  else if (n === 4) playSfx('sfx-go')
+})
 
 // Werden die Spieler auf der letzten Folie bereit, geht es von selbst mit dem Countdown los.
 // Waren sie schon vorher bereit, entscheidet der Beamer-Host (Knopf ist dann frei).
