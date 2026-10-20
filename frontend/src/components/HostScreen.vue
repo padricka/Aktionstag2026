@@ -123,6 +123,19 @@
               </button>
             </div>
 
+            <!-- nach jeder Aufgabe: Fundort öffnet sich, Teil wandert in die Teilekiste -->
+            <Transition name="phase">
+              <Zwischenszene
+                v-if="zwischenszene"
+                :key="zwischenszene.key"
+                :teil="zwischenszene.teil"
+                :naechste="zwischenszene.naechste"
+                rolle="HOST"
+                gross
+                @fertig="zwischenszene = null"
+              />
+            </Transition>
+
             <!-- Hilfe-Notizen der laufenden Aufgabe, kosten Punkte (GAME_DESIGN.md) -->
             <HintBoard
               v-if="status === 'running' && hints.total"
@@ -146,6 +159,7 @@ import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import VaultDoor from './VaultDoor.vue'
 import HintBoard from './HintBoard.vue'
+import Zwischenszene from './Zwischenszene.vue'
 import IntroStory from './IntroStory.vue'
 
 defineEmits(['exit'])
@@ -163,6 +177,9 @@ const hintError = ref('')
 const restarting = ref(false)   // Neustart vom Beamer gesendet, wartet auf lobby_update
 const status = ref('waiting')
 const playerList = ref([])
+const teile = ref([])               // gefundene Teile (game_tick.parts)
+const zwischenszene = ref(null)     // { teil, naechste, key } solange die Szene läuft
+let teileBekannt = false            // erst ab dem zweiten Tick: Beamer-Reload zeigt keine alte Szene
 const ROLLEN = ['MASTER', 'FI-SI', 'FI-AE']
 const rollenPlaetze = computed(() =>
   ROLLEN.map((role) => ({ role, spieler: playerList.value.find((p) => p.role === role) || null }))
@@ -264,11 +281,21 @@ function handleMessage(msg) {
       gameOverSurvived.value = 0
       gameOverBoard.value = null
       hints.value = { total: 0, available: [], opened: [], cost: 50 }
+      teile.value = []
+      teileBekannt = false
+      zwischenszene.value = null
       restarting.value = false
     }
   }
 
   if (event === 'game_tick') {
+    if (Array.isArray(payload.parts)) {
+      if (teileBekannt && payload.parts.length > teile.value.length) {
+        zwischenszene.value = { teil: payload.parts.at(-1), naechste: payload.parts.length + 1, key: payload.parts.length }
+      }
+      teile.value = payload.parts
+      teileBekannt = true
+    }
     // Überspringen erst wieder frei, wenn wirklich die nächste Aufgabe da ist –
     // der normale Sekunden-Tick gibt den Knopf nicht frei (sonst Doppelsprung)
     aktuelleAufgabe = payload.tasks?.[0]?.task_id ?? null

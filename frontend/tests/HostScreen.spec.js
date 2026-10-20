@@ -268,6 +268,21 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     })
   })
 
+  it('neues Teil gefunden: Zwischenszene auch am Beamer (groß)', async () => {
+    const wrapper = mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+    simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'running', ready_to_start: true } })
+    simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 500, tasks: [], parts: [] } })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.zwischenszene').exists()).toBe(false)
+
+    simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 499, tasks: [], parts: [
+      { id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' },
+    ] } })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.zwischenszene').classes()).toContain('is-gross')
+  })
+
   describe('Hilfe-Notizen am Beamer', () => {
     async function imSpiel(hints) {
       const wrapper = mount(HostScreen)

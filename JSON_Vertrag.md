@@ -162,7 +162,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // status "ready" = alle drei Rollen besetzt (ready_to_start: true).
 
 // 2. Regelmäßiges Game-State Update (Broadcast, jede Sekunde und sofort nach player_input)
-// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits, hints.
+// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits, hints, parts.
 // Spielregeln (Max-HP, Spielende, Aufgabenreihenfolge) kennt nur das Backend: Das Frontend
 // zeigt health/max_health an, wählt die Ansicht über tasks[].kind und beendet das Spiel
 // erst bei game_over, nicht selbst bei health 0 oder time_left 0.
@@ -187,7 +187,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
     "reboot_digits": [4, null, null],
     "hints": { "task_id": "c0ffee…", "total": 4, "cost": 50,
                "available": [{ "id": "cable", "label": "Welches Kabel?" }, { "id": "symbols", "label": "Welches Symbol zuerst?" }, { "id": "scratch", "label": "Zerkratzter Aufkleber" }],
-               "opened": [{ "id": "order", "label": "LED und Farbfolge", "text": "Die LED blinkt – der Code ist die Farbfolge rückwärts: …" }] }
+               "opened": [{ "id": "order", "label": "LED und Farbfolge", "text": "Die LED blinkt – der Code ist die Farbfolge rückwärts: …" }] },
+    "parts": [{ "id": "psu", "name": "Netzteil", "fundort": "schrank", "label": "230 V" }]
   }
 }
 
@@ -211,6 +212,11 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // (nicht abgerissen, Schritt laut Spielstand nicht erledigt; nur id + label), opened = abgerissene
 // Zettel mit Text (in Abriss-Reihenfolge). Texte nicht abgerissener Themen gehen nie raus.
 // task_id = die Aufgabe, zu der der Block gehört (fehlt, wenn es keine Hilfen gibt).
+// "parts": gefundene Teile in Fundreihenfolge. Nach Aufgabe 1 → Netzteil (psu, Fundort
+// "schrank", Etikett "115 V" | "230 V"), Aufgabe 2 → Lüfter (fan, "lager", "Pfeil = Luftstrom"),
+// Aufgabe 3 → Backup-Platte (disk, "tresor", "RAID-Platz 1…4"). Etiketten pro Runde
+// ausgelost, auch beim DEV-Überspringen; das Finale gibt kein Teil. Wird die Liste länger,
+// zeigen Handys und Beamer die Zwischenszene (Fundort öffnet sich, Titel der nächsten Aufgabe).
 // "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
 // Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 

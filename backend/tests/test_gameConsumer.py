@@ -828,7 +828,7 @@ async def test_game_id_is_case_insensitive(env):
     assert not env.exists("game:COV_CASE:state")
     await comm.disconnect()
 # ---------------------------------------------------------------- game_tick vertragskonform
-TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits", "hints"}
+TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits", "hints", "parts"}
 
 
 @pytest.mark.asyncio

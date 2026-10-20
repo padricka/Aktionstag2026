@@ -28,6 +28,22 @@ ROTATION = ["alarm", "fire_protocol", "data_rescue", "reboot"]
 REWARD_SLOT = {"alarm": 0, "fire_protocol": 1, "data_rescue": 2}
 REBOOT_CODE_LEN = 3
 
+# Fundorte (GAME_DESIGN.md): nach jeder Aufgabe öffnet sich ein Ort mit einem Teil fürs Finale
+FUNDORTE = {
+    "alarm": {"id": "psu", "name": "Netzteil", "fundort": "schrank"},
+    "fire_protocol": {"id": "fan", "name": "Lüfter", "fundort": "lager"},
+    "data_rescue": {"id": "disk", "name": "Backup-Platte", "fundort": "tresor"},
+}
+
+
+def _neue_etiketten() -> dict:
+    """Etiketten der Teile, pro Runde ausgelost – das Finale braucht sie."""
+    return {
+        "psu": {"label": random.choice(["115 V", "230 V"])},
+        "fan": {"label": "Pfeil = Luftstrom"},
+        "disk": {"label": f"RAID-Platz {random.choice([1, 2, 3, 4])}"},
+    }
+
 # Punkte (GAME_DESIGN.md, „Punkte“): Endpunkte = restliche Leben + Aufgabenpunkte
 # (×2, wenn innerhalb FAST_LIMIT Sekunden ab Aufgabenstart gelöst) + Restzeit bei Sieg
 # − HINT_COST je Hilfe-Notiz. Das Finale bringt keine eigenen Aufgabenpunkte.
@@ -54,6 +70,7 @@ def tick_payload(snap: dict) -> dict:
         "tasks": snap["tasks"],
         "reboot_digits": snap.get("reboot_digits") or [None] * REBOOT_CODE_LEN,
         "hints": snap.get("hints") or {"total": 0, "opened": [], "cost": HINT_COST},
+        "parts": snap.get("parts") or [],
     }
 
 
@@ -113,6 +130,27 @@ class DataCenter:
             for i in range(REBOOT_CODE_LEN)
         ]
 
+    @property
+    def parts_spec(self) -> dict:
+        raw = self.redis.r.hget(self._key, "parts_spec")
+        return json.loads(raw) if raw else {}
+
+    def _parts(self, state: dict) -> list[dict]:
+        """Gefundene Teile in Fundreihenfolge, mit Etikett (game_tick.parts)."""
+        gefunden = json.loads(state["parts_found"]) if state.get("parts_found") else []
+        spec = json.loads(state["parts_spec"]) if state.get("parts_spec") else {}
+        alle = {f["id"]: f for f in FUNDORTE.values()}
+        return [{**alle[i], "label": (spec.get(i) or {}).get("label", "")} for i in gefunden if i in alle]
+
+    def _find_part(self, kind: str) -> None:
+        teil = FUNDORTE.get(kind)
+        if not teil:
+            return
+        raw = self.redis.r.hget(self._key, "parts_found")
+        gefunden = json.loads(raw) if raw else []
+        if teil["id"] not in gefunden:
+            self.redis.r.hset(self._key, "parts_found", json.dumps(gefunden + [teil["id"]]))
+
     def _reveal_digit(self, kind: str) -> None:
         slot = REWARD_SLOT.get(kind)
         if slot is None:
@@ -147,6 +185,7 @@ class DataCenter:
             "hints": self._hints(task),
             "max_health": self.max_health,
             "reboot_digits": self._reboot_digits(state),
+            "parts": self._parts(state),
         }
 
     @staticmethod
@@ -207,6 +246,8 @@ class DataCenter:
             "fire_seconds": 0,
             "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
             "reboot_revealed": json.dumps([]),
+            "parts_found": json.dumps([]),
+            "parts_spec": json.dumps(_neue_etiketten()),
         })
         self.redis.r.hdel(self._key, "task", "over_announced", "game_over")
         self.new_task(kind="alarm")
@@ -299,6 +340,7 @@ class DataCenter:
     def _advance(self, task: dict) -> bool:
         """Nach gelöster/übersprungener Aufgabe: Ziffer aufdecken, nächste Aufgabe. True = gewonnen."""
         self._reveal_digit(task.get("kind", ""))
+        self._find_part(task.get("kind", ""))
         solved = self.redis.r.hincrby(self._key, "solved_count", 1)
         if solved >= TOTAL_TASKS:
             self.redis.r.hset(self._key, "status", "won")
