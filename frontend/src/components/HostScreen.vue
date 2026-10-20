@@ -1,131 +1,137 @@
 <template>
   <div class="host">
 
-    <GameOver
-      v-if="istSpielVorbei && !istSieg"
-      :result="gameOverResult"
-      :score="gameOverScore"
-      :survived-seconds="gameOverSurvived"
-      :leaderboard="gameOverBoard"
-      :show-restart="true"
-      :show-exit="true"
-      :restarting="restarting"
-      @restart="neueRunde"
-      @exit="$emit('exit')"
-    />
+    <!-- Spielende / Einsatzbesprechung / Lobby+Spiel blenden weich über (style.css: .screen-*) -->
+    <Transition name="screen" mode="out-in">
+      <GameOver
+        v-if="istSpielVorbei && !istSieg"
+        :result="gameOverResult"
+        :score="gameOverScore"
+        :survived-seconds="gameOverSurvived"
+        :leaderboard="gameOverBoard"
+        :show-restart="true"
+        :show-exit="true"
+        :restarting="restarting"
+        @restart="neueRunde"
+        @exit="$emit('exit')"
+      />
 
-    <!-- Einsatzbesprechung: Story + Tutorial, erst danach startet das Spiel -->
-    <IntroStory v-else-if="status === 'briefing'" class="host-intro" @start="introFertig" />
+      <!-- Einsatzbesprechung: Story + Tutorial, erst danach startet das Spiel -->
+      <IntroStory v-else-if="status === 'briefing'" class="host-intro" @start="introFertig" />
 
-    <template v-else>
+      <div v-else class="host-main">
 
-      <header class="host-top">
-        <span class="host-brand">DRV-BOX · HOST</span>
-        <span class="host-status">{{ statusLabel }}</span>
-        <span class="host-session">{{ gameId ? gameId.toUpperCase() : '…' }}</span>
-        <button class="exit-btn" @click="$emit('exit')">Verlassen</button>
-      </header>
+        <header class="host-top">
+          <span class="host-brand">DRV-BOX · HOST</span>
+          <span class="host-status">{{ statusLabel }}</span>
+          <span class="host-session">{{ gameId ? gameId.toUpperCase() : '…' }}</span>
+          <button class="exit-btn" @click="$emit('exit')">Verlassen</button>
+        </header>
 
-      <!-- LOBBY -->
-      <section v-if="status !== 'running' && !istSieg" class="lobby">
-        <h1 class="lobby-title">Bereit für den Start</h1>
+        <!-- Lobby → Spiel blenden über (nach dem Intro übernimmt das der Bildschirmwechsel) -->
+        <Transition name="phase" mode="out-in">
+          <!-- LOBBY -->
+          <section v-if="status !== 'running' && !istSieg" class="lobby">
+            <h1 class="lobby-title">Bereit für den Start</h1>
 
-        <div v-if="gameId" class="id-block">
-          <span class="host-label">Sitzungs-ID — Spieler müssen genau diese eingeben</span>
-          <div class="id-value">{{ gameId.toUpperCase() }}</div>
-          <p class="lobby-sub">{{ wsHost }}</p>
-        </div>
-        <p v-else-if="bootError" class="lobby-error">{{ bootError }}</p>
-        <p v-else class="lobby-sub">Sitzung wird erstellt …</p>
+            <div v-if="gameId" class="id-block">
+              <span class="host-label">Sitzungs-ID — Spieler müssen genau diese eingeben</span>
+              <div class="id-value">{{ gameId.toUpperCase() }}</div>
+              <p class="lobby-sub">{{ wsHost }}</p>
+            </div>
+            <p v-else-if="bootError" class="lobby-error">{{ bootError }}</p>
+            <p v-else class="lobby-sub">Sitzung wird erstellt …</p>
 
-        <!-- DEV-Modus: zum Testen. Zeit steht, Fehler kosten nichts, Aufgaben überspringbar -->
-        <div v-if="gameId" class="dev-block">
-          <button
-            class="dev-toggle"
-            :class="{ on: devMode }"
-            :aria-pressed="devMode ? 'true' : 'false'"
-            @click="toggleDevMode"
-          >
-            DEV-Modus: {{ devMode ? 'AN' : 'AUS' }}
-          </button>
-          <span v-if="devMode" class="dev-note">Zeit steht · keine HP-Verluste · Aufgaben überspringbar · Runden werden nicht gewertet</span>
-        </div>
-        <p v-if="devError" class="dev-error">{{ devError }}</p>
+            <!-- DEV-Modus: zum Testen. Zeit steht, Fehler kosten nichts, Aufgaben überspringbar -->
+            <div v-if="gameId" class="dev-block">
+              <button
+                class="dev-toggle"
+                :class="{ on: devMode }"
+                :aria-pressed="devMode ? 'true' : 'false'"
+                @click="toggleDevMode"
+              >
+                DEV-Modus: {{ devMode ? 'AN' : 'AUS' }}
+              </button>
+              <span v-if="devMode" class="dev-note">Zeit steht · keine HP-Verluste · Aufgaben überspringbar · Runden werden nicht gewertet</span>
+            </div>
+            <p v-if="devError" class="dev-error">{{ devError }}</p>
 
-        <div class="slots">
-          <div
-            v-for="i in 3"
-            :key="i"
-            class="slot"
-            :class="{ filled: playerList[i - 1] }"
-          >
-            <span class="slot-name">
-              {{ playerList[i - 1] ? playerList[i - 1].name : 'wartet' }}
-            </span>
-            <span class="slot-role">
-              {{ playerList[i - 1] && playerList[i - 1].role
-                  ? roleLabel(playerList[i - 1].role)
-                  : '–' }}
-            </span>
-          </div>
-        </div>
+            <div class="slots">
+              <div
+                v-for="i in 3"
+                :key="i"
+                class="slot"
+                :class="{ filled: playerList[i - 1] }"
+              >
+                <span class="slot-name">
+                  {{ playerList[i - 1] ? playerList[i - 1].name : 'wartet' }}
+                </span>
+                <span class="slot-role">
+                  {{ playerList[i - 1] && playerList[i - 1].role
+                      ? roleLabel(playerList[i - 1].role)
+                      : '–' }}
+                </span>
+              </div>
+            </div>
 
-        <p class="lobby-count">{{ playerList.length }} / 3</p>
+            <p class="lobby-count">{{ playerList.length }} / 3</p>
 
-        <p class="lobby-note">
-          {{ readyToStart
-              ? 'Alle Rollen besetzt — ein Spieler startet die Runde, dann folgt hier die Einsatzbesprechung.'
-              : 'Warte auf Spieler (gleiche ID) und Rollenwahl …' }}
-        </p>
-      </section>
+            <p class="lobby-note">
+              {{ readyToStart
+                  ? 'Alle Rollen besetzt — ein Spieler startet die Runde, dann folgt hier die Einsatzbesprechung.'
+                  : 'Warte auf Spieler (gleiche ID) und Rollenwahl …' }}
+            </p>
+          </section>
 
-      <!-- RUNNING -->
-      <section v-else class="running">
-        <div v-if="devMode && status === 'running'" class="dev-panel">
-          <span class="dev-badge">DEV-MODUS · Zeit steht · keine HP-Verluste · nicht gewertet</span>
-          <button class="dev-skip" :disabled="skipping" @click="skipTask">
-            {{ skipping ? 'Überspringe …' : 'Aufgabe überspringen ⏭' }}
-          </button>
-          <span v-if="devError" class="dev-error">{{ devError }}</span>
-        </div>
+          <!-- RUNNING -->
+          <section v-else class="running">
+            <div v-if="devMode && status === 'running'" class="dev-panel">
+              <span class="dev-badge">DEV-MODUS · Zeit steht · keine HP-Verluste · nicht gewertet</span>
+              <button class="dev-skip" :disabled="skipping" @click="skipTask">
+                {{ skipping ? 'Überspringe …' : 'Aufgabe überspringen ⏭' }}
+              </button>
+              <span v-if="devError" class="dev-error">{{ devError }}</span>
+            </div>
 
-        <div class="time-block">
-          <span class="host-label">Zeit</span>
-          <div class="time-value" :class="{ critical: timeLeft <= 30 }">{{ zeit }}</div>
-        </div>
+            <div class="time-block">
+              <span class="host-label">Zeit</span>
+              <div class="time-value" :class="{ critical: timeLeft <= 30 }">{{ zeit }}</div>
+            </div>
 
-        <div class="hp-block">
-          <div class="hp-head">
-            <span class="host-label">Server</span>
-            <span class="hp-value">{{ hp }} / {{ maxHp }}</span>
-          </div>
-          <div class="hp-track">
-            <div class="hp-fill" :style="{ width: hpPercent + '%' }"></div>
-          </div>
-        </div>
+            <div class="hp-block">
+              <div class="hp-head">
+                <span class="host-label">Server</span>
+                <span class="hp-value">{{ hp }} / {{ maxHp }}</span>
+              </div>
+              <div class="hp-track">
+                <div class="hp-fill" :style="{ width: hpPercent + '%' }"></div>
+              </div>
+            </div>
 
-        <!-- Finale: Neustart-Code, füllt sich mit jeder gelösten Aufgabe -->
-        <div class="finale">
-          <span class="host-label">Neustart-Code</span>
-          <VaultDoor mode="display" :digits="rebootDigits" :state="vaultState" />
-          <p v-if="istSieg" class="finale-win">SERVER ONLINE · SIEG</p>
-          <button v-if="istSieg" class="host-restart" :disabled="restarting" @click="neueRunde">
-            {{ restarting ? 'Neustart …' : 'Neue Runde' }}
-          </button>
-        </div>
+            <!-- Finale: Neustart-Code, füllt sich mit jeder gelösten Aufgabe -->
+            <div class="finale">
+              <span class="host-label">Neustart-Code</span>
+              <VaultDoor mode="display" :digits="rebootDigits" :state="vaultState" />
+              <p v-if="istSieg" class="finale-win">SERVER ONLINE · SIEG</p>
+              <button v-if="istSieg" class="host-restart" :disabled="restarting" @click="neueRunde">
+                {{ restarting ? 'Neustart …' : 'Neue Runde' }}
+              </button>
+            </div>
 
-        <!-- Hilfe-Notizen der laufenden Aufgabe, kosten Punkte (GAME_DESIGN.md) -->
-        <HintBoard
-          v-if="status === 'running' && hints.total"
-          class="host-hints"
-          :hints="hints"
-          :dev="devMode"
-          :error="hintError"
-          @open="oeffneHilfe"
-        />
-      </section>
+            <!-- Hilfe-Notizen der laufenden Aufgabe, kosten Punkte (GAME_DESIGN.md) -->
+            <HintBoard
+              v-if="status === 'running' && hints.total"
+              class="host-hints"
+              :hints="hints"
+              :dev="devMode"
+              :error="hintError"
+              @open="oeffneHilfe"
+            />
+          </section>
+        </Transition>
 
-    </template>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -329,6 +335,14 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Lobby/Spiel als ein Block (für den Bildschirmwechsel) */
+.host-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Intro füllt den ganzen Beamer, ohne den Rand der Lobby */
 .host-intro { margin: -32px -48px; }
 
@@ -564,17 +578,6 @@ onMounted(async () => {
   align-items: center;
   gap: 18px;
   overflow: hidden;
-  /* nach dem Intro-Countdown weich ins Spiel */
-  animation: spiel-rein 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes spiel-rein {
-  from { opacity: 0; transform: scale(1.04); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .running { animation: none; }
 }
 
 /* Hilfe-Notizen: rechts neben Zeit/Server/Tresor; schmaler Beamer → darunter */

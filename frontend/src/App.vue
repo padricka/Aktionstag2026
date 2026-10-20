@@ -1,41 +1,47 @@
 <template>
   <div class="app">
 
-    <!-- Startmenü -->
-    <LeaderboardScreen
-      v-if="!gestartet && showLeaderboard"
-      @back="showLeaderboard = false"
-    />
+    <!-- Bildschirmwechsel blenden weich über (style.css: .screen-*) -->
+    <Transition name="screen" mode="out-in">
+      <!-- Startmenü -->
+      <LeaderboardScreen
+        v-if="!gestartet && showLeaderboard"
+        @back="showLeaderboard = false"
+      />
 
-    <StartMenu
-      v-else-if="!gestartet"
-      @spiel-starten="onStart"
-      @open-settings="showStartMenuSettings = true"
-      @open-leaderboard="showLeaderboard = true"
-    />
+      <StartMenu
+        v-else-if="!gestartet"
+        @spiel-starten="onStart"
+        @open-settings="showStartMenuSettings = true"
+        @open-leaderboard="showLeaderboard = true"
+      />
 
-    <!-- Host (Beamer) -->
-    <HostScreen
-      v-else-if="role === 'host'"
-      @exit="zurueck"
-    />
+      <!-- Host (Beamer) -->
+      <HostScreen
+        v-else-if="role === 'host'"
+        @exit="zurueck"
+      />
 
-    <!-- Spieler / Master (Laptop) -->
-    <PlayerScreen
-      v-else
-      :player-name="playerName"
-      @exit="zurueck"
-    />
+      <!-- Spieler / Master (Laptop) -->
+      <PlayerScreen
+        v-else
+        :player-name="playerName"
+        @exit="zurueck"
+      />
+    </Transition>
 
-    <!-- Einstellungen über dem Startmenü (nicht v-else — sonst verschwindet der Menüpunkt) -->
-    <div v-if="showStartMenuSettings" class="settings-overlay">
-      <div class="settings-modal-wrapper">
-        <button class="close-btn" @click="showStartMenuSettings = false">
-          Schließen
-        </button>
-        <SettingsScreen @save="showStartMenuSettings = false" />
+    <!-- Einstellungen über dem Startmenü (nicht v-else — sonst verschwindet der Menüpunkt).
+         Hintergrund blendet ein, das Fenster gleitet von oben herein; Klick daneben schließt. -->
+    <Transition name="overlay">
+      <div v-if="showStartMenuSettings" class="settings-overlay" @click.self="showStartMenuSettings = false">
+        <div class="settings-modal-wrapper">
+          <button class="close-btn" @click="showStartMenuSettings = false">
+            Schließen
+          </button>
+          <SettingsScreen @save="showStartMenuSettings = false" />
+        </div>
       </div>
-    </div>
+    </Transition>
 
   </div>
 </template>
@@ -162,6 +168,16 @@ function zurueck() {
   margin-left: auto;
   transition: all 0.2s ease;
 }
+
+/* Einstellungen: Hintergrund blendet, Fenster gleitet */
+.overlay-enter-active,
+.overlay-leave-active { transition: opacity 0.3s ease; }
+.overlay-enter-from,
+.overlay-leave-to { opacity: 0; }
+.overlay-enter-active .settings-modal-wrapper,
+.overlay-leave-active .settings-modal-wrapper { transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.overlay-enter-from .settings-modal-wrapper { transform: translateY(-28px) scale(0.98); }
+.overlay-leave-to .settings-modal-wrapper { transform: translateY(-14px) scale(0.99); }
 
 .close-btn:hover {
   background: #ff0055;

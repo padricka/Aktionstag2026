@@ -42,7 +42,13 @@
             </tr>
           </tbody>
           <tbody v-else :class="{ 'is-loading': laden }">
-            <tr v-for="e in daten?.entries || []" :key="e.rank" :class="podest(e.rank)">
+            <tr
+              v-for="(e, i) in daten?.entries || []"
+              :key="e.rank"
+              class="lb-row"
+              :class="podest(e.rank)"
+              :style="{ '--i': i }"
+            >
               <td class="c-rank"><span class="lb-rank">{{ e.rank }}</span></td>
               <td class="c-team">{{ (e.players || []).join(' · ') }}</td>
               <td class="c-score">{{ e.score }}</td>
@@ -291,6 +297,9 @@ function datum(iso) {
 }
 
 .lb-table tbody tr { transition: background 0.15s; }
+
+/* Zeilen erscheinen gestaffelt – beim Öffnen und beim Blättern (neue Ränge = neue Zeilen) */
+.lb-row { animation: rein-von-unten 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--i) * 25ms); }
 .lb-table tbody tr:hover { background: var(--bg-2); }
 .lb-table tbody tr:last-child td { border-bottom: none; }
 .lb-table tbody.is-loading { opacity: 0.45; transition: opacity 0.15s; }

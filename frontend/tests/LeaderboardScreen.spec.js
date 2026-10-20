@@ -53,6 +53,16 @@ describe('LeaderboardScreen.vue', () => {
     expect(wrapper.find('.lb-range').text()).toBe('Runden 1–20 von 45')
   })
 
+  it('Zeilen erscheinen gestaffelt (Index als --i für die Verzögerung)', async () => {
+    vi.stubGlobal('fetch', fetchMit(3))
+    const wrapper = mount(LeaderboardScreen)
+    await flushPromises()
+
+    const zeilen = wrapper.findAll('tbody tr.lb-row')
+    expect(zeilen).toHaveLength(3)
+    expect(zeilen.map((z) => z.attributes('style'))).toEqual(['--i: 0;', '--i: 1;', '--i: 2;'])
+  })
+
   it('zeigt Ergebnis, Spielzeit und Datum lesbar an', async () => {
     vi.stubGlobal('fetch', fetchMit(2))
     const wrapper = mount(LeaderboardScreen)
