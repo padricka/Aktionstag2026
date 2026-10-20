@@ -355,15 +355,24 @@ function connectAsHost(id) {
   })
 }
 
+// Beamer-Anwesenheit: alle 10 s melden (Server vergisst den Beamer nach 30 s ohne Meldung,
+// z. B. nach einem Absturz – dann starten die Spieler auch ohne Einsatzbesprechung)
+const HOST_PING_MS = 10000
+let pingTimer = null
+
 // „Verlassen“, bevor create-game geantwortet hat: dann keinen Beamer mehr anmelden
 let entfernt = false
-onUnmounted(() => { entfernt = true })
+onUnmounted(() => {
+  entfernt = true
+  if (pingTimer) clearInterval(pingTimer)
+})
 
 onMounted(async () => {
   try {
     const id = await resolveGameId()
     if (entfernt) return
     connectAsHost(id)
+    pingTimer = setInterval(() => sendEvent('host_ping', {}), HOST_PING_MS)
   } catch (err) {
     console.error(err)
     bootError.value = 'Sitzung konnte nicht erstellt werden. Backend erreichbar?'

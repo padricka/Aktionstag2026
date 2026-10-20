@@ -1025,3 +1025,83 @@ async def test_failed_start_reports_start_failed(env):
         assert msg["payload"]["code"] == "start_failed"
     finally:
         await beenden(host, a, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Beamer-Anwesenheit (fix/beamer-anwesenheit)
+def host_keys(env, gid):
+    return list(env.scan_iter(match=f"game:{gid}:host:*"))
+
+
+@pytest.mark.asyncio
+async def test_beamer_presence_is_a_short_lived_key(env):
+    """Statt eines Zählers: ein Schlüssel je Beamer-Verbindung mit kurzer Lebensdauer –
+    nach einem Server-Absturz verschwindet er von selbst."""
+    from backend.redis_handler import HOST_TTL
+    gid = "cov_presence"
+    host = await host_verbinden(gid)
+    try:
+        keys = host_keys(env, gid)
+        assert len(keys) == 1
+        assert 0 < env.ttl(keys[0]) <= HOST_TTL
+    finally:
+        await beenden(host, game_ids=[gid])
+    assert host_keys(env, gid) == []                       # sauber getrennt → sofort weg
+
+
+@pytest.mark.asyncio
+async def test_host_ping_keeps_the_beamer_present(env):
+    gid = "cov_presence_ping"
+    host = await host_verbinden(gid)
+    try:
+        key = host_keys(env, gid)[0]
+        env.expire(key, 2)
+        await host.send_json_to({"event": "host_ping", "payload": {}})
+        await asyncio.sleep(0.1)
+        assert env.ttl(key) > 2
+    finally:
+        await beenden(host, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_stale_beamer_after_crash_does_not_block_the_start(env):
+    """Server-Absturz: kein disconnect, aber der Anwesenheits-Schlüssel läuft ab →
+    Spieler-Start geht ohne Einsatzbesprechung direkt los."""
+    gid = "cov_presence_crash"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        for key in host_keys(env, gid):
+            env.delete(key)                                 # = abgelaufen
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_beamer_presence_survives_new_round(env):
+    gid = "cov_presence_reset"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await host.send_json_to({"event": "reset_game", "payload": {}})
+        await recv_until(host, "lobby_update", lambda p: p["status"] == "waiting")
+        assert len(host_keys(env, gid)) == 1
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_player_start_during_briefing_explains_the_beamer(env):
+    gid = "cov_presence_explain"
+    host = await host_verbinden(gid)
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "briefing")
+        await b.send_json_to({"event": "start_game", "payload": {}})
+        msg = await recv_until(b, "error")
+        assert "Beamer" in msg["payload"]["message"]
+        assert env.hget(state_key(gid), "status").decode() == "briefing"
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])

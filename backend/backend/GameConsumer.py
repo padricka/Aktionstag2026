@@ -45,7 +45,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         if self.is_host:
-            await asyncio.to_thread(self.lobby.redis.change_hosts_online, self.game_id, -1)
+            await asyncio.to_thread(self.lobby.redis.drop_host, self.game_id, self.channel_name)
         # Wer noch keine Rolle hat, blockiert sonst einen der 3 Plätze (z. B. Tab geschlossen)
         if self.player_name and not self.role:
             if await self.lobby.release_player(self.player_name, self.channel_name):
@@ -76,6 +76,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_event("pong", {})
         elif event == "host_register":
             await self.handle_host_register()
+        elif event == "host_ping":
+            await self.handle_host_ping()
         elif event == "player_register":
             await self.handle_player_register(payload)
         elif event == "choose_role":
@@ -98,11 +100,15 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error(f"unknown event: {event}")
 
     async def handle_host_register(self):
-        if not self.is_host:
-            await asyncio.to_thread(self.lobby.redis.change_hosts_online, self.game_id, 1)
         self.is_host = True
+        await asyncio.to_thread(self.lobby.redis.mark_host, self.game_id, self.channel_name)
         payload = await self.lobby.lobby_payload()
         await self.send_event("lobby_update", payload)
+
+    async def handle_host_ping(self):
+        """Beamer meldet sich regelmäßig (alle ~10 s): Anwesenheit verlängern."""
+        if self.is_host:
+            await asyncio.to_thread(self.lobby.redis.mark_host, self.game_id, self.channel_name)
 
     # ------------------------------------------------------------ DEV-Modus (nur Host)
     async def handle_dev_mode(self, payload):
@@ -273,6 +279,9 @@ class GameConsumer(AsyncWebsocketConsumer):
                     await self.channel_layer.group_send(self.room_group_name, {
                         "type": "lobby_update", "payload": await self.lobby.lobby_payload(),
                     })
+                else:
+                    # Besprechung läuft schon und der Beamer ist da: gestartet wird dort
+                    await self.send_error("Die Einsatzbesprechung läuft am Beamer – gestartet wird dort.")
                 return
 
         result = await self.host.start(self.game_id)

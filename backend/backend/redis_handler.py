@@ -12,6 +12,9 @@ ROLES = ["MASTER", "FI-SI", "FI-AE"]
 
 # Eine wartende Lobby lebt lange (Beamer läuft oft stundenlang), ein gestartetes Spiel 1 h.
 LOBBY_TTL = 12 * 3600
+# Beamer-Anwesenheit: ein Schlüssel je Beamer-Verbindung, der Beamer erneuert ihn per
+# host_ping. Stürzt der Server ab (kein disconnect), verschwindet er nach HOST_TTL von selbst.
+HOST_TTL = 30
 
 
 def _s(val):
@@ -56,8 +59,6 @@ class RedisHandler:
         players_key = self._k_players(game_id)
         # DEV-Modus gehört zur Sitzung, nicht zur Runde: übersteht den Neustart
         dev_mode = _s(self.r.hget(state_key, "dev_mode")) or "0"
-        # Verbundene Beamer gehören ebenfalls zur Sitzung (Einsatzbesprechung vor dem Start)
-        hosts_online = _s(self.r.hget(state_key, "hosts_online")) or "0"
 
         self.r.delete(state_key, players_key)
         self.r.hset(state_key, mapping={
@@ -65,7 +66,6 @@ class RedisHandler:
             "time_left": DEFAULT_TIME,
             "status": "waiting",
             "dev_mode": dev_mode,
-            "hosts_online": hosts_online,
         })
         self.refresh_ttl(game_id, LOBBY_TTL)
 
@@ -218,17 +218,18 @@ class RedisHandler:
         }
 
     # ------------------------------------------------------------ Beamer / Einsatzbesprechung
-    def change_hosts_online(self, game_id: str, delta: int) -> int:
-        """Zählt verbundene Beamer der Sitzung (+1 beim host_register, −1 beim Trennen)."""
-        state_key = self._k_state(game_id)
-        count = self.r.hincrby(state_key, "hosts_online", delta)
-        if count < 0:
-            self.r.hset(state_key, "hosts_online", 0)
-            count = 0
-        return count
+    def _k_host(self, game_id: str, conn: str) -> str:
+        return f"game:{game_id}:host:{conn}"
+
+    def mark_host(self, game_id: str, conn: str):
+        """Beamer ist da (host_register / host_ping): Schlüssel mit kurzer Lebensdauer setzen."""
+        self.r.set(self._k_host(game_id, conn), 1, ex=HOST_TTL)
+
+    def drop_host(self, game_id: str, conn: str):
+        self.r.delete(self._k_host(game_id, conn))
 
     def hosts_online(self, game_id: str) -> int:
-        return int(_s(self.r.hget(self._k_state(game_id), "hosts_online")) or 0)
+        return sum(1 for _ in self.r.scan_iter(match=self._k_host(game_id, "*")))
 
     def begin_briefing(self, game_id: str) -> bool:
         """Lobby → Einsatzbesprechung (Intro am Beamer). True, wenn umgeschaltet."""

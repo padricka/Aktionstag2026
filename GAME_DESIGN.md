@@ -41,6 +41,7 @@ Es gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP (max. 300). **Leben
 
 Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung** (`IntroStory.vue`).
 - **Ablauf:** Alle Rollen gewählt → ein Spieler drückt „Runde starten“ → ist ein Beamer verbunden, wechselt die Lobby in `status: "briefing"` (Handys: „Einsatzbesprechung läuft – schaut auf den Beamer“, Rollen sind fest). Ohne Beamer startet das Spiel wie bisher sofort.
+- **Beamer weg?** Der Beamer meldet sich alle 10 s (`host_ping`); ohne Meldung gilt er nach 30 s als weg. Auf den Handys erscheint nach 20 s Besprechung der Notfall-Knopf „Kein Beamer da? Ohne Einsatzbesprechung starten“ – ist der Beamer wirklich weg, startet das Spiel direkt.
 - **Story** (M. Kaiser, IT-Leitung, per Funk; Sprechblasen bauen sich wie getippt auf): ① Startbild, Brand in Raum B-04 · ② Nahaufnahme des Racks, „Systemausfall in 05:00“ · ③ das Rechenzentrum mit LEITSTAND / VORDERSEITE / RÜCKSEITE · ④ die drei echten Notizzettel · ⑤ „Redet miteinander – nicht durcheinander!“
 - **Tutorial (letzte Seite):** ein echtes Notizblatt mit nummerierten Schritten (die Nummern geben die Reihenfolge vor) und der Taschenrechner, dazu die Regeln (Aufgaben + Finale, Fehler kosten Leben, Notizen, Taschenrechner, Punkte).
 - **Start:** Erst „Einsatz starten“ am Beamer → Übergang (Kamerafahrt, „Verbinde mit Rechenzentrum B-04…“, 3 – 2 – 1 – LOS!) → Host sendet `start_game` → das Spiel startet, Beamer und Handys blenden weich ein.

@@ -260,6 +260,37 @@ describe('PlayerScreen.vue', () => {
     expect(wrapper.find('.start-btn').exists()).toBe(false)
   })
 
+  describe('Einsatzbesprechung ohne Beamer (fix/beamer-anwesenheit)', () => {
+    afterEach(() => vi.useRealTimers())
+
+    async function imBriefing() {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+      vi.useFakeTimers()
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'briefing', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it('nach 20 s erscheint „Ohne Beamer starten“ (falls der Beamer weg ist)', async () => {
+      const wrapper = await imBriefing()
+      expect(wrapper.find('.briefing-fallback').exists()).toBe(false)
+      vi.advanceTimersByTime(20000)
+      await wrapper.vm.$nextTick()
+      await wrapper.find('.briefing-fallback').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
+    })
+
+    it('geht die Besprechung zu Ende (running), verschwindet der Knopf', async () => {
+      const wrapper = await imBriefing()
+      vi.advanceTimersByTime(20000)
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'waiting', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.briefing-fallback').exists()).toBe(false)
+    })
+  })
+
   describe('Verbindung und Fehler (fix/verbindung)', () => {
     async function imSpiel() {
       const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })

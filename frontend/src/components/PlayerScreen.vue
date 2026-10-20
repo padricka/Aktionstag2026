@@ -114,6 +114,10 @@
           <div v-if="status === 'briefing'" class="briefing-note">
             <span class="briefing-title">Einsatzbesprechung läuft</span>
             <span class="briefing-sub">Schaut auf den Beamer – gleich geht's los.</span>
+            <!-- Notfall: Beamer weg (Tab zu, abgestürzt) – nach 20 s auch ohne Besprechung starten -->
+            <button v-if="notstartMoeglich" class="briefing-fallback" type="button" @click="startGame">
+              Kein Beamer da? Ohne Einsatzbesprechung starten
+            </button>
           </div>
           <button
             v-else
@@ -450,11 +454,25 @@ watch(verbindungWeg, (weg) => {
   if (weg) lastError.value = 'Verbindung unterbrochen – bitte nochmal versuchen'
 })
 
+// Einsatzbesprechung: Fällt der Beamer weg, startet der Server auch ohne ihn (siehe
+// fix/beamer-anwesenheit). Damit die Handys nicht festhängen, nach 20 s ein Notfall-Knopf.
+const BRIEFING_NOTSTART_MS = 20000
+const notstartMoeglich = ref(false)
+let notstartTimer = null
+watch(status, (s) => {
+  if (notstartTimer) { clearTimeout(notstartTimer); notstartTimer = null }
+  notstartMoeglich.value = false
+  if (s === 'briefing') {
+    notstartTimer = setTimeout(() => { notstartMoeglich.value = true }, BRIEFING_NOTSTART_MS)
+  }
+})
+
 let restartTimer = null
 let joinTimer = null
 onUnmounted(() => {
   if (restartTimer) clearTimeout(restartTimer)
   if (joinTimer) clearTimeout(joinTimer)
+  if (notstartTimer) clearTimeout(notstartTimer)
 })
 
 function handleJoin() {
@@ -919,6 +937,20 @@ function onTaskSolved(data) {
 
 .briefing-title { font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.12em; color: var(--green); }
 .briefing-sub { font-size: 14px; color: var(--fg-2); }
+
+.briefing-fallback {
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: none;
+  border: 1px solid var(--border-2);
+  color: var(--fg-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.briefing-fallback:hover { color: var(--green); border-color: var(--green-border); }
 
 @keyframes briefing-puls { 50% { border-color: var(--green); } }
 
