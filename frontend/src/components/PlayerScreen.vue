@@ -1,5 +1,11 @@
 <template>
   <div class="player">
+    <!-- Verbindung weg: sichtbar machen, Wiederverbinden läuft im Hintergrund -->
+    <Transition name="phase">
+      <div v-if="verbindungWeg" class="conn-banner" role="alert">
+        Verbindung verloren – verbinde neu …
+      </div>
+    </Transition>
 
     <!-- Verbinden → Rolle wählen → Warten → Spiel → Spielende blenden weich über (style.css: .phase-*) -->
     <Transition name="phase" mode="out-in">
@@ -166,7 +172,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import Calculator from './Calculator.vue'
@@ -326,6 +332,17 @@ const handleServerMessage = (msg) => {
     return
   }
 
+  // Beitritt abgelehnt (Spiel läuft schon, Lobby voll, Name vergeben): zurück zur Eingabe,
+  // die Meldung bleibt stehen – sonst landet man in einer Sackgasse bei „Rolle wählen“
+  if (event === 'error' && payload.code === 'register_denied') {
+    disconnect()
+    connected.value = false
+    registered.value = false
+    joining.value = false
+    joinError.value = payload.message || 'Beitritt nicht möglich'
+    return
+  }
+
   if (event === 'lobby_update') {
     const newPlayers = payload.players ?? []
     const stillInLobby = newPlayers.some(p => p.name === (props.playerName || 'Agent'))
@@ -384,10 +401,15 @@ const handleServerMessage = (msg) => {
   }
 
   if (event === 'input_result') {
-    // Fehler zuerst setzen, dann Nonce — Tasks können beides auswerten
+    // Fehler zuerst setzen, dann Nonce — Tasks können beides auswerten.
+    // Auch "error"/"ignored" melden, sonst bleibt der Knopf der Aufgabe auf „Prüfe …“ stehen.
     if (payload.result === 'wrong') {
       lastError.value = 'Falsche Eingabe'
       if (typeof payload.health === 'number') hp.value = payload.health
+    } else if (payload.result === 'error') {
+      lastError.value = 'Nicht angekommen – bitte erneut versuchen'
+    } else if (payload.result === 'ignored') {
+      lastError.value = 'Nicht angenommen – bitte erneut versuchen'
     } else {
       lastError.value = ''
     }
@@ -416,9 +438,23 @@ const handleServerMessage = (msg) => {
   }
 }
 
-const { connect, sendEvent, disconnect } = useGameSocket({
+const { connect, sendEvent, disconnect, isConnected } = useGameSocket({
   url: WS_BASE,
   onMessage: handleServerMessage,
+})
+
+// Verbindung weg (WLAN, Server-Neustart): Banner zeigen und gesperrte Aufgaben freigeben.
+// Das Wiederverbinden macht useGameSocket selbst, die Anmeldung läuft dann über onOpen neu.
+const verbindungWeg = computed(() => connected.value && !isConnected.value)
+watch(verbindungWeg, (weg) => {
+  if (weg) lastError.value = 'Verbindung unterbrochen – bitte nochmal versuchen'
+})
+
+let restartTimer = null
+let joinTimer = null
+onUnmounted(() => {
+  if (restartTimer) clearTimeout(restartTimer)
+  if (joinTimer) clearTimeout(joinTimer)
 })
 
 function handleJoin() {
@@ -435,9 +471,10 @@ function handleJoin() {
     sendEvent('player_register', { player_name: props.playerName || 'Agent' })
   })
 
-  setTimeout(() => {
+  joinTimer = setTimeout(() => {
     if (joining.value) {
       joining.value = false
+      disconnect()   // sonst versucht useGameSocket es endlos weiter
       joinError.value = 'Verbindung fehlgeschlagen'
     }
   }, 4000)
@@ -463,7 +500,7 @@ function handleRestart() {
 
   sendEvent('reset_game', {})
 
-  setTimeout(() => {
+  restartTimer = setTimeout(() => {
     disconnect()
     resetRound()
 
@@ -537,6 +574,29 @@ function onTaskSolved(data) {
 </script>
 
 <style scoped>
+/* Verbindung verloren: oben über allem, bis die Verbindung wieder steht */
+.conn-banner {
+  position: fixed;
+  top: 12px;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin: 0 auto;
+  z-index: 200;
+  padding: 10px 20px;
+  border: 1px solid var(--red-border, #ff3a4d);
+  background: rgba(40, 0, 0, 0.92);
+  color: #ff8a8a;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: conn-puls 1.2s ease-in-out infinite;
+}
+
+@keyframes conn-puls { 50% { border-color: #ff8a8a; } }
+
 /* Spielphase: Kopfleiste + Aufgabe, als ein Block für den Übergang */
 .phase-game {
   flex: 1;

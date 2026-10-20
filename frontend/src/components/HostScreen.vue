@@ -1,5 +1,12 @@
 <template>
   <div class="host">
+    <!-- Verbindung weg / Start gescheitert: oben über allem -->
+    <Transition name="phase">
+      <div v-if="verbindungWeg" class="conn-banner" role="alert">Verbindung verloren – verbinde neu …</div>
+    </Transition>
+    <Transition name="phase">
+      <div v-if="hostError" class="host-error" role="alert">{{ hostError }}</div>
+    </Transition>
 
     <!-- Spielende / Einsatzbesprechung / Lobby+Spiel blenden weich über (style.css: .screen-*) -->
     <Transition name="screen" mode="out-in">
@@ -17,7 +24,7 @@
       />
 
       <!-- Einsatzbesprechung: Story + Tutorial, erst danach startet das Spiel -->
-      <IntroStory v-else-if="status === 'briefing'" class="host-intro" @start="introFertig" />
+      <IntroStory v-else-if="status === 'briefing'" :key="introKey" class="host-intro" @start="introFertig" />
 
       <div v-else class="host-main">
 
@@ -136,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import VaultDoor from './VaultDoor.vue'
@@ -214,6 +221,14 @@ function handleMessage(msg) {
     return
   }
 
+  // Start nach dem Intro gescheitert: Intro wieder bedienbar machen und Grund zeigen
+  if (event === 'error' && payload.code === 'start_failed') {
+    introKey.value += 1
+    hostError.value = payload.message || 'Start fehlgeschlagen'
+    setTimeout(() => { hostError.value = '' }, 6000)
+    return
+  }
+
   if (event === 'error' && payload.code === 'hint_denied') {
     hintError.value = payload.message || 'Hilfe abgelehnt'
     setTimeout(() => { hintError.value = '' }, 4000)
@@ -270,7 +285,15 @@ function handleMessage(msg) {
   }
 }
 
-const { sendEvent, connect } = useGameSocket({ onMessage: handleMessage })
+const { sendEvent, connect, isConnected } = useGameSocket({ onMessage: handleMessage })
+
+// Verbindung weg: Banner zeigen (Wiederverbinden + host_register macht useGameSocket)
+const hostVerbunden = ref(false)
+const verbindungWeg = computed(() => hostVerbunden.value && !isConnected.value)
+
+// Start nach dem Intro gescheitert: Intro neu aufbauen, damit es wieder bedienbar ist
+const introKey = ref(0)
+const hostError = ref('')
 
 // Neue Runde in derselben Sitzung: Server leert die Lobby (reset_game), die Spieler
 // landen von selbst wieder in der Rollenwahl. Zurück in die Lobby geht es erst mit
@@ -319,13 +342,27 @@ async function resolveGameId() {
 
 function connectAsHost(id) {
   gameId.value = id
+  // Sitzung in die Adresse schreiben: Neuladen (F5) am Beamer bleibt in derselben Sitzung
+  try {
+    history.replaceState(null, '', `?host=1&game_id=${id}`)
+  } catch (e) {
+    console.warn('[HOST] Adresse nicht gesetzt', e)
+  }
   const url = `${protocol}://${location.hostname}:8000/ws/game/${id}/`
-  connect(url, handleMessage, () => sendEvent('host_register', {}))
+  connect(url, handleMessage, () => {
+    hostVerbunden.value = true
+    sendEvent('host_register', {})
+  })
 }
+
+// „Verlassen“, bevor create-game geantwortet hat: dann keinen Beamer mehr anmelden
+let entfernt = false
+onUnmounted(() => { entfernt = true })
 
 onMounted(async () => {
   try {
     const id = await resolveGameId()
+    if (entfernt) return
     connectAsHost(id)
   } catch (err) {
     console.error(err)
@@ -335,6 +372,29 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Verbindung verloren / Start gescheitert: oben über allem */
+.conn-banner,
+.host-error {
+  position: fixed;
+  top: 12px;
+  left: 0;
+  right: 0;
+  width: fit-content;
+  margin: 0 auto;
+  z-index: 200;
+  padding: 10px 20px;
+  border: 1px solid #ff3a4d;
+  background: rgba(40, 0, 0, 0.92);
+  color: #ff8a8a;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.host-error { top: 60px; }
+
 /* Lobby/Spiel als ein Block (für den Bildschirmwechsel) */
 .host-main {
   flex: 1;
