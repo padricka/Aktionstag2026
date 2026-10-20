@@ -42,7 +42,8 @@ def redis_mock():
         inst._k_state.return_value = "game:x:state"
         inst.r.exists.return_value = 1
         inst.get_lobby_payload.return_value = {
-            "status": "running", "players": [], "ready_to_start": False,
+            # Standard: Lobby vollständig (3 Rollen), bereit zum Start
+            "status": "ready", "players": [], "ready_to_start": True,
         }
         yield inst
 
@@ -267,3 +268,60 @@ async def test_tick_sends_max_health(channel_layer, fast_sleep):
 
     payload = channel_layer.group_send.await_args_list[0].args[1]["payload"]
     assert payload["max_health"] == 300
+
+
+# ---------------------------------------------------------------- Stabilität (fix/spielschleife)
+async def test_loop_stops_silently_when_lobby_was_reset(channel_layer, fast_sleep):
+    """Neustart (reset_game) oder abgelaufener Spielstand: Status ist nicht mehr „running“ →
+    die Schleife hört auf, ohne zu ticken und ohne game_over/Leaderboard-Eintrag."""
+    dc = fake_dc(status="waiting")
+    await game_with(dc)._run_tick_loop()
+    dc.tick.assert_not_called()
+    dc.record_result.assert_not_called()
+    channel_layer.group_send.assert_not_awaited()
+
+
+async def test_loop_survives_a_single_tick_error(channel_layer, fast_sleep):
+    dc = fake_dc(ticks=[RuntimeError("kurz weg"), snap(0, 4)])
+    await game_with(dc)._run_tick_loop()
+    assert dc.tick.call_count == 2
+    types = [c.args[1]["type"] for c in channel_layer.group_send.await_args_list]
+    assert types == ["game.tick", "game.over"]
+
+
+async def test_game_over_restores_the_session_lifetime(channel_layer, fast_sleep):
+    """Nach dem Spielende soll die Sitzung (Beamer, Neue Runde) wieder 12 h leben."""
+    from backend.redis_handler import LOBBY_TTL
+    dc = fake_dc(ticks=[snap(0, 4)])
+    await game_with(dc)._run_tick_loop()
+    dc.redis.refresh_ttl.assert_called_with("g1", LOBBY_TTL)
+
+
+async def test_two_simultaneous_starts_create_only_one_loop(redis_mock, channel_layer):
+    started = []
+
+    async def langsam(self):
+        started.append(self)
+        await asyncio.sleep(0.05)                        # wie die echten to_thread-Awaits
+        self.loop_task = asyncio.create_task(asyncio.Event().wait())
+
+    with patch.object(GameLoop, "start_game", new=langsam):
+        a, b = await asyncio.gather(start_game_for("x"), start_game_for("x"))
+
+    assert sorted([a, b]) == ["already_running", "started"]
+    assert len(started) == 1
+    games["x"].loop_task.cancel()
+
+
+async def test_start_needs_a_complete_lobby(redis_mock, channel_layer):
+    redis_mock.get_lobby_payload.return_value = {"status": "waiting", "players": [], "ready_to_start": False}
+    with patch.object(GameLoop, "start_game", new=AsyncMock()) as start:
+        assert await start_game_for("x") == "not_ready"
+    start.assert_not_awaited()
+    assert "x" not in games
+
+
+async def test_start_from_briefing_is_allowed(redis_mock, channel_layer):
+    redis_mock.get_lobby_payload.return_value = {"status": "briefing", "players": [], "ready_to_start": True}
+    with patch.object(GameLoop, "start_game", new=AsyncMock()):
+        assert await start_game_for("x") == "started"

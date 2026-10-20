@@ -216,11 +216,17 @@ class DataCenter:
         return _s(self.redis.r.hget(self._key, "dev_mode")) == "1"
 
     def tick(self) -> dict:
-        """Eine Sekunde: nur die Zeit läuft. Ist sie abgelaufen, fallen die Leben auf 0."""
+        """Eine Sekunde: nur die Zeit läuft. Ist sie abgelaufen, fallen die Leben auf 0.
+
+        Nur für eine laufende Runde und unter der Eingabe-Sperre: so überschreibt ein Tick
+        weder einen Sieg in der letzten Sekunde noch eine zurückgesetzte Lobby, und ein
+        abgelaufener Spielstand wird nicht als Geister-Runde neu angelegt."""
         if self.dev_mode:
             return self.snapshot()
-        if self.redis.r.hincrby(self._key, "time_left", -1) <= 0:
-            self.redis.r.hset(self._key, mapping={"time_left": 0, "health": 0, "status": "game_over"})
+        with self.redis.lock(self._input_lock_name) as acquired:
+            if acquired and self.status == "running":
+                if self.redis.r.hincrby(self._key, "time_left", -1) <= 0:
+                    self.redis.r.hset(self._key, mapping={"time_left": 0, "health": 0, "status": "game_over"})
         return self.snapshot()
 
     def finish(self):
@@ -238,6 +244,9 @@ class DataCenter:
         if self.dev_mode:
             return {**leaderboard.top(), "rank": None}
         players = self.redis._load_players(self.game_id)
+        if not players:
+            # z. B. verlassene DEV-Runde nach Ablauf: nie als Geister-Runde eintragen
+            return {**leaderboard.top(), "rank": None}
         rolle = {r: i for i, r in enumerate(ROLES)}
         team = sorted(players, key=lambda n: rolle.get(players[n].get("role"), len(ROLES)))
         rec = leaderboard.add_entry(team, snap["score"], result, snap["survived_seconds"], self.game_id)
@@ -360,6 +369,10 @@ class DataCenter:
 
     def _apply_input(self, player_name: str, data: PlayerInput) -> dict:
         """Eine Eingabe auf die aktuelle Aufgabe anwenden. Nur unter der Eingabe-Sperre aufrufen."""
+        # Neu prüfen: Zwischen der Prüfung in process_input und der Sperre kann ein anderer
+        # Spieler gewonnen haben – dann zählt diese Eingabe nicht (auch nicht als Fehler).
+        if self.status != "running":
+            return {"result": "ignored"}
         task = self.current_task()
         if task:
             task_cls = TASK_TYPES.get(task.get("kind"))

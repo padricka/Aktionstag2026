@@ -9,6 +9,7 @@ _MESSAGES = {
     "started": ("success", 200, "Game started!"),
     "not_found": ("error", 404, "Unknown game_id (noch keine Lobby)."),
     "already_running": ("error", 409, "Game läuft bereits."),
+    "not_ready": ("error", 409, "Lobby nicht vollständig (alle drei Rollen nötig)."),
     "finished": ("error", 409, "Game ist bereits beendet."),
 }
 
