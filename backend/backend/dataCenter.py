@@ -16,6 +16,8 @@ TIME_BONUS = 90
 # Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
 INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
 MISTAKE_DAMAGE = 60
+# Punkte, die jede geöffnete Hilfe-Notiz kostet (im DEV-Modus gratis)
+HINT_COST = 50
 TOTAL_TASKS = 4
 
 # Drei Rätsel, dann das Finale (GAME_DESIGN.md).
@@ -44,6 +46,7 @@ def tick_payload(snap: dict) -> dict:
         "time_left": snap["time_left"],
         "tasks": snap["tasks"],
         "reboot_digits": snap.get("reboot_digits") or [None] * REBOOT_CODE_LEN,
+        "hints": snap.get("hints") or {"total": 0, "opened": [], "cost": HINT_COST},
     }
 
 
@@ -111,15 +114,60 @@ class DataCenter:
         state = {_s(k): _s(v) for k, v in (self.redis.r.hgetall(self._key) or {}).items()}
         started = int(state.get("started_at") or time.time())
         task = json.loads(state["task"]) if state.get("task") else None
+        penalty = int(state.get("hint_penalty", 0))
         return {
             "health": max(0, int(state.get("health", 0))),
             "time_left": max(0, int(state.get("time_left", 0))),
             "survived_seconds": int(time.time()) - started,
             "tasks": [self._public(task)] if task else [],
-            "score": int(state.get("score", 0)),
+            # Punkte abzüglich der Hilfe-Notizen, nie unter 0
+            "score": max(0, int(state.get("score", 0)) - penalty),
+            "hint_penalty": penalty,
+            "hints": self._hints(task),
             "max_health": self.max_health,
             "reboot_digits": self._reboot_digits(state),
         }
+
+    @staticmethod
+    def _hints(task: dict | None) -> dict:
+        """Für den Beamer: Themen, die noch auf dem Block stehen (nur id + label), und die
+        schon abgerissenen Zettel mit Text. Ungeöffnete Texte gehen nie raus."""
+        task_cls = TASK_TYPES.get((task or {}).get("kind"))
+        if not task or not task_cls or not task_cls.HINTS:
+            return {"total": 0, "available": [], "opened": [], "cost": HINT_COST}
+        alle = task_cls.hints(task["state"])
+        offen = task.get("hints_opened", [])
+        nach_id = {h["id"]: h for h in alle}
+        return {
+            "total": task_cls.HINTS,
+            "available": [{"id": h["id"], "label": h["label"]}
+                          for h in alle if h["id"] not in offen and not h["done"]],
+            "opened": [{"id": i, "label": nach_id[i]["label"], "text": nach_id[i]["text"]} for i in offen],
+            "cost": HINT_COST,
+        }
+
+    def open_hint(self, hint_id: str | None) -> dict:
+        """Host reißt den Zettel zum Thema hint_id ab (kostet HINT_COST, DEV gratis).
+        Nur Themen, die noch auf dem Block stehen: nicht schon offen, Schritt nicht erledigt."""
+        if self.status != "running":
+            return {"result": "error", "message": "Spiel läuft nicht"}
+        # Gleiche Sperre wie bei Eingaben: sonst überschreibt ein gleichzeitiges
+        # Lösen/Weiterschalten den Aufgabenstand
+        with self.redis.lock(self._input_lock_name) as acquired:
+            if not acquired:
+                return dict(INPUT_BUSY)
+            task = self.current_task()
+            task_cls = TASK_TYPES.get((task or {}).get("kind"))
+            if not task or not task_cls or not task_cls.HINTS:
+                return {"result": "error", "message": "Für diese Aufgabe gibt es keine Hilfen"}
+            verfuegbar = {h["id"]: h for h in self._hints(task)["available"]}
+            if hint_id not in verfuegbar:
+                return {"result": "error", "message": "Diese Hilfe gibt es gerade nicht"}
+            task["hints_opened"] = task.get("hints_opened", []) + [hint_id]
+            self.redis.r.hset(self._key, "task", json.dumps(task))
+            if not self.dev_mode:
+                self.redis.r.hincrby(self._key, "hint_penalty", HINT_COST)
+        return {"result": "opened", "id": hint_id}
 
     def start(self):
         self.redis.r.hset(self._key, mapping={
@@ -128,6 +176,7 @@ class DataCenter:
             "time_left": DEFAULT_TIME,
             "started_at": int(time.time()),
             "score": 0,
+            "hint_penalty": 0,
             "solved_count": 0,
             "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
             "reboot_revealed": json.dumps([]),

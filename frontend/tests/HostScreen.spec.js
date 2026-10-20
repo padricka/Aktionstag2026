@@ -138,6 +138,43 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
+  describe('Hilfe-Notizen am Beamer', () => {
+    async function imSpiel(hints) {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 280, tasks: [], hints } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    const BLOCK = { total: 4, cost: 50, available: [{ id: 'cable', label: 'Welches Kabel?' }, { id: 'order', label: 'LED und Farbfolge' }], opened: [] }
+
+    it('zeigt den Abreißblock und reißt den Zettel zum gewählten Thema ab (open_hint mit id)', async () => {
+      const wrapper = await imSpiel(BLOCK)
+      expect(wrapper.find('.hint-board .pad').exists()).toBe(true)
+      await wrapper.findAll('button.hint-topic')[1].trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'open_hint', payload: { id: 'order' } })
+
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 279, tasks: [], hints: {
+        ...BLOCK, available: [BLOCK.available[0]], opened: [{ id: 'order', label: 'LED und Farbfolge', text: 'Die LED blinkt – rückwärts.' }],
+      } } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.hint-note').text()).toContain('Die LED blinkt – rückwärts.')
+    })
+
+    it('ohne Hilfen (z. B. Finale) kein Hilfe-Bereich', async () => {
+      const wrapper = await imSpiel({ total: 0, available: [], opened: [], cost: 50 })
+      expect(wrapper.find('.hint-board').exists()).toBe(false)
+    })
+
+    it('zeigt eine Ablehnung des Servers (hint_denied)', async () => {
+      const wrapper = await imSpiel(BLOCK)
+      simulateMessage({ event: 'error', payload: { code: 'hint_denied', message: 'Diese Hilfe gibt es gerade nicht' } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.hint-error').text()).toBe('Diese Hilfe gibt es gerade nicht')
+    })
+  })
+
   describe('Neustart vom Beamer', () => {
     async function nachNiederlage() {
       const wrapper = mount(HostScreen)

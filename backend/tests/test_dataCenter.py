@@ -355,7 +355,7 @@ def test_tick_payload_has_all_contract_fields(data_center):
     from backend.dataCenter import tick_payload
     data_center.start()
     payload = tick_payload(data_center.snapshot())
-    assert set(payload) == {"health", "max_health", "time_left", "tasks", "reboot_digits"}
+    assert set(payload) == {"health", "max_health", "time_left", "tasks", "reboot_digits", "hints"}
     assert payload["reboot_digits"] == [None, None, None]
 
 

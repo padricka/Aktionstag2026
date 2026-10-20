@@ -118,6 +118,21 @@ Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Belohnungsziff
 
 Jeder kennt **eine** Ziffer, die Reihenfolge ist die der Aufgaben. Richtig → `status: "won"`, der Beamer zeigt den Sieg. Falsch → −60 HP wie überall.
 
+### Hilfe-Notizen (Beamer)
+
+Kommt ein Team nicht weiter, reißt der **Host am Beamer** einen Zettel vom **Abreißblock** ab (`open_hint` mit `id`). Alle sehen ihn am Beamer als gelben Zettel mit Risskante.
+- **Ein Thema je Schritt:** Auf dem Block stehen die Hilfe-Themen der laufenden Aufgabe (z. B. „Backup-Platte“, „Login (Hex)“, „Key-ID / Schlüssel“). Der Host wählt **das Thema, an dem das Team gerade hängt** – keine feste Reihenfolge.
+- **Nur was noch passt:** Themen, deren Schritt laut Spielstand schon erledigt ist (`done`), stehen nicht mehr auf dem Block – z. B. „Backup-Platte“, sobald sie eingelegt ist. Schon abgerissene Zettel bleiben sichtbar.
+- **Passend zur Runde:** Die Texte erzeugt das Backend aus dem Aufgabenstand (`PlayableObject.hints(state)` → `{id, label, text, done}`), z. B. „0x42 = 4 · 16 + 2 = 66 = B“.
+- **Kosten:** jeder abgerissene Zettel **−50 Punkte** (`HINT_COST`), im DEV-Modus gratis. Der Abzug gilt fürs ganze Spiel (`hint_penalty`).
+- **Anzahl Themen:** Aufgabe 1 → 4, Aufgabe 2 → 5, Aufgabe 3 → 6, Finale → keine.
+
+| Aufgabe | Themen (`id`) – erledigt, wenn … | Zettel (gekürzt, `…` = aus der Runde) |
+|---|---|---|
+| 1 Alarm | `cable` Kabel gekappt · `order`, `symbols`, `scratch` Code richtig | „Es brennt Platz …, kappt Platz …“ · „LED … → Farbfolge …“ · „Code beginnt mit …“ · was der zerkratzte Aufkleber zählt (oder: keiner zerkratzt) |
+| 2 Löschprotokoll | `probe` erstes Rack gelöscht · `order`, `agents` alle gelöscht · `power` dieses Rack gelöscht · `release` nie | Probealarm-Meldung · Reihenfolge … → … → … · „Rack … unter Strom → CO2“ · alle Löschmittel · Freigabe auf „3, 2, 1“ |
+| 3 Datenrettung | `disk` Platte drin · `login` angemeldet · `parity`, `convert`, `key`, `decrypt` erst mit dem Wort | richtige Platte · erster Login-Buchstabe in Hex vorgerechnet · kaputtes Paket · ein Paket umgerechnet · Key-ID → k · erster Buchstabe entschlüsselt |
+
 ## 5. Schnittstelle (für paralleles Arbeiten)
 
 Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` pro Aufgabe ein Feld `view`, **nur für seine Rolle**. Das Frontend wählt die Komponente über `view.type`. Eingaben gehen als `player_input` mit `target` und `value`.
@@ -140,8 +155,9 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 **Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, strike, red, sign). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 
 **Beamer:** `game_tick` erhält zusätzlich `reboot_digits: [d1|null, d2|null, d3|null]`, damit der Beamer die gefundenen Ziffern anzeigt.
+`game_tick` enthält außerdem `hints: {total, cost, available: [{id, label}], opened: [{id, label, text}]}` – Themen auf dem Abreißblock und abgerissene Zettel der laufenden Aufgabe (Texte nur der abgerissenen).
 
-Neue Eingaben: `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), `reboot_code` (MASTER, Wert `"d1d2d3"`), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

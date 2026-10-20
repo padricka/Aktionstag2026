@@ -110,6 +110,16 @@
             {{ restarting ? 'Neustart …' : 'Neue Runde' }}
           </button>
         </div>
+
+        <!-- Hilfe-Notizen der laufenden Aufgabe, kosten Punkte (GAME_DESIGN.md) -->
+        <HintBoard
+          v-if="status === 'running' && hints.total"
+          class="host-hints"
+          :hints="hints"
+          :dev="devMode"
+          :error="hintError"
+          @open="oeffneHilfe"
+        />
       </section>
 
     </template>
@@ -121,6 +131,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import VaultDoor from './VaultDoor.vue'
+import HintBoard from './HintBoard.vue'
 
 defineEmits(['exit'])
 
@@ -129,6 +140,8 @@ const bootError = ref('')
 const devMode = ref(false)
 const devError = ref('')
 const skipping = ref(false)
+const hints = ref({ total: 0, available: [], opened: [], cost: 50 })   // Hilfe-Notizen der laufenden Aufgabe (game_tick.hints)
+const hintError = ref('')
 const restarting = ref(false)   // Neustart vom Beamer gesendet, wartet auf lobby_update
 const status = ref('waiting')
 const playerList = ref([])
@@ -191,6 +204,12 @@ function handleMessage(msg) {
     return
   }
 
+  if (event === 'error' && payload.code === 'hint_denied') {
+    hintError.value = payload.message || 'Hilfe abgelehnt'
+    setTimeout(() => { hintError.value = '' }, 4000)
+    return
+  }
+
   if (event === 'error' && payload.code === 'dev_denied') {
     devError.value = payload.message || 'DEV-Aktion abgelehnt'
     skipping.value = false
@@ -212,6 +231,7 @@ function handleMessage(msg) {
       gameOverScore.value = 0
       gameOverSurvived.value = 0
       gameOverBoard.value = null
+      hints.value = { total: 0, available: [], opened: [], cost: 50 }
       restarting.value = false
     }
   }
@@ -224,6 +244,7 @@ function handleMessage(msg) {
       rebootDigits.value = [0, 1, 2].map((i) => payload.reboot_digits[i] ?? null)
     }
     if (typeof payload.max_health === 'number') maxHp.value = payload.max_health
+    if (payload.hints) hints.value = payload.hints
     if (status.value !== 'running' && status.value !== 'game_over' && status.value !== 'won') {
       status.value = 'running'
     }
@@ -254,6 +275,12 @@ function neueRunde() {
 function toggleDevMode() {
   devError.value = ''
   sendEvent('dev_mode', { enabled: !devMode.value })
+}
+
+// Hilfe-Notiz: Host reißt den Zettel zu einem Thema ab, der Server schickt ihn im game_tick an alle
+function oeffneHilfe(id) {
+  hintError.value = ''
+  sendEvent('open_hint', { id })
 }
 
 function skipTask() {
@@ -525,6 +552,23 @@ onMounted(async () => {
   align-items: center;
   gap: 18px;
   overflow: hidden;
+}
+
+
+/* Hilfe-Notizen: rechts neben Zeit/Server/Tresor; schmaler Beamer → darunter */
+.running { position: relative; }
+
+.host-hints {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 360px;
+}
+
+@media (max-width: 1400px) {
+  .host-hints { position: static; width: 100%; max-width: 1000px; max-height: 40vh; }
+  .running { overflow-y: auto; }
 }
 
 .time-block { text-align: center; }
