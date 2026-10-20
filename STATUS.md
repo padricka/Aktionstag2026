@@ -7,7 +7,7 @@ Regeln: `AGENTS.md`. Testdetails: `TRIAGE.md`. Diese Datei bei jedem relevanten 
 
 | Bereich | Stand | Quelle |
 |---|---|---|
-| Backend-Tests | **311** grün · 23 übersprungen · **0 rot** | nach `feat/punktevergabe` (Docker, Python 3.13) |
+| Backend-Tests | **314** grün · 23 übersprungen · **0 rot** | nach `feat/punktevergabe` (Docker, Python 3.13) |
 | Frontend-Tests | **273** grün | nach `feat/punktevergabe` (Docker, Node 22) |
 | CI | läuft bei jedem PR/Push, **nicht blockierend** | `.github/workflows/ci.yml` |
 | Sicherheit | `SECRET_KEY`-Fallback nur noch bei `DEBUG=True` | PR #2 |

@@ -25,15 +25,21 @@ class StepResult:
     state: dict
 
 
+def hint(hint_id: str, label: str, text: str, done: bool) -> dict:
+    """Ein Hilfe-Thema: id fürs Abreißen, label für den Block, text für den Zettel."""
+    return {"id": hint_id, "label": label, "text": text, "done": bool(done)}
+
+
 class PlayableObject(ABC):
     kind: str
     instruction: str
-    # Hilfe-Notizen, die der Host am Beamer der Reihe nach öffnen kann (GAME_DESIGN.md)
+    # Hilfe-Themen, die der Host am Beamer vom Abreißblock reißen kann (GAME_DESIGN.md)
     HINTS = 0
 
     @classmethod
-    def hints(cls, state: dict) -> list[str]:
-        """Alle Hilfe-Notizen dieser Runde, von „nur die Richtung“ bis „fast die Lösung“."""
+    def hints(cls, state: dict) -> list[dict]:
+        """Alle Hilfe-Themen dieser Runde in Lösungs-Reihenfolge, je {id, label, text, done};
+        done = der Schritt ist laut Spielstand schon erledigt (Thema kommt vom Block)."""
         return []
 
     @classmethod
@@ -196,6 +202,7 @@ class AlarmTask(PlayableObject):
         }
 
     # ------------------------------------------------------------- Hilfe-Notizen
+    # Ein Thema je Schritt; „done“ sagt, ob der Schritt laut Spielstand schon erledigt ist
     HINTS = 4
     SYMBOL_NAMES = {
         "raute": "Raute", "dreieck": "Dreieck (leer)", "quadrat": "Quadrat", "kreis": "Kreis",
@@ -208,20 +215,26 @@ class AlarmTask(PlayableObject):
         brand = state["burning_slot"]
         kappen = cls._cut_index(brand - 1) + 1
         order = list(reversed(state["color_order"])) if state["led"] == "blinkt" else state["color_order"]
-        erstes = cls.SYMBOL_NAMES[state["solution"][0]]
-        vierte = f"Der Code beginnt mit: {erstes}."
         if state["scratched"]:
-            vierte += f" Der zerkratzte {state['scratched'].lower()}e Aufkleber zählt als " \
-                      f"{cls.SYMBOL_NAMES[state['broken_symbol']]}."
+            kratzer = (f"Der zerkratzte {state['scratched'].lower()}e Aufkleber zählt als "
+                       f"{cls.SYMBOL_NAMES[state['broken_symbol']]} – das Symbol vom Kabel am brennenden Platz.")
+        else:
+            kratzer = "Diesmal ist kein Aufkleber zerkratzt – Regel ③ braucht ihr in dieser Runde nicht."
+        code_offen = not state["cmd_ok"]
         return [
-            "Lest euch eure Teile der Wartungsnotiz gegenseitig vor – jede Regel steht nur bei "
-            "einem von euch. Der Leitstand sieht, was brennt, die anderen kennen Kabel und Aufkleber.",
-            f"Kabel: Es brennt Platz {brand} ({'gerade' if brand % 2 == 0 else 'ungerade'}). "
-            f"Die Vorderseite kappt deshalb das Kabel an Platz {kappen} – nie das am brennenden Platz.",
-            f"Die LED {state['led']} – der Code ist die Farbfolge "
-            f"{'rückwärts' if state['led'] == 'blinkt' else 'vorwärts'}: {' → '.join(order)}. "
-            "Die Rückseite sagt, welches Symbol auf welcher Farbe klebt.",
-            vierte,
+            hint("cable", "Welches Kabel?",
+                 f"Es brennt Platz {brand} ({'gerade' if brand % 2 == 0 else 'ungerade'}). Die Vorderseite "
+                 f"kappt deshalb das Kabel an Platz {kappen} – nie das am brennenden Platz.",
+                 state["switch_ok"]),
+            hint("order", "LED und Farbfolge",
+                 f"Die LED {state['led']} – der Code ist die Farbfolge "
+                 f"{'rückwärts' if state['led'] == 'blinkt' else 'vorwärts'}: {' → '.join(order)}.",
+                 not code_offen),
+            hint("symbols", "Welches Symbol zuerst?",
+                 f"Der Code beginnt mit: {cls.SYMBOL_NAMES[state['solution'][0]]}. Die Rückseite sagt, "
+                 "welches Symbol auf den anderen Farben klebt.",
+                 not code_offen),
+            hint("scratch", "Zerkratzter Aufkleber", kratzer, not code_offen),
         ]
 
     @classmethod
@@ -374,20 +387,31 @@ class FireProtocolTask(PlayableObject):
         reihenfolge = " → ".join(s["rack"] for s in state["sequence"])
         racks = {r["rack"]: r for r in state["racks"]}
         strom = next(
-            s["rack"] for s in state["sequence"]
+            i for i, s in enumerate(state["sequence"])
             if racks[s["rack"]]["power"] and racks[s["rack"]]["material"] in ("PAPIER", "KABEL")
         )
+        rack = state["sequence"][strom]["rack"]
+        geloescht = state["p1_done"]
         return [
-            "Der Leitstand liest das Log vor. Klärt zuerst die Reihenfolge (Regeln ② und ③), dann "
-            "für jedes Rack das Löschmittel (Regel ①). Zum Schluss geben Leitstand und Rückseite frei.",
-            f"Die Meldung „{probe['time']} {probe['source']} Rack {probe['rack']}“ ist mit [TEST] markiert – "
-            "nur ein Probealarm, ignorieren.",
-            f"Rauchmelder (RM) zeigen Ortszeit: 2 Stunden abziehen. Gelöscht wird in dieser Reihenfolge: "
-            f"{reihenfolge}.",
-            f"Rack {strom} steht unter Strom und hat {cls.MATERIALS[racks[strom]['material']]['label']} – "
-            "dort kein Wasser und kein Schaum, sondern CO2.",
-            "Löschmittel: " + ", ".join(f"{s['rack']}: {s['agent']}" for s in state["sequence"])
-            + ". Danach drücken Leitstand und Rückseite gleichzeitig die Freigabe.",
+            hint("probe", "Probealarm?",
+                 f"Die Meldung „{probe['time']} {probe['source']} Rack {probe['rack']}“ ist mit [TEST] "
+                 "markiert – nur ein Probealarm, ignorieren.",
+                 geloescht or state["step"] > 0),
+            hint("order", "Reihenfolge",
+                 f"Rauchmelder (RM) zeigen Ortszeit: 2 Stunden abziehen. Gelöscht wird in dieser "
+                 f"Reihenfolge: {reihenfolge}.",
+                 geloescht),
+            hint("power", "Strom / CO2",
+                 f"Rack {rack} steht unter Strom und hat {cls.MATERIALS[racks[rack]['material']]['label']} – "
+                 "dort kein Wasser und kein Schaum, sondern CO2.",
+                 state["step"] > strom),
+            hint("agents", "Löschmittel",
+                 "Löschmittel: " + ", ".join(f"{s['rack']}: {s['agent']}" for s in state["sequence"]) + ".",
+                 geloescht),
+            hint("release", "Freigabe",
+                 "Leitstand und Rückseite zählen laut „3, 2, 1“ und drücken gleichzeitig FREIGABE – "
+                 "höchstens 3 Sekunden Abstand. Einzeln drücken reicht nicht.",
+                 False),
         ]
 
     @classmethod
@@ -539,20 +563,32 @@ class DataRescueTask(PlayableObject):
         login = state["login"]
         heil = next(i for i in range(len(state["packets"])) if i != state["corrupt"])
         paket = state["packets"][heil]
-        zahl = int(paket[1:], 2)
+        werte = [w for w, b in zip((64, 32, 16, 8, 4, 2, 1), paket[1:]) if b == "1"]
+        zahl = sum(werte)
         return [
-            "Reihenfolge: Die Rückseite legt die richtige Platte ein (Regel ①), die Vorderseite meldet "
-            "sich am Terminal an (Regel ②). Danach Pakete prüfen, umrechnen, Schlüssel suchen, "
-            "entschlüsseln. Der Taschenrechner rechts hilft.",
-            "Das neueste Backup ist kaputt (FEHLER). Datum: erst Monat, dann Tag vergleichen – "
-            f"die richtige Platte ist {state['serial']}.",
-            f"Login: 0x{ord(login[0]):02X} = {ord(login[0])} = {login[0]}. "
-            f"Der Name hat {len(login)} Buchstaben – die anderen genauso umrechnen.",
-            f"Paket {state['corrupt'] + 1} ist beschädigt (ungerade Anzahl Einsen) – lasst es komplett weg.",
-            f"Key-ID {format(state['key_id'], '04b')} = {state['key_id']}. Der AKTIVE Schlüssel mit dieser ID "
-            f"ist {format(state['k'], '04b')}, also k = {state['k']}.",
-            f"Beispiel mit Paket {heil + 1}: {paket[0]} {paket[1:]} → {zahl} → {chr(zahl)} → "
-            f"{state['k']} zurück → {state['word'][0]}. So auch die anderen Pakete.",
+            hint("disk", "Backup-Platte",
+                 "Das neueste Backup ist kaputt (FEHLER). Datum: erst Monat, dann Tag vergleichen – "
+                 f"die richtige Platte ist {state['serial']}.",
+                 state["mounted"]),
+            hint("login", "Login (Hex)",
+                 f"Login: 0x{ord(login[0]):02X} = {ord(login[0]) // 16} · 16 + {ord(login[0]) % 16} = "
+                 f"{ord(login[0])} = {login[0]}. Der Name hat {len(login)} Buchstaben – die anderen genauso.",
+                 state["logged_in"]),
+            hint("parity", "Kaputtes Paket",
+                 f"Paket {state['corrupt'] + 1} ist beschädigt (ungerade Anzahl Einsen) – lasst es komplett weg.",
+                 False),
+            hint("convert", "Binär umrechnen",
+                 f"Paket {heil + 1}: {paket[0]} {paket[1:]} – Prüfbit weglassen, dann "
+                 f"{' + '.join(map(str, werte))} = {zahl}. In der ASCII-Tabelle: {zahl} = {chr(zahl)}.",
+                 False),
+            hint("key", "Key-ID / Schlüssel",
+                 f"Key-ID {format(state['key_id'], '04b')} = {state['key_id']}. Der AKTIVE Schlüssel mit "
+                 f"dieser ID ist {format(state['k'], '04b')}, also k = {state['k']}.",
+                 False),
+            hint("decrypt", "Entschlüsseln",
+                 f"Jeden Buchstaben um k zurück. Euer erster Buchstabe {state['cipher'][0]} wird so zu "
+                 f"{state['word'][0]}. Vor A kommt wieder Z.",
+                 False),
         ]
 
     @classmethod

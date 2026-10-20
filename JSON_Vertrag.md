@@ -77,13 +77,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {}
 }
 
-// 8. Nächste Hilfe-Notiz der laufenden Aufgabe öffnen (nur Host, Spiel läuft)
-// Kostet 50 Punkte (DEV-Modus: gratis). Der Reihe nach, immer konkreter; Anzahl je Aufgabe
-// siehe game_tick.hints.total (Aufgabe 1: 4, 2: 5, 3: 6, Finale: 0). Danach game_tick an alle.
-// Abgelehnt (nicht Host, alle offen, keine Hilfen, Spiel läuft nicht) → error "hint_denied".
+// 8. Hilfe-Zettel vom Abreißblock reißen (nur Host, Spiel läuft)
+// id = ein Thema aus game_tick.hints.available (beliebige Reihenfolge). Kostet 50 Punkte
+// (DEV-Modus: gratis). Themen je Aufgabe: 1 → 4, 2 → 5, 3 → 6, Finale → 0.
+// Danach game_tick an alle.
+// Abgelehnt (nicht Host, id fehlt/unbekannt/schon abgerissen/Schritt erledigt, keine Hilfen,
+// Spiel läuft nicht) → error "hint_denied".
 {
   "event": "open_hint",
-  "payload": {}
+  "payload": { "id": "key" }
 }
 
 ---
@@ -127,7 +129,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
     ],
     "reboot_digits": [4, null, null],
     "hints": { "total": 4, "cost": 50,
-               "opened": ["Lest euch eure Teile der Wartungsnotiz gegenseitig vor – …"] }
+               "available": [{ "id": "cable", "label": "Welches Kabel?" }, { "id": "symbols", "label": "Welches Symbol zuerst?" }, { "id": "scratch", "label": "Zerkratzter Aufkleber" }],
+               "opened": [{ "id": "order", "label": "LED und Farbfolge", "text": "Die LED blinkt – der Code ist die Farbfolge rückwärts: …" }] }
   }
 }
 
@@ -147,8 +150,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //              "mount_disk" = Seriennummer nur FI-AE, "terminal_login" und danach
 //              "rescue_word" = das gerettete Wort nur FI-SI),
 //            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).
-// "hints": Hilfe-Notizen der laufenden Aufgabe für den Beamer: Anzahl, Kosten je Hilfe und die
-// Texte der schon geöffneten (in Reihenfolge). Ungeöffnete Texte schickt der Server nie mit.
+// "hints": Abreißblock der laufenden Aufgabe für den Beamer: available = Themen, die noch passen
+// (nicht abgerissen, Schritt laut Spielstand nicht erledigt; nur id + label), opened = abgerissene
+// Zettel mit Text (in Abriss-Reihenfolge). Texte nicht abgerissener Themen gehen nie raus.
 // "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
 // Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 
@@ -197,7 +201,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
 //                    Kommt direkt nach dem Verbinden; danach schließt der Server die
 //                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
-//   "hint_denied"  = open_hint abgelehnt (nicht Host, alle Hilfen offen, Aufgabe ohne
+//   "hint_denied"  = open_hint abgelehnt (nicht Host, Thema nicht auf dem Block, Aufgabe ohne
 //                    Hilfen, Spiel läuft nicht).
 //   "dev_denied"   = dev_mode / dev_skip_task abgelehnt (nicht Host, DEV-Modus aus,
 //                    Spiel läuft schon bzw. noch nicht, enabled kein true/false).

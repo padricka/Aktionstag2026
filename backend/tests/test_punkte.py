@@ -157,7 +157,7 @@ def test_score_while_running_is_lives_plus_task_points_minus_hints(dc, uhr):
     _eingabe(dc, V, "main_switch", "gibtsnicht")      # −60 Leben
     uhr.t += 10
     _loese(dc)                                         # +400 (schnell), +15 Leben
-    dc.open_hint()                                     # −50
+    dc.open_hint("probe")                              # −50 (jetzt läuft Aufgabe 2)
     leben = dc.health
     assert leben == dc.max_health - MISTAKE_DAMAGE + 15
     assert dc.snapshot()["score"] == leben + 400 - HINT_COST
@@ -185,8 +185,8 @@ def test_defeat_keeps_task_points_but_no_lives_and_no_time(dc, uhr):
 
 def test_score_never_below_zero(dc):
     dc.redis.r.hset(dc._key, "health", 0)
-    for _ in range(4):
-        dc.open_hint()
+    for thema in ("cable", "order", "symbols", "scratch"):
+        dc.open_hint(thema)
     assert dc.snapshot()["score"] == 0
 
 
