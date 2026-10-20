@@ -5,7 +5,7 @@ from backend.redis_handler import ROLES
 from backend.hostManager import HostManager
 from backend.multiplayerManager import MultiplayerManager
 from backend.dataCenter import tick_payload
-from backend.gameLoop import announce_game_over, games
+from backend.gameLoop import announce_game_over, games, resume_game_for
 
 # Close-Code, wenn die Sitzungs-ID nicht existiert (4000-4999 = anwendungsspezifisch)
 CLOSE_UNKNOWN_GAME = 4404
@@ -35,6 +35,16 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         payload = await self.lobby.lobby_payload()
+        if payload["status"] == "running":
+            # Server neu gestartet? Dann läuft keine Schleife mehr – wieder anhängen
+            await resume_game_for(self.game_id)
+        if payload["status"] in ("won", "game_over"):
+            # Erst das echte Ergebnis, dann der Status – sonst zeigt die Ansicht kurz
+            # „Niederlage, 0 Punkte“ (Default) statt z. B. des Siegs
+            from backend.dataCenter import DataCenter
+            ergebnis = await asyncio.to_thread(lambda: DataCenter(self.game_id).last_game_over())
+            if ergebnis:
+                await self.send_event("game_over", ergebnis)
         await self.send_event("lobby_update", payload)
         if payload["status"] == "running":
             from backend.dataCenter import DataCenter

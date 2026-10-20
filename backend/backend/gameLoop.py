@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from channels.layers import get_channel_layer
-from backend.redis_handler import RedisHandler, LOBBY_TTL
+from backend.redis_handler import RedisHandler, LOBBY_TTL, _s
 from backend.dataCenter import DataCenter, tick_payload   # ← Modul-Ebene (Test kann patchen)
 
 games: dict[str, "GameLoop"] = {}
@@ -28,15 +28,19 @@ async def announce_game_over(data_center, game_id: str, result: str, snap: dict)
     except Exception as e:
         print(f"[GAMELOOP] Leaderboard nicht gespeichert: {e}")
         board = None
-    await get_channel_layer().group_send(f"game_{game_id}", {
-        "type": "game.over",
-        "payload": {
-            "result": result,
-            "score": snap["score"],
-            "survived_seconds": snap["survived_seconds"],
-            "leaderboard": board,
-        },
-    })
+    payload = {
+        "result": result,
+        "score": snap["score"],
+        "survived_seconds": snap["survived_seconds"],
+        "leaderboard": board,
+    }
+    # Für alle, die erst nach dem Spielende (neu) verbinden: das echte Ergebnis statt
+    # „Niederlage, 0 Punkte“ (der Consumer schickt es beim Verbinden mit)
+    try:
+        await asyncio.to_thread(data_center.remember_game_over, payload)
+    except Exception as e:
+        print(f"[GAMELOOP] Ergebnis nicht gemerkt: {e}")
+    await get_channel_layer().group_send(f"game_{game_id}", {"type": "game.over", "payload": payload})
     print(f"[GAMELOOP] Game over: {result}")
     return True
 
@@ -170,3 +174,22 @@ async def start_game_for(game_id: str) -> str:
         f"game_{game_id}", {"type": "lobby_update", "payload": payload}
     )
     return "started"
+
+async def resume_game_for(game_id: str) -> bool:
+    """Nach einem Server-Neustart: Laut Redis läuft die Runde noch („running“), aber keine
+    Schleife ist aktiv (die lebte nur im Speicher). Dann die Schleife wieder anhängen –
+    ohne DataCenter.start(), die Runde läuft einfach weiter. True, wenn angehängt."""
+    async with _start_locks.setdefault(game_id, asyncio.Lock()):
+        existing = games.get(game_id)
+        if existing and existing.is_active:
+            return False
+        redis = RedisHandler()
+        status = _s(await asyncio.to_thread(redis.r.hget, redis._k_state(game_id), "status"))
+        if status != "running":
+            return False
+        game = GameLoop(game_id)
+        game.data_center = await asyncio.to_thread(DataCenter, game_id)
+        game.loop_task = asyncio.create_task(game._run_tick_loop())
+        games[game_id] = game
+        print(f"[GAMELOOP] Runde {game_id} nach Neustart wieder aufgenommen")
+        return True
