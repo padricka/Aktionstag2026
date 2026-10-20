@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import Zwischenszene, { DAUER } from '../src/components/Zwischenszene.vue'
+import Zwischenszene, { DAUER, DAUER_TRESOR } from '../src/components/Zwischenszene.vue'
 
 const NETZTEIL = { id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' }
 
@@ -27,6 +27,20 @@ describe('Zwischenszene.vue', () => {
     expect(w.find('.fundort').classes()).toContain('is-offen')
     expect(w.find('.fundort .teil--psu').exists()).toBe(true)
     expect(w.text()).toContain('Netzteil gefunden')
+  })
+
+  it('der Datentresor ist derselbe Tresor wie bisher (VaultDoor) mit der Platte darin', async () => {
+    vi.useFakeTimers()
+    const w = szene({ teil: { id: 'disk', name: 'Backup-Platte', fundort: 'tresor', label: '' }, naechste: 4 })
+    const tresor = w.findComponent({ name: 'VaultDoor' })
+    expect(tresor.exists()).toBe(true)
+    expect(tresor.find('.vd-panel__label').text()).toBe('DATENTRESOR')
+    expect(tresor.classes()).toContain('vault--locked')
+
+    vi.advanceTimersByTime(DAUER_TRESOR.oeffnen + 10)
+    await w.vm.$nextTick()
+    expect(tresor.classes()).toContain('vault--open')
+    expect(tresor.find('.vault__inside .teil--disk').exists()).toBe(true)
   })
 
   it.each([
@@ -59,7 +73,7 @@ describe('Zwischenszene.vue', () => {
   it('vor dem Finale heißt die Titelkarte „Finale“', async () => {
     vi.useFakeTimers()
     const w = szene({ teil: { id: 'disk', name: 'Backup-Platte', fundort: 'tresor', label: '' }, naechste: 4 })
-    vi.advanceTimersByTime(DAUER.titel + 10)
+    vi.advanceTimersByTime(DAUER_TRESOR.titel + 10)
     await w.vm.$nextTick()
     expect(w.find('.zs-titel').text()).toContain('Finale')
   })

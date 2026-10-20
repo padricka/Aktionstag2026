@@ -7,12 +7,24 @@
   Die Spielzeit läuft weiter (nur gut 4 Sekunden). gross = Beamer.
 -->
 <template>
-  <div class="zwischenszene" :class="{ 'is-gross': gross }" role="status" aria-live="polite">
+  <div
+    class="zwischenszene"
+    :class="{ 'is-gross': gross, 'is-tresor': teil.fundort === 'tresor' }"
+    role="status"
+    aria-live="polite"
+  >
     <Transition name="zs" mode="out-in">
       <div v-if="phase !== 'titel'" key="fund" class="zs-fund">
         <p class="zs-ort">{{ ort.titel }}</p>
 
-        <div class="fundort" :class="[`fundort--${teil.fundort}`, { 'is-offen': offen }]">
+        <!-- Datentresor: derselbe Tresor wie bisher am Beamer, die Platte liegt darin -->
+        <div v-if="teil.fundort === 'tresor'" class="fundort fundort--tresor" :class="{ 'is-offen': offen }">
+          <VaultDoor label="DATENTRESOR" status="GESPERRT" :state="offen ? 'open' : 'locked'">
+            <TeilGrafik class="fo-teil fo-teil--tresor" :teil="teil.id" />
+          </VaultDoor>
+        </div>
+
+        <div v-else class="fundort" :class="[`fundort--${teil.fundort}`, { 'is-offen': offen }]">
           <!-- dahinter: das Teil -->
           <div class="fo-innen">
             <span class="fo-regal" aria-hidden="true"></span>
@@ -29,15 +41,9 @@
           </template>
 
           <!-- Lager: rote Brandschutz-Schiebetür -->
-          <div v-else-if="teil.fundort === 'lager'" class="fo-schiebetuer" aria-hidden="true">
+          <div v-else class="fo-schiebetuer" aria-hidden="true">
             <span class="fo-schild">BRANDSCHUTZTÜR<br />T90 · LAGER</span>
             <span class="fo-streifen"></span>
-          </div>
-
-          <!-- Datentresor: runde Tür mit Handrad -->
-          <div v-else class="fo-tresortuer" aria-hidden="true">
-            <span class="fo-rad"><i></i><i></i><i></i></span>
-            <span class="fo-tresor-led"></span>
           </div>
         </div>
 
@@ -57,13 +63,16 @@
 </template>
 
 <script>
-// Zeitplan in ms ab Erscheinen (auch für die Tests)
+// Zeitplan in ms ab Erscheinen (auch für die Tests). Der Tresor braucht länger:
+// erst fahren die Riegel zurück, dann schwingt die schwere Tür auf.
 export const DAUER = { oeffnen: 600, titel: 3000, ende: 4600 }
+export const DAUER_TRESOR = { oeffnen: 300, titel: 4000, ende: 5600 }
 </script>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import TeilGrafik from './TeilGrafik.vue'
+import VaultDoor from './VaultDoor.vue'
 import { FUNDORTE, AUFGABEN_TITEL } from '../utils/teile.js'
 
 const props = defineProps({
@@ -86,9 +95,10 @@ const woLiegt = computed(() => {
 })
 
 onMounted(() => {
-  timer.push(setTimeout(() => { offen.value = true }, DAUER.oeffnen))
-  timer.push(setTimeout(() => { phase.value = 'titel' }, DAUER.titel))
-  timer.push(setTimeout(() => emit('fertig'), DAUER.ende))
+  const plan = props.teil.fundort === 'tresor' ? DAUER_TRESOR : DAUER
+  timer.push(setTimeout(() => { offen.value = true }, plan.oeffnen))
+  timer.push(setTimeout(() => { phase.value = 'titel' }, plan.titel))
+  timer.push(setTimeout(() => emit('fertig'), plan.ende))
 })
 onUnmounted(() => timer.forEach(clearTimeout))
 </script>
@@ -136,6 +146,7 @@ onUnmounted(() => timer.forEach(clearTimeout))
   transition: opacity 0.4s ease 0.7s, transform 0.5s var(--zs-ease) 0.7s;
 }
 .zs-gefunden.is-da { opacity: 1; transform: none; }
+.is-tresor .zs-gefunden { transition-delay: 2.4s; }   /* erst wenn die Tresortür offen ist */
 .zs-gefunden strong { font-size: 22px; color: var(--green); letter-spacing: 0.06em; }
 .zs-gefunden span { font-size: 13px; color: var(--fg-2); }
 .is-gross .zs-gefunden strong { font-size: 40px; }
@@ -264,47 +275,17 @@ onUnmounted(() => timer.forEach(clearTimeout))
 }
 
 /* ------------------------------------------------------------- Datentresor */
-.fundort--tresor { border-color: #3a3f48; border-radius: 6px; }
-.fo-tresortuer {
-  position: absolute;
-  inset: 6%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #7c8592, #3e4550 55%, #1c2026);
-  box-shadow: 0 0 0 6px #23272e, inset 0 0 0 4px rgba(255, 255, 255, 0.08);
-  transform-origin: 0 50%;
-  transition: transform 0.9s var(--zs-ease) 0.45s;
+/* der Tresor bringt seinen eigenen Rahmen mit (VaultDoor) */
+.fundort--tresor {
+  width: calc(var(--zs-b) * 1.25);
+  aspect-ratio: auto;
+  border: none;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
 }
-.is-offen .fo-tresortuer { transform: rotateY(-112deg); }
-.fo-rad {
-  position: absolute;
-  inset: 32%;
-  border-radius: 50%;
-  border: 5px solid #9aa3ae;
-  transition: transform 0.5s ease-in-out;
-}
-.is-offen .fo-rad { transform: rotate(300deg); }
-.fo-rad i {
-  position: absolute;
-  left: 50%;
-  top: -14%;
-  bottom: -14%;
-  width: 5px;
-  margin-left: -2.5px;
-  background: #9aa3ae;
-}
-.fo-rad i:nth-child(2) { transform: rotate(60deg); }
-.fo-rad i:nth-child(3) { transform: rotate(120deg); }
-.fo-tresor-led {
-  position: absolute;
-  right: 18%;
-  top: 22%;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-  box-shadow: 0 0 8px var(--red);
-}
-.is-offen .fo-tresor-led { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.fo-teil--tresor { width: 46%; }
+.is-offen .fo-teil--tresor { transition-delay: 2.2s; }
 
 /* ------------------------------------------------------------- Titelkarte */
 .zs-titel { display: flex; flex-direction: column; gap: 8px; }
