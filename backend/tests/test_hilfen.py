@@ -198,12 +198,13 @@ def test_unknown_twice_or_missing_topic_is_refused(dc):
 
 
 def test_score_shown_is_reduced_by_the_hints(dc):
-    dc.redis.r.hset(dc._key, "score", 500)
+    vorher = dc.snapshot()["score"]
     dc.open_hint("order")
-    assert dc.snapshot()["score"] == 500 - HINT_COST
+    assert dc.snapshot()["score"] == vorher - HINT_COST
 
 
 def test_score_never_shows_negative(dc):
+    dc.redis.r.hset(dc._key, "health", 0)
     dc.open_hint("order")
     assert dc.snapshot()["score"] == 0
 

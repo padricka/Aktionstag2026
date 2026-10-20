@@ -631,7 +631,7 @@ async def test_broadcast_game_over(env):
     try:
         await a.send_json_to({"event": "start_game", "payload": {}})
         await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
-        env.hset(state_key("cov_bcast_over"), "health", 1)
+        env.hset(state_key("cov_bcast_over"), "time_left", 1)   # Zeit läuft ab → Leben 0
 
         for comm in (a, b, c):
             over = await recv_until(comm, "game_over", timeout=5)

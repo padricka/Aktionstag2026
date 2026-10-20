@@ -35,7 +35,22 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 ## 4. Die Aufgaben
 
 Ablauf: **Alarm → Löschprotokoll → Datenrettung → Neustart**. Danach ist das Spiel gewonnen (`status: "won"`).
-Unverändert gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP, Score = Restzeit × Multiplikator. **Zeitbonus:** jede echt gelöste Aufgabe gibt +90 s (`TIME_BONUS`), gewertet wird die Restzeit davor; DEV-Überspringen gibt keinen Bonus.
+Es gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP (max. 300). **Leben sinken nicht mehr mit der Zeit**, nur durch Fehler; läuft die Zeit ab, fallen die Leben auf 0 (Niederlage). **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +90 s (`TIME_BONUS`); DEV-Überspringen gibt keinen Bonus.
+
+### Punkte
+
+**Endpunkte = restliche Leben + Aufgabenpunkte + Restzeit (nur bei Sieg) − 50 je Hilfe-Notiz**, nie unter 0 (`DataCenter.snapshot`, ins Leaderboard geht dieser Wert).
+
+| | Aufgabe 1 | Aufgabe 2 | Aufgabe 3 | Finale |
+|---|---|---|---|---|
+| Aufgabenpunkte (`TASK_POINTS`) | 200 | 250 | 300 | – |
+| ×2, wenn gelöst innerhalb (`FAST_LIMIT`, ab Start der Aufgabe) | 1:30 | 2:30 | 3:30 | – |
+| Hilfe-Notizen | 4 | 5 | 6 | – |
+
+- Der **×2 ist unsichtbar:** Die Spieler erfahren ihn nicht (keine Anzeige, kein `score_gain` mehr in `input_result`), er steckt nur in der Endpunktzahl.
+- **Beispiel Sieg:** 180 Leben + (200 ×2) + 250 + (300 ×2) + 95 s Restzeit − 2 Hilfen = 180 + 400 + 250 + 600 + 95 − 100 = **1425**.
+- **Niederlage:** Leben sind 0, Restzeit zählt nicht – es bleiben die Aufgabenpunkte minus Hilfen.
+- DEV-Überspringen gibt keine Aufgabenpunkte.
 
 Jede Aufgabe legt beim Erzeugen eine **Belohnungsziffer** (0–9) fest. Beim Lösen wird sie für das Finale gespeichert und erscheint auf dem Beamer und bei der in der Tabelle genannten Rolle.
 

@@ -27,13 +27,19 @@ ROTATION = ["alarm", "fire_protocol", "data_rescue", "reboot"]
 REWARD_SLOT = {"alarm": 0, "fire_protocol": 1, "data_rescue": 2}
 REBOOT_CODE_LEN = 3
 
-# Score-Multiplikator je nach Aufgabe.
-# Score pro gelöster Aufgabe = Restzeit in Sekunden × Multiplikator
-TASK_MULTIPLIER = {
-    "alarm": 1,
-    "fire_protocol": 2,
-    "data_rescue": 3,
-    "reboot": 4,
+# Punkte (GAME_DESIGN.md, „Punkte“): Endpunkte = restliche Leben + Aufgabenpunkte
+# (×2, wenn innerhalb FAST_LIMIT Sekunden ab Aufgabenstart gelöst) + Restzeit bei Sieg
+# − HINT_COST je Hilfe-Notiz. Das Finale bringt keine eigenen Aufgabenpunkte.
+TASK_POINTS = {
+    "alarm": 200,
+    "fire_protocol": 250,
+    "data_rescue": 300,
+    "reboot": 0,
+}
+FAST_LIMIT = {
+    "alarm": 90,
+    "fire_protocol": 150,
+    "data_rescue": 210,
 }
 
 
@@ -55,6 +61,8 @@ class DataCenter:
         self.game_id = game_id
         self.redis = RedisHandler()
         self.max_health = MAX_HEALTH
+        # Uhr für Aufgabenstart und Lösezeit (×2-Limit); Tests setzen eine eigene
+        self._now = time.time
 
         state_key = self.redis._k_state(self.game_id)
         if not self.redis.r.exists(state_key):
@@ -78,9 +86,15 @@ class DataCenter:
         return _s(self.redis.r.hget(self._key, "status")) or "waiting"
 
     @property
-    def score(self) -> int:
+    def task_points(self) -> int:
+        """Summe der Aufgabenpunkte (inkl. ×2) – in Redis unter „score“."""
         val = self.redis.r.hget(self._key, "score")
         return int(val) if val else 0
+
+    @property
+    def score(self) -> int:
+        """Aktuelle Endpunkte nach der Formel (siehe snapshot)."""
+        return self.snapshot()["score"]
 
     @property
     def reboot_code(self) -> list[int]:
@@ -115,13 +129,17 @@ class DataCenter:
         started = int(state.get("started_at") or time.time())
         task = json.loads(state["task"]) if state.get("task") else None
         penalty = int(state.get("hint_penalty", 0))
+        health = max(0, int(state.get("health", 0)))
+        time_left = max(0, int(state.get("time_left", 0)))
+        # Endpunkte: Leben + Aufgabenpunkte (+ Restzeit bei Sieg) − Hilfen, nie unter 0
+        won_bonus = time_left if state.get("status") == "won" else 0
+        score = health + int(state.get("score", 0)) + won_bonus - penalty
         return {
-            "health": max(0, int(state.get("health", 0))),
-            "time_left": max(0, int(state.get("time_left", 0))),
+            "health": health,
+            "time_left": time_left,
             "survived_seconds": int(time.time()) - started,
             "tasks": [self._public(task)] if task else [],
-            # Punkte abzüglich der Hilfe-Notizen, nie unter 0
-            "score": max(0, int(state.get("score", 0)) - penalty),
+            "score": max(0, score),
             "hint_penalty": penalty,
             "hints": self._hints(task),
             "max_health": self.max_health,
@@ -198,10 +216,11 @@ class DataCenter:
         return _s(self.redis.r.hget(self._key, "dev_mode")) == "1"
 
     def tick(self) -> dict:
+        """Eine Sekunde: nur die Zeit läuft. Ist sie abgelaufen, fallen die Leben auf 0."""
         if self.dev_mode:
             return self.snapshot()
-        self.apply_tick(1)
-        self.redis.r.hincrby(self._key, "time_left", -1)
+        if self.redis.r.hincrby(self._key, "time_left", -1) <= 0:
+            self.redis.r.hset(self._key, mapping={"time_left": 0, "health": 0, "status": "game_over"})
         return self.snapshot()
 
     def finish(self):
@@ -300,14 +319,20 @@ class DataCenter:
             "instruction": state.get("instruction", task_cls.instruction),
             "assigned_to_player": state.get("assigned_to_player"),
             "state": state,
+            "started_at": self._now(),   # ab hier läuft das ×2-Limit (FAST_LIMIT)
         }
         r.hset(self._key, mapping={"task": json.dumps(task), "last_task_idx": kind})
         return task
 
-    def _score_for_solve(self, kind: str) -> int:
-        """Score = Restzeit × Multiplikator (T1=1, T2=2, T3=3)."""
-        multiplier = TASK_MULTIPLIER.get(kind, 1)
-        return max(0, self.time_left) * multiplier
+    def _points_for(self, task: dict) -> int:
+        """Aufgabenpunkte; ×2, wenn innerhalb von FAST_LIMIT Sekunden ab Aufgabenstart gelöst."""
+        kind = task.get("kind", "")
+        points = TASK_POINTS.get(kind, 0)
+        limit = FAST_LIMIT.get(kind)
+        started = task.get("started_at")
+        if limit is not None and started is not None and self._now() - started <= limit:
+            points *= 2
+        return points
 
     def process_input(self, player_name: str, payload: dict) -> dict:
         if self.status != "running":
@@ -344,7 +369,7 @@ class DataCenter:
             players = self.redis._load_players(self.game_id)
             role = (players.get(player_name) or {}).get("role")
 
-            res = task_cls.handle_input(task["state"], player_name, role, data, time.time())
+            res = task_cls.handle_input(task["state"], player_name, role, data, self._now())
 
             if res.outcome is Outcome.IGNORED:
                 return {"result": "ignored"}
@@ -361,14 +386,16 @@ class DataCenter:
                 if self.redis.r.hincrby(self._key, "health", HEALTH_BONUS) > self.max_health:
                     self.redis.r.hset(self._key, "health", self.max_health)
 
-                # Score = Restzeit × Multiplikator der gerade gelösten Aufgabe
-                gain = self._score_for_solve(task.get("kind", ""))
-                self.redis.r.hincrby(self._key, "score", gain)
-                self.redis.r.hincrby(self._key, "time_left", TIME_BONUS)   # erst nach der Wertung
+                # Aufgabenpunkte (×2 bei schneller Lösung) – bewusst nicht in der Antwort,
+                # der Duplikator bleibt für die Spieler unsichtbar
+                self.redis.r.hincrby(self._key, "score", self._points_for(task))
+                if task.get("kind") != "reboot":
+                    # Zeitbonus nur, wenn noch eine Aufgabe kommt (nach dem Finale zählt die Restzeit)
+                    self.redis.r.hincrby(self._key, "time_left", TIME_BONUS)
 
                 if self._advance(task):
-                    return {"result": "correct", "won": True, "score_gain": gain}
-                return {"result": "correct", "score_gain": gain}
+                    return {"result": "correct", "won": True}
+                return {"result": "correct"}
 
         self.register_mistake()
         return {"result": "wrong"}
