@@ -17,7 +17,7 @@
       />
 
       <!-- Einsatzbesprechung: Story + Tutorial, erst danach startet das Spiel -->
-      <IntroStory v-else-if="status === 'briefing'" class="host-intro" :bereit="bereit" @start="introFertig" />
+      <IntroStory v-else-if="status === 'briefing'" class="host-intro" :bereit="bereit" :sound="true" :auto="true" @start="introFertig" />
 
       <div v-else class="host-main">
 
@@ -136,12 +136,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import VaultDoor from './VaultDoor.vue'
 import HintBoard from './HintBoard.vue'
 import IntroStory from './IntroStory.vue'
+import { playSfx, startBed, stopBed } from '../composables/useSound.js'
 
 defineEmits(['exit'])
 
@@ -184,6 +185,31 @@ const bereit = computed(() => (devMode.value ? null : {
   total: SPIELER_ANZAHL,
   all: allReady.value,
 }))
+
+// ---- Ton am Beamer: Ambience nach Spielphase, Effekte aus dem Spielstand abgeleitet
+const BED_INTRO = 0.4   // in der Einsatzbesprechung leiser, damit der Funkspruch vorn bleibt
+
+watch(status, (neu, alt) => {
+  if (neu === 'briefing') startBed(BED_INTRO)
+  else if (neu === 'running') {
+    startBed(1)
+    if (alt === 'briefing') playSfx('sfx-online')
+  } else if (neu === 'won' || neu === 'game_over') {
+    stopBed()
+    playSfx(neu === 'won' ? 'sfx-win' : 'sfx-gameover')
+  } else stopBed()
+})
+watch(hp, (neu, alt) => {
+  if (status.value === 'running' && neu < alt) playSfx('sfx-error')
+})
+watch(rebootDigits, (neu, alt) => {
+  const gefuellt = (ziffern) => ziffern.filter((z) => z !== null).length
+  if (status.value === 'running' && gefuellt(neu) > gefuellt(alt)) playSfx('sfx-solved')
+})
+watch(() => hints.value.opened?.length ?? 0, (neu, alt) => {
+  if (neu > alt) playSfx('sfx-hint')
+})
+onUnmounted(stopBed)
 
 const statusLabel = computed(() => {
   if (istSpielVorbei.value) return gameOverResult.value === 'victory' ? 'Sieg' : 'Niederlage'
