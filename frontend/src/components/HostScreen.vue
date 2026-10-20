@@ -140,7 +140,7 @@ const bootError = ref('')
 const devMode = ref(false)
 const devError = ref('')
 const skipping = ref(false)
-const hints = ref({ total: 0, opened: [], cost: 50 })   // Hilfe-Notizen der laufenden Aufgabe (game_tick.hints)
+const hints = ref({ total: 0, available: [], opened: [], cost: 50 })   // Hilfe-Notizen der laufenden Aufgabe (game_tick.hints)
 const hintError = ref('')
 const restarting = ref(false)   // Neustart vom Beamer gesendet, wartet auf lobby_update
 const status = ref('waiting')
@@ -231,7 +231,7 @@ function handleMessage(msg) {
       gameOverScore.value = 0
       gameOverSurvived.value = 0
       gameOverBoard.value = null
-      hints.value = { total: 0, opened: [], cost: 50 }
+      hints.value = { total: 0, available: [], opened: [], cost: 50 }
       restarting.value = false
     }
   }
@@ -277,10 +277,10 @@ function toggleDevMode() {
   sendEvent('dev_mode', { enabled: !devMode.value })
 }
 
-// Hilfe-Notiz: Server öffnet die nächste und schickt sie im game_tick an alle
-function oeffneHilfe() {
+// Hilfe-Notiz: Host reißt den Zettel zu einem Thema ab, der Server schickt ihn im game_tick an alle
+function oeffneHilfe(id) {
   hintError.value = ''
-  sendEvent('open_hint', {})
+  sendEvent('open_hint', { id })
 }
 
 function skipTask() {

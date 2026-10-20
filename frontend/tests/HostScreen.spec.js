@@ -147,27 +147,31 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       return wrapper
     }
 
-    it('zeigt die Hilfe-Notizen der laufenden Aufgabe und öffnet die nächste per open_hint', async () => {
-      const wrapper = await imSpiel({ total: 4, opened: [], cost: 50 })
-      expect(wrapper.find('.hint-board').exists()).toBe(true)
-      await wrapper.find('button.hint-open').trigger('click')
-      expect(getSentEvents().at(-1)).toEqual({ event: 'open_hint', payload: {} })
+    const BLOCK = { total: 4, cost: 50, available: [{ id: 'cable', label: 'Welches Kabel?' }, { id: 'order', label: 'LED und Farbfolge' }], opened: [] }
 
-      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 279, tasks: [], hints: { total: 4, opened: ['Lest euch eure Teile vor.'], cost: 50 } } })
+    it('zeigt den Abreißblock und reißt den Zettel zum gewählten Thema ab (open_hint mit id)', async () => {
+      const wrapper = await imSpiel(BLOCK)
+      expect(wrapper.find('.hint-board .pad').exists()).toBe(true)
+      await wrapper.findAll('button.hint-topic')[1].trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'open_hint', payload: { id: 'order' } })
+
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 279, tasks: [], hints: {
+        ...BLOCK, available: [BLOCK.available[0]], opened: [{ id: 'order', label: 'LED und Farbfolge', text: 'Die LED blinkt – rückwärts.' }],
+      } } })
       await wrapper.vm.$nextTick()
-      expect(wrapper.find('.hint-note').text()).toContain('Lest euch eure Teile vor.')
+      expect(wrapper.find('.hint-note').text()).toContain('Die LED blinkt – rückwärts.')
     })
 
     it('ohne Hilfen (z. B. Finale) kein Hilfe-Bereich', async () => {
-      const wrapper = await imSpiel({ total: 0, opened: [], cost: 50 })
+      const wrapper = await imSpiel({ total: 0, available: [], opened: [], cost: 50 })
       expect(wrapper.find('.hint-board').exists()).toBe(false)
     })
 
     it('zeigt eine Ablehnung des Servers (hint_denied)', async () => {
-      const wrapper = await imSpiel({ total: 4, opened: [], cost: 50 })
-      simulateMessage({ event: 'error', payload: { code: 'hint_denied', message: 'Alle Hilfen sind schon offen' } })
+      const wrapper = await imSpiel(BLOCK)
+      simulateMessage({ event: 'error', payload: { code: 'hint_denied', message: 'Diese Hilfe gibt es gerade nicht' } })
       await wrapper.vm.$nextTick()
-      expect(wrapper.find('.hint-error').text()).toBe('Alle Hilfen sind schon offen')
+      expect(wrapper.find('.hint-error').text()).toBe('Diese Hilfe gibt es gerade nicht')
     })
   })
 

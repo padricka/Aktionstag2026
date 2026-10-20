@@ -130,15 +130,25 @@ class DataCenter:
 
     @staticmethod
     def _hints(task: dict | None) -> dict:
-        """Für den Beamer: wie viele Hilfen es gibt und die Texte der bereits geöffneten."""
+        """Für den Beamer: Themen, die noch auf dem Block stehen (nur id + label), und die
+        schon abgerissenen Zettel mit Text. Ungeöffnete Texte gehen nie raus."""
         task_cls = TASK_TYPES.get((task or {}).get("kind"))
         if not task or not task_cls or not task_cls.HINTS:
-            return {"total": 0, "opened": [], "cost": HINT_COST}
-        used = task.get("hints_used", 0)
-        return {"total": task_cls.HINTS, "opened": task_cls.hints(task["state"])[:used], "cost": HINT_COST}
+            return {"total": 0, "available": [], "opened": [], "cost": HINT_COST}
+        alle = task_cls.hints(task["state"])
+        offen = task.get("hints_opened", [])
+        nach_id = {h["id"]: h for h in alle}
+        return {
+            "total": task_cls.HINTS,
+            "available": [{"id": h["id"], "label": h["label"]}
+                          for h in alle if h["id"] not in offen and not h["done"]],
+            "opened": [{"id": i, "label": nach_id[i]["label"], "text": nach_id[i]["text"]} for i in offen],
+            "cost": HINT_COST,
+        }
 
-    def open_hint(self) -> dict:
-        """Host öffnet die nächste Hilfe-Notiz der laufenden Aufgabe (kostet HINT_COST, DEV gratis)."""
+    def open_hint(self, hint_id: str | None) -> dict:
+        """Host reißt den Zettel zum Thema hint_id ab (kostet HINT_COST, DEV gratis).
+        Nur Themen, die noch auf dem Block stehen: nicht schon offen, Schritt nicht erledigt."""
         if self.status != "running":
             return {"result": "error", "message": "Spiel läuft nicht"}
         # Gleiche Sperre wie bei Eingaben: sonst überschreibt ein gleichzeitiges
@@ -150,14 +160,14 @@ class DataCenter:
             task_cls = TASK_TYPES.get((task or {}).get("kind"))
             if not task or not task_cls or not task_cls.HINTS:
                 return {"result": "error", "message": "Für diese Aufgabe gibt es keine Hilfen"}
-            used = task.get("hints_used", 0)
-            if used >= task_cls.HINTS:
-                return {"result": "error", "message": "Alle Hilfen sind schon offen"}
-            task["hints_used"] = used + 1
+            verfuegbar = {h["id"]: h for h in self._hints(task)["available"]}
+            if hint_id not in verfuegbar:
+                return {"result": "error", "message": "Diese Hilfe gibt es gerade nicht"}
+            task["hints_opened"] = task.get("hints_opened", []) + [hint_id]
             self.redis.r.hset(self._key, "task", json.dumps(task))
             if not self.dev_mode:
                 self.redis.r.hincrby(self._key, "hint_penalty", HINT_COST)
-        return {"result": "opened", "number": used + 1, "text": task_cls.hints(task["state"])[used]}
+        return {"result": "opened", "id": hint_id}
 
     def start(self):
         self.redis.r.hset(self._key, mapping={
