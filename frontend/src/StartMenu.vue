@@ -126,7 +126,7 @@ function openSettings() {
   padding: 10px 14px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
 }
 
 .settings-link:hover {
@@ -214,7 +214,7 @@ function openSettings() {
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.1em;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s;
 }
 
 .btn-primary:hover:not(:disabled) { background: #4dff8f; }
@@ -250,7 +250,7 @@ function openSettings() {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.1s;
 }
 
 .btn-leaderboard svg {
@@ -287,4 +287,31 @@ function openSettings() {
   .sub { font-size: 16px; }
   .overlay { padding: 24px; }
 }
+/* ------------------------------------------------ Auftritt: Bild, Titel, Menü nacheinander */
+.hero img { animation: hero-rein 1.4s ease-out both; }
+
+.title,
+.sub,
+.form > *,
+.settings-link {
+  animation: rein-von-unten 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.title { animation-delay: 0.15s; }
+.sub { animation-delay: 0.25s; }
+.form > :nth-child(1) { animation-delay: 0.35s; }
+.form > :nth-child(2) { animation-delay: 0.45s; }
+.form > :nth-child(3) { animation-delay: 0.55s; }
+.settings-link { animation-delay: 0.6s; }
+
+@keyframes hero-rein {
+  from { opacity: 0; transform: scale(1.06); }
+  to { opacity: 0.5; transform: none; }
+}
+
+/* Knöpfe geben beim Drücken leicht nach */
+.btn:active:not(:disabled),
+.btn-host:active,
+.btn-leaderboard:active,
+.settings-link:active { transform: translateY(1px) scale(0.99); }
 </style>

@@ -1,161 +1,167 @@
 <template>
   <div class="player">
 
-    <GameOver
-      v-if="istSpielVorbei"
-      :result="gameOverResult"
-      :score="gameOverScore"
-      :survived-seconds="gameOverSurvived"
-      :leaderboard="gameOverBoard"
-      :show-restart="true"
-      :show-exit="true"
-      :restarting="restarting"
-      @restart="handleRestart"
-      @exit="$emit('exit')"
-    />
+    <!-- Verbinden → Rolle wählen → Warten → Spiel → Spielende blenden weich über (style.css: .phase-*) -->
+    <Transition name="phase" mode="out-in">
+      <GameOver
+        v-if="istSpielVorbei"
+        :result="gameOverResult"
+        :score="gameOverScore"
+        :survived-seconds="gameOverSurvived"
+        :leaderboard="gameOverBoard"
+        :show-restart="true"
+        :show-exit="true"
+        :restarting="restarting"
+        @restart="handleRestart"
+        @exit="$emit('exit')"
+      />
 
-    <!-- Phase 1: Verbinden -->
-    <div v-else-if="!connected" class="phase-connect">
-      <div class="connect-card">
-        <h2 class="connect-title">Verbinden</h2>
+      <!-- Phase 1: Verbinden -->
+      <div v-else-if="!connected" class="phase-connect">
+        <div class="connect-card">
+          <h2 class="connect-title">Verbinden</h2>
 
-        <label class="field">
-          <span class="field-label">Sitzungs-ID</span>
-          <input
-            v-model="gameId"
-            class="input"
-            placeholder="a3k9"
-            maxlength="8"
-            @keyup.enter="handleJoin"
-          />
-        </label>
+          <label class="field">
+            <span class="field-label">Sitzungs-ID</span>
+            <input
+              v-model="gameId"
+              class="input"
+              placeholder="a3k9"
+              maxlength="8"
+              @keyup.enter="handleJoin"
+            />
+          </label>
 
-        <div class="connect-name">
-          Angemeldet als <strong>{{ playerName || 'Agent' }}</strong>
-        </div>
+          <div class="connect-name">
+            Angemeldet als <strong>{{ playerName || 'Agent' }}</strong>
+          </div>
 
-        <p v-if="joinError" class="join-error">{{ joinError }}</p>
+          <p v-if="joinError" class="join-error">{{ joinError }}</p>
 
-        <button
-          class="btn-main"
-          :disabled="!gameId.trim() || joining"
-          @click="handleJoin"
-        >
-          {{ joining ? 'Verbinde …' : 'Beitreten' }}
-        </button>
-
-        <button class="back-btn" @click="$emit('exit')">Zurück</button>
-      </div>
-    </div>
-
-    <!-- Phase 2: Lobby mit Rollenwahl -->
-    <div v-else-if="!myRole" class="phase-lobby">
-      <header class="lobby-bar">
-        <span class="bar-brand">DRV-BOX</span>
-        <span class="bar-session">{{ gameId.toUpperCase() }}</span>
-        <span class="bar-count">{{ lobbyPlayers.length }} / 3</span>
-      </header>
-
-      <main class="lobby-main">
-        <h1 class="lobby-title">Rolle wählen</h1>
-        <p class="lobby-sub">Jede Rolle einmal. Zusammen knacken — niemand hat die ganze Lösung.</p>
-
-        <div class="role-cards">
           <button
-            v-for="r in allRoles"
-            :key="r"
-            class="role-card"
-            :class="{ taken: isTaken(r) }"
-            :disabled="isTaken(r)"
-            @click="pickRole(r)"
+            class="btn-main"
+            :disabled="!gameId.trim() || joining"
+            @click="handleJoin"
           >
-            <span class="role-name">{{ roleLabel(r) }}</span>
-            <span class="role-desc">{{ isTaken(r) ? 'belegt' : roleHint(r) }}</span>
+            {{ joining ? 'Verbinde …' : 'Beitreten' }}
           </button>
+
+          <button class="back-btn" @click="$emit('exit')">Zurück</button>
         </div>
+      </div>
 
-        <p v-if="roleError" class="role-error">{{ roleError }}</p>
-      </main>
-    </div>
+      <!-- Phase 2: Lobby mit Rollenwahl -->
+      <div v-else-if="!myRole" class="phase-lobby">
+        <header class="lobby-bar">
+          <span class="bar-brand">DRV-BOX</span>
+          <span class="bar-session">{{ gameId.toUpperCase() }}</span>
+          <span class="bar-count">{{ lobbyPlayers.length }} / 3</span>
+        </header>
 
-    <!-- Phase 3: Warten bis Spiel startet -->
-    <div v-else-if="status !== 'running'" class="phase-wait">
-      <header class="lobby-bar">
-        <span class="bar-brand">DRV-BOX</span>
-        <span class="bar-session">{{ gameId.toUpperCase() }}</span>
-        <span class="bar-role">{{ roleLabel(myRole) }}</span>
-        <span v-if="devMode" class="bar-dev">DEV · nicht gewertet</span>
-      </header>
+        <main class="lobby-main">
+          <h1 class="lobby-title">Rolle wählen</h1>
+          <p class="lobby-sub">Jede Rolle einmal. Zusammen knacken — niemand hat die ganze Lösung.</p>
 
-      <main class="wait-main">
-        <h1 class="wait-title">Bereit für den Start</h1>
-        <p class="wait-sub">{{ lobbyPlayers.length }} / 3 verbunden</p>
+          <div class="role-cards">
+            <button
+              v-for="r in allRoles"
+              :key="r"
+              class="role-card"
+              :class="{ taken: isTaken(r) }"
+              :disabled="isTaken(r)"
+              @click="pickRole(r)"
+            >
+              <span class="role-name">{{ roleLabel(r) }}</span>
+              <span class="role-desc">{{ isTaken(r) ? 'belegt' : roleHint(r) }}</span>
+            </button>
+          </div>
 
-        <ul class="wait-list">
-          <li v-for="p in lobbyPlayers" :key="p.name" class="wait-item">
-            <span class="wait-name">{{ p.name }}</span>
-            <span class="wait-role">{{ p.role ? roleLabel(p.role) : '–' }}</span>
-          </li>
-          <li v-for="n in (3 - lobbyPlayers.length)" :key="'empty-' + n" class="wait-item empty">
-            <span class="wait-name">wartet</span>
-            <span class="wait-role">–</span>
-          </li>
-        </ul>
+          <p v-if="roleError" class="role-error">{{ roleError }}</p>
+        </main>
+      </div>
 
-        <!-- Einsatzbesprechung am Beamer: gestartet wird dort -->
-        <div v-if="status === 'briefing'" class="briefing-note">
-          <span class="briefing-title">Einsatzbesprechung läuft</span>
-          <span class="briefing-sub">Schaut auf den Beamer – gleich geht's los.</span>
-        </div>
-        <button
-          v-else
-          class="start-btn"
-          :disabled="!readyToStart || starting"
-          @click="startGame"
-        >
-          {{ readyToStart
-              ? (starting ? 'Starte …' : 'Runde starten')
-              : `Warte auf Rollen (${rolesTaken.length} / 3)` }}
-        </button>
+      <!-- Phase 3: Warten bis Spiel startet -->
+      <div v-else-if="status !== 'running'" class="phase-wait">
+        <header class="lobby-bar">
+          <span class="bar-brand">DRV-BOX</span>
+          <span class="bar-session">{{ gameId.toUpperCase() }}</span>
+          <span class="bar-role">{{ roleLabel(myRole) }}</span>
+          <span v-if="devMode" class="bar-dev">DEV · nicht gewertet</span>
+        </header>
 
-        <p v-if="startError" class="wait-error">{{ startError }}</p>
+        <main class="wait-main">
+          <h1 class="wait-title">Bereit für den Start</h1>
+          <p class="wait-sub">{{ lobbyPlayers.length }} / 3 verbunden</p>
 
-        <button class="back-btn" @click="$emit('exit')">Verlassen</button>
-      </main>
-    </div>
+          <ul class="wait-list">
+            <li v-for="p in lobbyPlayers" :key="p.name" class="wait-item">
+              <span class="wait-name">{{ p.name }}</span>
+              <span class="wait-role">{{ p.role ? roleLabel(p.role) : '–' }}</span>
+            </li>
+            <li v-for="n in (3 - lobbyPlayers.length)" :key="'empty-' + n" class="wait-item empty">
+              <span class="wait-name">wartet</span>
+              <span class="wait-role">–</span>
+            </li>
+          </ul>
 
-    <!-- Phase 4: Spiel -->
-    <template v-else>
-      <header class="task-bar">
-        <span class="bar-brand">DRV-BOX</span>
-        <span class="bar-role">{{ roleLabel(myRole) }}</span>
-        <span v-if="devMode" class="bar-dev" title="DEV-Modus: Zeit steht, Fehler kosten nichts">DEV · nicht gewertet</span>
-        <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
-      </header>
+          <!-- Einsatzbesprechung am Beamer: gestartet wird dort -->
+          <div v-if="status === 'briefing'" class="briefing-note">
+            <span class="briefing-title">Einsatzbesprechung läuft</span>
+            <span class="briefing-sub">Schaut auf den Beamer – gleich geht's los.</span>
+          </div>
+          <button
+            v-else
+            class="start-btn"
+            :disabled="!readyToStart || starting"
+            @click="startGame"
+          >
+            {{ readyToStart
+                ? (starting ? 'Starte …' : 'Runde starten')
+                : `Warte auf Rollen (${rolesTaken.length} / 3)` }}
+          </button>
 
-      <main class="task-main" :class="{ 'with-calc': rechnerOffen }">
-        <component
-          :is="currentTaskComponent"
-          :key="currentTask"
-          :role="normalizedRole"
-          :task="task"
-          :view="task?.view"
-          :note-seed="task?.task_id || ''"
-          :symbole="task1Switches"
-          :code-length="task1CodeLength"
-          :input-result-nonce="inputResultNonce"
-          :server-error="lastError"
-          :time-left="timeLeft"
-          :victory="currentTask === 4 ? sieg : undefined"
-          @solved="onTaskSolved"
-          @task-failed="onTaskFailed"
-          @failed="onTaskFailed"
-        />
-      </main>
+          <p v-if="startError" class="wait-error">{{ startError }}</p>
 
-      <!-- Taschenrechner für alle Rollen, rechts am Rand -->
-      <Calculator v-model:open="rechnerOffen" />
-    </template>
+          <button class="back-btn" @click="$emit('exit')">Verlassen</button>
+        </main>
+      </div>
+
+      <!-- Phase 4: Spiel -->
+      <div v-else class="phase-game">
+        <header class="task-bar">
+          <span class="bar-brand">DRV-BOX</span>
+          <span class="bar-role">{{ roleLabel(myRole) }}</span>
+          <span v-if="devMode" class="bar-dev" title="DEV-Modus: Zeit steht, Fehler kosten nichts">DEV · nicht gewertet</span>
+          <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
+        </header>
+
+        <main class="task-main" :class="{ 'with-calc': rechnerOffen }">
+          <!-- von Aufgabe zu Aufgabe: alte gleitet weg, neue kommt herein (style.css: .task-*) -->
+          <Transition name="task" mode="out-in">
+            <component
+              :is="currentTaskComponent"
+              :key="currentTask"
+              :role="normalizedRole"
+              :task="task"
+              :view="task?.view"
+              :note-seed="task?.task_id || ''"
+              :symbole="task1Switches"
+              :code-length="task1CodeLength"
+              :input-result-nonce="inputResultNonce"
+              :server-error="lastError"
+              :time-left="timeLeft"
+              :victory="currentTask === 4 ? sieg : undefined"
+              @solved="onTaskSolved"
+              @task-failed="onTaskFailed"
+              @failed="onTaskFailed"
+            />
+          </Transition>
+        </main>
+
+        <!-- Taschenrechner für alle Rollen, rechts am Rand -->
+        <Calculator v-model:open="rechnerOffen" />
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -531,6 +537,14 @@ function onTaskSolved(data) {
 </script>
 
 <style scoped>
+/* Spielphase: Kopfleiste + Aufgabe, als ein Block für den Übergang */
+.phase-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .player {
   flex: 1;
   min-height: 0;
@@ -889,21 +903,10 @@ function onTaskSolved(data) {
   flex-direction: column;
   padding: 16px;
   overflow: hidden;
-  /* Spielstart: Aufgabe blendet weich ein (statt hart umzuschalten) */
-  animation: aufgabe-rein 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Platz für den offenen Taschenrechner (rechts, auf dem Handy unten), damit
    die Zahlen der Aufgabe sichtbar bleiben */
-@keyframes aufgabe-rein {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: none; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .task-main { animation: none; }
-}
-
 .task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .task-main.with-calc { padding-right: 280px; }
 
