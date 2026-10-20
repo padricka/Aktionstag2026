@@ -93,9 +93,18 @@
       </div>
 
       <button v-if="!istLetzte" class="intro-next" type="button" @click="weiter">Weiter ›</button>
-      <button v-else class="intro-start" type="button" :disabled="gestartet" @click="starten">
-        {{ gestartet ? 'Startet …' : 'Einsatz starten ▶' }}
-      </button>
+      <template v-else>
+        <!-- Die letzte Folie wartet, bis alle drei Spieler auf dem Handy „Bereit“ gedrückt haben -->
+        <div v-if="bereit && !gestartet" class="intro-ready" role="status" aria-live="polite">
+          <span class="intro-ready-pips" aria-hidden="true">
+            <i v-for="n in bereit.total" :key="n" :class="{ on: n <= bereit.count }"></i>
+          </span>
+          <span>{{ bereit.all ? 'Alle bereit' : `Warte auf Spieler … ${bereit.count}/${bereit.total} bereit` }}</span>
+        </div>
+        <button class="intro-start" type="button" :disabled="gestartet || wartetAufSpieler" @click="starten">
+          {{ gestartet ? 'Startet …' : 'Einsatz starten ▶' }}
+        </button>
+      </template>
     </footer>
 
     <!-- Übergang ins Spiel: Kamerafahrt aufs brennende Rack, Verbinden, 3 – 2 – 1 – LOS! -->
@@ -249,6 +258,8 @@ const props = defineProps({
   typeSpeed: { type: Number, default: 24 },
   // ms je Schritt des Übergangs (Verbinden, 3, 2, 1, LOS!); 0 = sofort starten
   outroSpeed: { type: Number, default: 900 },
+  // Bereit-Stand der Spieler { count, total, all }; null = nicht warten (DEV-Modus, Tests)
+  bereit: { type: Object, default: null },
 })
 const emit = defineEmits(['start'])
 
@@ -263,6 +274,7 @@ let timer = null
 
 const slide = computed(() => SLIDES[index.value])
 const istLetzte = computed(() => index.value === SLIDES.length - 1)
+const wartetAufSpieler = computed(() => !!props.bereit && !props.bereit.all)
 const tippt = computed(() => zeichen.value < slide.value.text.length)
 const getippt = computed(() => slide.value.text.slice(0, zeichen.value))
 
@@ -327,11 +339,17 @@ function starten() {
   }, props.outroSpeed)
 }
 
+// Werden die Spieler auf der letzten Folie bereit, geht es von selbst mit dem Countdown los.
+// Waren sie schon vorher bereit, entscheidet der Beamer-Host (Knopf ist dann frei).
+watch(() => props.bereit?.all, (alle) => {
+  if (alle && istLetzte.value) starten()
+})
+
 function taste(e) {
   if (outroAktiv.value) return
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); weiter() }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); zurueck() }
-  else if (e.key === 'Enter') { e.preventDefault(); istLetzte.value ? starten() : weiter() }
+  else if (e.key === 'Enter') { e.preventDefault(); if (!istLetzte.value) weiter(); else if (!wartetAufSpieler.value) starten() }
 }
 </script>
 
@@ -884,4 +902,25 @@ function taste(e) {
   .outro-bild, .outro-count, .intro-outro { animation: none; }
   .szene-enter-active, .szene-leave-active { transition: none; }
 }
+
+.intro-ready {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--fg-2);
+}
+.intro-ready-pips { display: inline-flex; gap: 6px; }
+.intro-ready-pips i {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-2);
+  border-radius: 50%;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.intro-ready-pips i.on { background: var(--green); box-shadow: 0 0 8px var(--green); border-color: var(--green); }
+.intro-start:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

@@ -204,14 +204,16 @@ class RedisHandler:
             status = "ready"
 
         player_list = [
-            {"name": name, "role": p.get("role")}
+            {"name": name, "role": p.get("role"), "ready": bool(p.get("ready"))}
             for name, p in players.items()
         ]
+        all_ready = ready and all(p["ready"] for p in player_list if p["role"])
 
         return {
             "players": player_list,
             "status": status,
             "ready_to_start": ready,
+            "all_ready": all_ready,
             "roles_taken": taken,
             "roles_free": free,
             "dev_mode": state.get("dev_mode") == "1",
@@ -238,6 +240,18 @@ class RedisHandler:
             return False
         self.r.hset(state_key, "status", "briefing")
         return True
+
+    def set_ready(self, game_id: str, name: str, ready: bool) -> dict:
+        """„Bereit“ eines Spielers in der Einsatzbesprechung (nur im Status briefing)."""
+        status = _s(self.r.hget(self._k_state(game_id), "status")) or "waiting"
+        if status != "briefing":
+            return {"event": "error",
+                    "payload": {"message": "Bereit nur in der Einsatzbesprechung"}}
+        player = self._load_players(game_id).get(name)
+        if not player or not player.get("role"):
+            return {"event": "error", "payload": {"message": "Spieler ohne Rolle"}}
+        self.r.hset(self._k_players(game_id), name, json.dumps({**player, "ready": ready}))
+        return {"event": "lobby_update", "payload": self.get_lobby_payload(game_id)}
 
     def set_dev_mode(self, game_id: str, enabled: bool) -> dict:
         """DEV-Modus nur in der Lobby umschalten (vor dem Start)."""

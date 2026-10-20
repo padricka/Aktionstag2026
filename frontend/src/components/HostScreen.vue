@@ -17,7 +17,7 @@
       />
 
       <!-- Einsatzbesprechung: Story + Tutorial, erst danach startet das Spiel -->
-      <IntroStory v-else-if="status === 'briefing'" class="host-intro" @start="introFertig" />
+      <IntroStory v-else-if="status === 'briefing'" class="host-intro" :bereit="bereit" @start="introFertig" />
 
       <div v-else class="host-main">
 
@@ -148,6 +148,7 @@ defineEmits(['exit'])
 const gameId = ref('')
 const bootError = ref('')
 const devMode = ref(false)
+const allReady = ref(false)   // alle drei Spieler haben in der Einsatzbesprechung „Bereit“ gedrückt
 const devError = ref('')
 const skipping = ref(false)
 const hints = ref({ total: 0, available: [], opened: [], cost: 50 })   // Hilfe-Notizen der laufenden Aufgabe (game_tick.hints)
@@ -175,6 +176,14 @@ const istSpielVorbei = computed(
 // Sieg: der Tresor bleibt sichtbar und öffnet sich, statt im Overlay zu verschwinden.
 const istSieg = computed(() => status.value === 'won' && gameOverResult.value === 'victory')
 const vaultState = computed(() => (istSieg.value ? 'open' : 'locked'))
+
+// Bereit-Stand fürs Intro; im DEV-Modus wartet der Beamer nicht auf die Spieler
+const SPIELER_ANZAHL = 3
+const bereit = computed(() => (devMode.value ? null : {
+  count: playerList.value.filter((p) => p.ready).length,
+  total: SPIELER_ANZAHL,
+  all: allReady.value,
+}))
 
 const statusLabel = computed(() => {
   if (istSpielVorbei.value) return gameOverResult.value === 'victory' ? 'Sieg' : 'Niederlage'
@@ -231,6 +240,7 @@ function handleMessage(msg) {
     playerList.value = payload.players || []
     status.value = payload.status || 'waiting'
     readyToStart.value = !!payload.ready_to_start
+    allReady.value = !!payload.all_ready
     devMode.value = !!payload.dev_mode
     if (status.value === 'waiting' || status.value === 'ready') {
       hp.value = maxHp.value

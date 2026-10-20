@@ -43,7 +43,8 @@ Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung*
 - **Ablauf:** Alle Rollen gewählt → ein Spieler drückt „Runde starten“ → ist ein Beamer verbunden, wechselt die Lobby in `status: "briefing"` (Handys: „Einsatzbesprechung läuft – schaut auf den Beamer“, Rollen sind fest). Ohne Beamer startet das Spiel wie bisher sofort.
 - **Story** (M. Kaiser, IT-Leitung, per Funk; Sprechblasen bauen sich wie getippt auf): ① Startbild, Brand in Raum B-04 · ② Nahaufnahme des Racks, „Systemausfall in 05:00“ · ③ das Rechenzentrum mit LEITSTAND / VORDERSEITE / RÜCKSEITE · ④ die drei echten Notizzettel · ⑤ „Redet miteinander – nicht durcheinander!“
 - **Tutorial (letzte Seite):** ein echtes Notizblatt mit nummerierten Schritten (die Nummern geben die Reihenfolge vor) und der Taschenrechner, dazu die Regeln (Aufgaben + Finale, Fehler kosten Leben, Notizen, Taschenrechner, Punkte).
-- **Start:** Erst „Einsatz starten“ am Beamer → Übergang (Kamerafahrt, „Verbinde mit Rechenzentrum B-04…“, 3 – 2 – 1 – LOS!) → Host sendet `start_game` → das Spiel startet, Beamer und Handys blenden weich ein.
+- **Bereit-Knopf:** Während der Einsatzbesprechung hat jedes Handy einen „Bereit“-Knopf (Event `player_ready`, wieder zurücknehmbar). Die letzte Folie wartet am Beamer („Warte auf Spieler … x/3 bereit“); sind alle drei bereit, startet der Countdown von selbst. Der Server lässt den Host-Start vorher nicht zu (`not_ready`), außer im DEV-Modus.
+- **Start:** Erst „Einsatz starten“ am Beamer (oder automatisch, sobald alle bereit sind) → Übergang (Kamerafahrt, „Verbinde mit Rechenzentrum B-04…“, 3 – 2 – 1 – LOS!) → Host sendet `start_game` → das Spiel startet, Beamer und Handys blenden weich ein.
 - **Bilder:** Szenen 2, 3, 5 sind Ausschnitte des Startbilds; eigene Bilder unter `frontend/src/assets/intro/szene-<n>.jpg` ersetzen sie automatisch (Prompts in `LIESMICH.md` dort). Die Sieg-/Niederlage-Bilder gehören nicht ins Intro.
 
 ### Punkte
