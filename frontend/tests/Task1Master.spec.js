@@ -26,7 +26,7 @@ const alarmView = {
 }
 
 describe('Task1Master.vue (alarm_leds)', () => {
-  it('zeigt 4 LED-Steckplätze ohne Beschriftung; burning_slot blinkt', () => {
+  it('zeigt 4 LEDs nur mit Stellen-Nummer (keine Funktion); burning_slot blinkt', () => {
     const wrapper = mount(Task1Master, {
       props: { view: alarmView },
       global: { stubs },
@@ -36,6 +36,8 @@ describe('Task1Master.vue (alarm_leds)', () => {
     expect(leds).toHaveLength(4)
     expect(leds[2].classes()).toContain('burning')
     expect(wrapper.find('.led-label').exists()).toBe(false)
+    // feat/leichter-alarm: Stelle 1–4 steht dran, damit niemand abzählen muss
+    expect(wrapper.findAll('.led-num').map((n) => n.text())).toEqual(['Stelle 1', 'Stelle 2', 'Stelle 3', 'Stelle 4'])
     expect(wrapper.text()).not.toContain('DEFEKT')
     expect(wrapper.text()).not.toContain('NETZWERK')
   })

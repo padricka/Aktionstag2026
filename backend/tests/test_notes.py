@@ -121,3 +121,17 @@ def test_datenrettung_jede_regel_hat_ein_rechenbeispiel():
 def test_datenrettung_hat_die_falle_rot13():
     zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_M)["lines"]
     assert any(z["style"] == "strike" and "ROT13" in z["text"] for z in zeilen)
+
+
+# ------------------------------------------------------------------ leichter für Nicht-ITler
+def _ganzer_text(note):
+    return " ".join(z["text"] for rolle in ROLLEN for z in notes.piece(note, rolle)["lines"])
+
+
+def test_alarm_spricht_von_stellen_nicht_von_plaetzen():
+    """feat/leichter-alarm: „brennender Platz“ war unklar. Die LEDs und Kabel heißen
+    Stelle 1–4, die kaputte ist die ROTE Stelle; Regel ③ spricht vom kaputten Kabel."""
+    text = _ganzer_text(notes.ALARM_NOTE)
+    assert "Platz" not in text and "brennend" not in text.lower()
+    assert "Stelle" in text and "ROTEN Stelle" in text
+    assert "KAPUTTEN Kabel" in text

@@ -38,7 +38,7 @@ Nur wenn das Team schnell und effektiv zusammenarbeitet, kann der Server gerette
 
 ## Die drei Aufgaben
 
-1. **Alarm verifizieren:** Der Master sieht, welcher Steckplatz brennt, ob die LED blinkt oder leuchtet, und die Farbfolge. Spieler 1 sieht die Kabel mit Symbolen und kappt das richtige – nie das am brennenden Platz. Spieler 2 sieht, welches Symbol auf welcher Farbe klebt (manchmal ist ein Aufkleber zerkratzt). Mit der dreigeteilten Wartungsnotiz tippt der Master den Shutdown-Code.
+1. **Alarm verifizieren:** Der Master sieht, an welcher Stelle (1–4) die LED rot ist, ob die LED blinkt oder leuchtet, und die Farbfolge. Spieler 1 sieht die Kabel mit Symbolen und kappt das richtige – nie das kaputte an der roten Stelle. Spieler 2 sieht, welches Symbol auf welcher Farbe klebt (manchmal ist ein Aufkleber zerkratzt). Mit der dreigeteilten Wartungsnotiz tippt der Master den Shutdown-Code.
 2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (mit Zeitzonen und Probealarm), Spieler 1 sieht den Strom an den Racks und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
 3. **Datenrettung:** Spieler 2 legt die richtige Backup-Platte ein und liest danach die Datenpakete vor (binär, eins beschädigt). Spieler 1 meldet sich mit einem Hex-codierten Namen am Backup-Terminal an und hat die ASCII-Tabelle. Der Master hat das Log mit Backups und Schlüsselbund. Mit der dreigeteilten Anleitung (mit Rechenbeispielen) entschlüsseln sie das Wort RENTE.
 

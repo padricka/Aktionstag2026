@@ -68,21 +68,21 @@ Jede der drei Aufgaben öffnet beim Lösen einen **Fundort** mit einem Teil für
 
 ### Aufgabe 1 — Alarm verifizieren (`kind: "alarm"`)
 
-**Geschichte:** Ein Steckplatz brennt. Er muss abgeschaltet und das System mit dem Shutdown-Code heruntergefahren werden.
+**Geschichte:** An einer Stelle ist ein Kabel kaputt (LED rot). Die Stelle muss abgeschaltet und das System mit dem Shutdown-Code heruntergefahren werden.
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | LED-Leiste mit 4 Steckplätzen, einer ist rot – die LED **blinkt oder leuchtet dauerhaft** (jede Runde neu). Die **Farbfolge** vom Monitor (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Kabel, beschriftet mit **Symbolen**, in Steckplatz-Reihenfolge 1–4. | Die 4 **Code-Symbole** auf **farbigen** Aufklebern, gemischt. Manchmal ist **einer zerkratzt** (Farbe sichtbar, Symbol nicht). |
+| **Sieht** | LED-Leiste „Stelle 1–4“ (beschriftet), eine LED ist rot – die LED **blinkt oder leuchtet dauerhaft** (jede Runde neu). Die **Farbfolge** vom Monitor (z. B. „ROT → GELB → GRÜN → BLAU"). | 4 Kabel, beschriftet mit **Symbolen**, an Stelle 1–4. | Die 4 **Code-Symbole** auf **farbigen** Aufklebern, gemischt. Manchmal ist **einer zerkratzt** (Farbe sichtbar, Symbol nicht). |
 | **Zettel** | Wartungsnotiz Teil 1/3: Regel ② + Falle | Wartungsnotiz Teil 2/3: Regel ① | Wartungsnotiz Teil 3/3: Regel ③ |
 | **Eingabe** | `shutdown_cmd`: 4 Symbole in der richtigen Reihenfolge | `main_switch`: Symbol des richtigen Kabels | – |
 
 **Die zerrissene Wartungsnotiz** (`backend/notes.py`, `ALARM_NOTE`): Jede Rolle hat ein Stück, oben steht „TEIL x/3“. Das Stück **sieht** zerrissen aus, aber **kein Satz ist zerteilt**: Jedes Stück trägt eine vollständige Regel – genau die, die sein Spieler **nicht allein anwenden** kann, weil die nötigen Fakten bei den anderen stehen. „Ich kenne die Regel, du kennst die Fakten.“
-- **①** *(Vorderseite)* **Nie** das Kabel am brennenden Platz kappen! Gerade Platznummer → das Kabel **links** daneben, ungerade → **rechts** daneben. *Den brennenden Platz kennt nur der Leitstand.*
+- **①** *(Vorderseite)* **Nie** das Kabel an der **roten Stelle** kappen – das ist kaputt! Stelle 2 oder 4 → das Kabel **links** daneben, Stelle 1 oder 3 → **rechts** daneben. *Die rote Stelle kennt nur der Leitstand.*
 - **②** *(Leitstand)* Shutdown-Code = die Farbfolge vom Monitor, Farbe für Farbe. **Blinkt die LED → rückwärts.** *Welches Symbol auf welcher Farbe klebt, kennt nur die Rückseite.*
-- **③** *(Rückseite)* Ist ein Aufkleber zerkratzt, gilt dort **das Symbol vom Kabel am brennenden Platz** – nicht vom gekappten. *Den Platz kennt der Leitstand, das Symbol dort die Vorderseite.*
+- **③** *(Rückseite)* Ist ein Aufkleber zerkratzt, gilt dort **das Symbol vom kaputten Kabel** (an der roten Stelle) – nicht vom gekappten. *Die Stelle kennt der Leitstand, das Symbol dort die Vorderseite.*
 - **Falle** *(Leitstand)*: „Code fängt immer mit ★ an.“ – durchgestrichen, „stimmt nicht!“.
 
-**Lösung (Beispiel):** Platz 3 brennt, LED blinkt, GELB zerkratzt. ① 3 ist ungerade → Kabel von Platz 4. ② blinkt → Farbfolge rückwärts. ③ für GELB gilt das Symbol vom Kabel an Platz 3. Die Leitstand-Tastatur enthält deshalb auch die Kabel-Symbole.
+**Lösung (Beispiel):** Stelle 3 ist rot, die LED blinkt, GELB zerkratzt. ① Stelle 3 → Kabel rechts daneben, Stelle 4. ② blinkt → Farbfolge rückwärts. ③ für GELB gilt das Symbol vom kaputten Kabel an Stelle 3. Die Leitstand-Tastatur enthält deshalb auch die Kabel-Symbole.
 Gelöst, wenn beide Eingaben stimmen (Reihenfolge egal). **Fundort:** Ersatzteilschrank → Netzteil.
 
 ### Aufgabe 2 — Löschprotokoll (`kind: "fire_protocol"`)
@@ -177,7 +177,7 @@ Kommt ein Team nicht weiter, reißt der **Host am Beamer** einen Zettel vom **Ab
 
 | Aufgabe | Themen (`id`) – erledigt, wenn … | Zettel (gekürzt, `…` = aus der Runde) |
 |---|---|---|
-| 1 Alarm | `cable` Kabel gekappt · `order`, `symbols`, `scratch` Code richtig | „Es brennt Platz …, kappt Platz …“ · „LED … → Farbfolge …“ · „Code beginnt mit …“ · was der zerkratzte Aufkleber zählt (oder: keiner zerkratzt) |
+| 1 Alarm | `cable` Kabel gekappt · `order`, `symbols`, `scratch` Code richtig | „Die LED ist rot an Stelle …, kappt Stelle …“ · „LED … → Farbfolge …“ · „Code beginnt mit …“ · was der zerkratzte Aufkleber zählt (oder: keiner zerkratzt) |
 | 2 Löschprotokoll | `probe` erstes Rack gelöscht · `order`, `agents` alle gelöscht · `power` dieses Rack gelöscht · `release` nie | Probealarm-Meldung · Reihenfolge … → … → … · „Rack … unter Strom → CO2“ · alle Löschmittel · Freigabe auf „3, 2, 1“ |
 | 3 Datenrettung | `disk` Platte drin · `login` angemeldet · `parity`, `convert`, `key`, `decrypt` erst mit dem Wort | richtige Platte · erster Login-Buchstabe in Hex vorgerechnet · kaputtes Paket · ein Paket umgerechnet · Key-ID → k · erster Buchstabe entschlüsselt |
 
@@ -190,7 +190,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | Aufgabe | Rolle | `view.type` | Felder |
 |---|---|---|---|
 | 1 | MASTER | `alarm_leds` | `slots: 4`, `burning_slot: 1..4`, `led: "blinkt" / "leuchtet"`, `color_order: [..4 Farben..]`, `keyboard: [12 Symbole]` (Code- und Kabel-Symbole + Ablenker, pro Aufgabe gemischt), `p_done`, `note` |
-| 1 | FI-SI | `main_switches` | `switches: [4 Symbole in Steckplatz-Reihenfolge]`, `p_done`, `note` |
+| 1 | FI-SI | `main_switches` | `switches: [4 Symbole an Stelle 1–4]`, `p_done`, `note` |
 | 1 | FI-AE | `code_stickers` | `stickers: [{symbol, color} ×4]` (gemischt; zerkratzt: `{symbol: null, color, scratched: true}`), `note` |
 | 2 | MASTER | `fire_log` | `log: [{time: "HH:MM", source: "BMZ"/"RM", rack, test}]` (nach angezeigter Uhrzeit sortiert), `release: {armed, window}`, `note` |
 | 2 | FI-SI | `valve_panel` | `racks: [4 Rack-IDs]`, `agents: [WASSER, SCHAUM, CO2, INERTGAS, ABSCHOTTEN]`, `power: {rack: true/false}`, `sequence_len`, `step`, `p_done`, `note` |

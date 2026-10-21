@@ -49,30 +49,31 @@ ALARM_NOTE = {
                 _line(8, "red", "stimmt nicht!"),
             ],
         },
-        # Vorderseite sieht die Kabel, braucht vom Leitstand den brennenden Platz
+        # Vorderseite sieht die Kabel, braucht vom Leitstand die rote Stelle
         V: {
             "part": 2,
             "torn": ["left", "bottom"],
             "lines": [
                 _line(0, "stamp", "NUR FÜR TECHNIKER"),
                 _line(1, "typed", "WARTUNGSNOTIZ · TEIL 2/3"),
-                _line(3, "rule", "① NIE das Kabel am brennenden"),
-                _line(4, "text", "Platz kappen! Stattdessen:"),
-                _line(5, "text", "gerade Platznummer → das Kabel"),
-                _line(6, "text", "LINKS daneben, ungerade → das"),
-                _line(7, "text", "Kabel RECHTS daneben."),
+                _line(3, "rule", "① NIE das Kabel an der ROTEN Stelle"),
+                _line(4, "text", "kappen – das ist kaputt! Stattdessen:"),
+                _line(5, "text", "Stelle 2 oder 4 → das Kabel"),
+                _line(6, "text", "LINKS daneben kappen."),
+                _line(7, "text", "Stelle 1 oder 3 → das Kabel"),
+                _line(8, "text", "RECHTS daneben kappen."),
             ],
         },
-        # Rückseite sieht den Kratzer, braucht Platz (Leitstand) + Symbol (Vorderseite)
+        # Rückseite sieht den Kratzer, braucht die rote Stelle (Leitstand) + Symbol (Vorderseite)
         R: {
             "part": 3,
             "torn": ["top"],
             "lines": [
                 _line(0, "typed", "WARTUNGSNOTIZ · TEIL 3/3"),
                 _line(2, "rule", "③ Ist ein Aufkleber zerkratzt,"),
-                _line(3, "text", "gilt dort das Symbol vom Kabel"),
-                _line(4, "text", "am BRENNENDEN Platz –"),
-                _line(5, "text", "nicht vom gekappten!"),
+                _line(3, "text", "gilt dort das Symbol vom"),
+                _line(4, "text", "KAPUTTEN Kabel (an der roten"),
+                _line(5, "text", "Stelle) – nicht vom gekappten!"),
                 _line(7, "sign", "– M. Kaiser, IT"),
             ],
         },
