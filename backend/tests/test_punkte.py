@@ -1,6 +1,6 @@
 """Punktevergabe (GAME_DESIGN.md, Abschnitt „Punkte“).
 
-  9 Minuten Startzeit. Der Server brennt: alle 3 s kostet das Feuer 1 Leben, Fehler −60
+  9 Minuten Startzeit. Der Server brennt: alle 3 s kostet das Feuer 1 Leben, Fehler −30
   (feat/zeit-und-feuer). Läuft die Zeit ab, fallen die Leben auf 0 (Niederlage).
 
   Endpunkte = restliche Leben                         (Basiswert)
@@ -99,6 +99,11 @@ def test_round_lasts_nine_minutes_and_solving_gives_a_minute():
     assert DEFAULT_TIME == 540
     assert TIME_BONUS == 60
     assert FIRE_EVERY == 3
+
+
+def test_mistake_costs_thirty_lives():
+    """feat/leichter-fehler-30: eine falsche Eingabe kostet 30 Leben (vorher 60) – leichter für Nicht-ITler."""
+    assert MISTAKE_DAMAGE == 30
 
 
 def test_the_fire_costs_one_life_every_three_seconds(dc):
@@ -203,7 +208,7 @@ def test_skipping_in_dev_mode_gives_no_points(dc):
 
 # ------------------------------------------------------------------ Endpunkte
 def test_score_while_running_is_lives_plus_task_points_minus_hints(dc, uhr):
-    _eingabe(dc, V, "main_switch", "gibtsnicht")      # −60 Leben
+    _eingabe(dc, V, "main_switch", "gibtsnicht")      # −30 Leben
     uhr.t += 10
     _loese(dc)                                         # +400 (schnell), +15 Leben
     dc.open_hint("probe")                              # −50 (jetzt läuft Aufgabe 2)

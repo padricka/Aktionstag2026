@@ -462,7 +462,7 @@ async def test_player_input_wrong(env):
         }})
         res = await recv_until(b, "input_result")
         assert res["payload"]["result"] == "wrong"
-        await recv_until(b, "game_tick", lambda p: p["health"] <= 240)
+        await recv_until(b, "game_tick", lambda p: p["health"] <= 270)
     finally:
         await beenden(a, b, c, game_ids=["cov_pi_wrong"])
 

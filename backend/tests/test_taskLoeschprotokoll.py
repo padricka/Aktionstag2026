@@ -205,7 +205,7 @@ def test_extinguishing_with_the_rules_floods_but_does_not_solve(dc):
 def test_wrong_order_costs_health(dc):
     schritte = _schritte_aus_ansichten(_views(dc))
     assert _press(dc, P1_NAME, "valve_action", schritte[1])["result"] == "wrong"
-    assert dc.health == 240
+    assert dc.health == 270
 
 
 def test_ignoring_the_power_rule_costs_health(dc):
@@ -217,7 +217,7 @@ def test_ignoring_the_power_rule_costs_health(dc):
         if strom[rack] and brandgut[rack] in ("PAPIER", "KABEL"):
             ohne_strom_regel = f"{rack}:{_mittel(brandgut[rack], False)}"
             assert _press(dc, P1_NAME, "valve_action", ohne_strom_regel)["result"] == "wrong"
-            assert dc.health == 240
+            assert dc.health == 270
             return
         assert _press(dc, P1_NAME, "valve_action", eingabe)["result"] == "correct"
     pytest.fail("Strom-Regel kam nicht vor")
@@ -226,7 +226,7 @@ def test_ignoring_the_power_rule_costs_health(dc):
 def test_unknown_rack_or_agent_costs_health(dc):
     assert _press(dc, P1_NAME, "valve_action", "Z-99:LIMONADE")["result"] == "wrong"
     assert _press(dc, P1_NAME, "valve_action", "kaputt")["result"] == "wrong"
-    assert dc.health == 180
+    assert dc.health == 240
 
 
 def test_input_is_case_insensitive(dc):

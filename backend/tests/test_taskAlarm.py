@@ -244,12 +244,12 @@ def test_unsorted_sticker_order_is_wrong(dc):
 # ------------------------------------------------------------------ Fehler und Rollen
 def test_wrong_switch_costs_health(dc):
     assert _press(dc, P1_NAME, "main_switch", "gibt-es-nicht")["result"] == "wrong"
-    assert dc.health == 240
+    assert dc.health == 270
 
 
 def test_wrong_command_costs_health(dc):
     assert _text(dc, MASTER_NAME, "shutdown_cmd", "FALSCH")["result"] == "wrong"
-    assert dc.health == 240
+    assert dc.health == 270
 
 
 def test_rueckseite_has_no_controls_in_this_task(dc):

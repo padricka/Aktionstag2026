@@ -38,11 +38,11 @@ describe('BrennenderServer.vue', () => {
     expect(teile[1].find('.teil').classes()).toContain('is-leer')
   })
 
-  it('ein Fehler (−60) lässt das Feuer kurz auflodern, das Feuer-Leben (−1) nicht', async () => {
+  it('ein Fehler (−30) lässt das Feuer kurz auflodern, das Feuer-Leben (−1) nicht', async () => {
     const w = server({ hp: 300 })
     await w.setProps({ hp: 299 })
     expect(w.classes()).not.toContain('is-auflodern')
-    await w.setProps({ hp: 239 })
+    await w.setProps({ hp: 269 })
     expect(w.classes()).toContain('is-auflodern')
   })
 
