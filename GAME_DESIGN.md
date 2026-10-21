@@ -57,7 +57,7 @@ Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung*
 |---|---|---|---|---|
 | Aufgabenpunkte (`TASK_POINTS`) | 200 | 250 | 300 | 350 |
 | ×2, wenn gelöst innerhalb (`FAST_LIMIT`, ab Start der Aufgabe) | 1:30 | 2:30 | 3:30 | 3:00 |
-| Hilfe-Notizen | 4 | 5 | 6 | 6 |
+| Hilfe-Notizen | 4 | 5 | 5 | 6 |
 
 - Der **×2 ist unsichtbar:** Die Spieler erfahren ihn nicht (keine Anzeige, kein `score_gain` mehr in `input_result`), er steckt nur in der Endpunktzahl.
 - **Beispiel Sieg:** 180 Leben + (200 ×2) + 250 + (300 ×2) + 350 (Finale nach über 3:00) + 95 s Restzeit − 2 Hilfen = 180 + 400 + 250 + 600 + 350 + 95 − 100 = **1775**.
@@ -109,34 +109,30 @@ Falscher Schrank / falsches Löschmittel kostet Leben; wer zu spät drückt, war
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
-**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden. Dafür muss die richtige Platte eingelegt, das Backup-Terminal entsperrt und das Passwort aus den Datenzeilen entschlüsselt werden – als **Kette**: Platte → Login → Datenzeile → Zahl → Buchstabe → zurückschieben. Das Ergebnis ist immer **RENTE**, der Login ein DRV-Begriff (REHA oder DRV).
+**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden: die richtige Platte einlegen, die Nr. auf der Platte umrechnen, den gültigen Schlüssel finden – seine Tabelle enthält die Codes des Passworts. Die Codes werden **nicht gerechnet**, nur in der Code-Tabelle nachgeschlagen. Das Passwort ist ein 6-Buchstaben-Wort der Rentenversicherung (`WORDS`: RENTEN, ANTRAG, WAISEN, WITWEN, ZEITEN).
 
-**Leichte Fassung** (`feat/leichter-datenrettung`, nach Rückmeldung von Nicht-ITlern): kein Prüfbit und kein kaputtes Paket mehr, keine Binär-Schlüssel, keine Hex-Buchstaben (A–F), die Stellenwerte stehen direkt über den Ziffern, k wird eingetragen und ist dann für alle sichtbar, die Vorderseite hat eine Alphabet-Leiste.
+**Leichte Fassung** (`feat/leichter-datenrettung`, nach Rückmeldung von Nicht-ITlern): kein Login, kein Prüfbit, kein ASCII, kein Verschieben um k, kein Taschenrechner. Gerechnet wird nur eine 4-stellige Binärzahl (8 4 2 1).
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Log:** Login-Name als Hex-Codes (nur Ziffern), **Backup-Jobs** (Datum, Platte, Status), **Schlüsselbund** (Nr., k, gültig/gesperrt) | **ASCII-Tabelle** A=65 … Z=90, **Backup-Terminal** (erst gesperrt), nach dem Login die **Alphabet-Leiste** | 4 **Backup-Platten**; nach dem Einlegen die **Schlüssel-Nr.** und **5 Datenzeilen** à 8 Ziffern, darüber die Stellenwerte 128 64 32 16 8 4 2 1 |
-| **Zettel** | Anleitung Teil 1/3: Regeln ⑤ + ⑥ + Falle | Anleitung Teil 2/3: Regeln ② + ④ | Anleitung Teil 3/3: Regeln ① + ③ |
-| **Eingabe** | `set_key` (k eintragen – danach sehen alle „k = …“) | `terminal_login`, danach `rescue_word` | `mount_disk` |
+| **Sieht** | **Backup-Jobs** (Datum, Platte, Status), **Schlüsselbund** (Nr., Name, gültig/gesperrt – **zwei gültige**) | **Code-Tabelle** A–Z: 8-stelliger Code je Buchstabe (frei erfunden, jede Runde neu), **Backup-Terminal** | 4 **Backup-Platten**; nach dem Einlegen die **Nr. der Platte** (4-stellig binär) und **zwei Tabellen** à 6 Codes, überschrieben mit dem Namen eines gültigen Schlüssels |
+| **Zettel** | Anleitung Teil 1/3: Regel ② + Falle | Anleitung Teil 2/3: Regel ③ | Anleitung Teil 3/3: Regeln ① + ④ |
+| **Eingabe** | – | `rescue_word` | `mount_disk` |
 
-**Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, das **Rechenbeispiel mittig eingerahmt** (Zettel-Stil `beispiel`):
+**Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, das Beispiel mittig eingerahmt (Zettel-Stil `beispiel`):
 - **①** *(Rückseite)* Richtige Platte = das **neueste** Backup mit Status **OK**. Datum ist TAG.MONAT – erst Monat, dann Tag vergleichen. *Bsp: 03.04. ist neuer als 28.03.* *Die Backup-Jobs hat der Leitstand.*
-- **②** *(Vorderseite)* Login-Name in **Hex**: erste Ziffer · 16 + zweite. *Bsp: 0x52 → 5 · 16 + 2 = 82 → R.* *Die Hex-Codes hat der Leitstand.*
-- **③** *(Rückseite)* Jede Datenzeile ist eine Zahl: die Werte über jeder 1 zusammenzählen, jede Zahl an die Vorderseite. *Bsp: 0101 0101 → 64 + 16 + 4 + 1 = 85.*
-- **④** *(Vorderseite)* Zahl → Buchstabe in der ASCII-Tabelle. *Bsp: 85 → U.* *Die Zahlen kommen von der Rückseite.*
-- **⑤** *(Leitstand)* Schlüssel k = der **gültige** Eintrag mit der Schlüssel-Nr. von der Platte – nie gesperrt. k eintragen, dann sehen es alle. *Bsp: Nr. 6 · gültig · k = 3.* *Die Nr. hat die Rückseite.*
-- **⑥** *(Leitstand)* Jeden Buchstaben um k im Alphabet **zurück**, vor A kommt Z. *Bsp k = 3: F → E → D → C.* *Die Buchstaben hat die Vorderseite (mit Alphabet-Leiste).*
-- **Fallen:** das allerneueste Backup ist immer FEHLER; Datum als Text verglichen („28.03.“ > „03.04.“) führt zur falschen Platte; zur Schlüssel-Nr. gibt es einen gesperrten Zwilling; „Immer ROT13“ durchgestrichen (k ist 1–9).
-
-**So entsteht die Runde** (Backend rechnet rückwärts): RENTE → um k **vor** → ASCII-Zahl → 8 Ziffern. Backups über einen Monatswechsel (zwei Ende Monat m, zwei Anfang m+1, das neueste FEHLER).
+- **②** *(Leitstand)* Die Nr. auf der Platte hat 4 Ziffern, darüber stehen die Werte 8 · 4 · 2 · 1 – die Werte über jeder 1 zusammenzählen. *Bsp: 0110 → 4 + 2 = 6.* *Die Nr. sieht die Rückseite.*
+- **③** *(Vorderseite)* Im Schlüsselbund den **gültigen** Schlüssel mit dieser Nr. suchen – nie gesperrt. Sein Name steht über der richtigen Tabelle. *Bsp: Nr. 6 · DELTA · gültig → Tabelle DELTA.* *Schlüsselbund beim Leitstand, Tabellen bei der Rückseite.*
+- **④** *(Rückseite)* Die 6 Codes der richtigen Tabelle der Reihe nach vorlesen, **nicht rechnen** – die Vorderseite sucht jeden Code in ihrer Code-Tabelle. *Die Code-Tabelle hat die Vorderseite.*
+- **Fallen:** das allerneueste Backup ist immer FEHLER; Datum als Text verglichen („28.03.“ > „03.04.“) führt zur falschen Platte; die zweite Tabelle gehört zum anderen **gültigen** Schlüssel und ergibt ein anderes echtes Wort; „Die erste Tabelle ist immer richtig.“ – durchgestrichen.
 
 **Lösung (Beispiel):**
 1. Backups: 22.03. SN-1356 OK, 27.03. SN-4471 OK, 03.04. SN-9083 OK, 07.04. SN-2210 FEHLER → ① **SN-9083** einlegen.
-2. Login `0x52 0x45 0x48 0x41` → ② 82 69 72 65 → **REHA**.
-3. Auf der Platte: Schlüssel-Nr. 6 → ⑤ gültiger Schlüssel Nr. 6 = k 3 (der gesperrte Zwilling wäre falsch) → Leitstand trägt **3** ein.
-4. Datenzeilen `01010101`, `01001000`, `01010001`, `01010111`, `01001000` → ③ 85, 72, 81, 87, 72 → ④ U H Q W H → ⑥ je 3 zurück → **RENTE**.
+2. Auf der Platte: `0110` → ② **6**.
+3. Schlüsselbund: Nr. 6 · DELTA · gültig, Nr. 9 · ECHO · gültig, … → ③ **Tabelle DELTA**.
+4. Rückseite liest die 6 Codes aus Tabelle DELTA vor → Vorderseite schlägt nach → **RENTEN** (Tabelle ECHO ergäbe z. B. ANTRAG – falsch).
 
-Falsche Platte, falscher Login, falsches k oder falsches Wort kosten Leben. **Fundort:** Datentresor → Backup-Platte.
+Falsche Platte oder falsches Wort kosten Leben. **Fundort:** Datentresor → Backup-Platte.
 
 ### Finale — Server reparieren (`kind: "repair"`)
 
@@ -165,9 +161,9 @@ Nach jeder der drei Aufgaben öffnet sich ein Fundort und das Team bekommt ein T
 | 2 Löschprotokoll | **Lager** hinter der Brandschutztür – entriegelt nach dem Löschen | **Lüfter** | Pfeil (← links / rechts →) |
 | 3 Datenrettung | **Datentresor** | **Backup-Platte** mit den geretteten Daten | Schacht 1–4 |
 
-- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, beim Datentresor gut 5 s): **Uhr und Feuer stehen** so lange (`PAUSE_NACH`: 5 s, Datentresor 6 s, vor Aufgabe 2 plus 12 s und vor Aufgabe 3 plus 14 s Tutorial), das ×2-Fenster der nächsten Aufgabe beginnt erst danach. Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
+- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, beim Datentresor gut 5 s): **Uhr und Feuer stehen** so lange (`PAUSE_NACH`: 5 s, Datentresor 6 s, vor Aufgabe 2 plus 12 s und vor Aufgabe 3 plus 10 s Tutorial), das ×2-Fenster der nächsten Aufgabe beginnt erst danach. Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
 - **Tutorial Löschanlage** (`TutorialLoeschanlage.vue`, 12 s, `TUTORIAL_MS` in `Zwischenszene.vue`): vor Aufgabe 2 zeigt die Zwischenszene nach der Titelkarte ein vereinfachtes Steuerpult in fünf Schritten – ① Schrank wählen, ② Löschmittel wählen, ③ AUSLÖSEN → gelöscht, „So NICHT“: Wasser auf einen Schrank unter Strom → Stromschlag −30, ④ Freigabe: Leitstand + Rückseite gleichzeitig. Nur Anzeige, Uhr und Feuer stehen.
-- **Tutorial Binär** (`TutorialBinaer.vue`, 14 s, `TUTORIAL_MS`): vor Aufgabe 3 zeigt die Zwischenszene nach der Titelkarte in sieben Bildern, wie man eine Datenzeile ausrechnet – erst mit 4 Ziffern (8 4 2 1 über 1101 → 8 + 4 + 1 = 13), dann mit 8 Ziffern (0101 0101 → 64 + 16 + 4 + 1 = 85) und 85 → U in der ASCII-Tabelle. Nur Anzeige, Uhr und Feuer stehen.
+- **Tutorial Binär** (`TutorialBinaer.vue`, 10 s, `TUTORIAL_MS`): vor Aufgabe 3 zeigt die Zwischenszene nach der Titelkarte in fünf Bildern, wie man die Nr. auf der Platte ausrechnet (8 4 2 1 über 0110 → 4 + 2 = 6) und dass die langen Codes **nicht gerechnet**, sondern in der Code-Tabelle nachgeschlagen werden (0100 1101 → R). Nur Anzeige, Uhr und Feuer stehen.
 - **Teilekiste** (`Teilekiste.vue`, nur Leitstand): liegt halb im Bild am linken Rand wie der Taschenrechner rechts, ein Klick zieht sie herein. Drei Fächer mit Zeichnung (`TeilGrafik.vue`), gefundene Teile mit Etikett – die Etiketten braucht das Team im Finale.
 
 ### Hilfe-Notizen (Beamer)
@@ -177,13 +173,13 @@ Kommt ein Team nicht weiter, reißt der **Host am Beamer** einen Zettel vom **Ab
 - **Nur was noch passt:** Themen, deren Schritt laut Spielstand schon erledigt ist (`done`), stehen nicht mehr auf dem Block – z. B. „Backup-Platte“, sobald sie eingelegt ist. Schon abgerissene Zettel bleiben sichtbar.
 - **Passend zur Runde:** Die Texte erzeugt das Backend aus dem Aufgabenstand (`PlayableObject.hints(state)` → `{id, label, text, done}`), z. B. „0x42 = 4 · 16 + 2 = 66 = B“.
 - **Kosten:** jeder abgerissene Zettel **−50 Punkte** (`HINT_COST`), im DEV-Modus gratis. Der Abzug gilt fürs ganze Spiel (`hint_penalty`).
-- **Anzahl Themen:** Aufgabe 1 → 4, Aufgabe 2 → 5, Aufgabe 3 → 6, Finale → 6.
+- **Anzahl Themen:** Aufgabe 1 → 4, Aufgabe 2 → 5, Aufgabe 3 → 5, Finale → 6.
 
 | Aufgabe | Themen (`id`) – erledigt, wenn … | Zettel (gekürzt, `…` = aus der Runde) |
 |---|---|---|
 | 1 Alarm | `cable` Kabel gekappt · `order`, `symbols`, `scratch` Code richtig | „Die LED ist rot an Stelle …, kappt Stelle …“ · „LED … → Farbfolge …“ · „Code beginnt mit …“ · was der zerkratzte Aufkleber zählt (oder: keiner zerkratzt) |
 | 2 Löschprotokoll | `probe` erstes Rack gelöscht · `order`, `agents` alle gelöscht · `power` dieses Rack gelöscht · `release` nie | Probealarm-Meldung · Reihenfolge … → … → … · „Rack … unter Strom → CO2“ · alle Löschmittel · Freigabe auf „3, 2, 1“ |
-| 3 Datenrettung | `disk` Platte drin · `login` angemeldet · `key` k eingetragen · `convert`, `ascii`, `decrypt` erst mit dem Wort | richtige Platte · erster Login-Buchstabe in Hex vorgerechnet · erste Datenzeile zusammengezählt · Zahl → Buchstabe · Schlüssel-Nr. → k · erster Buchstabe entschlüsselt |
+| 3 Datenrettung | `disk` Platte drin · `number`, `key`, `table`, `word` erst mit dem Wort | richtige Platte · Nr. der Platte vorgerechnet · gültiger Schlüssel zur Nr. · richtige Tabelle · erster Code nachgeschlagen |
 
 ## 5. Schnittstelle (für paralleles Arbeiten)
 
@@ -199,9 +195,9 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 2 | MASTER | `fire_log` | `log: [{time: "HH:MM", source: "BMZ"/"RM", rack, test}]` (nach angezeigter Uhrzeit sortiert), `release: {armed, window}`, `note` |
 | 2 | FI-SI | `valve_panel` | `racks: [4 Rack-IDs]`, `agents: [WASSER, SCHAUM, CO2, INERTGAS, ABSCHOTTEN]`, `power: {rack: true/false}`, `sequence_len`, `step`, `p_done`, `note` |
 | 2 | FI-AE | `rack_rear` | `rear: [{rack, material, label} ×4]`, `release: {armed, window}`, `note` |
-| 3 | MASTER | `rescue_log` | `login_hex: ["0x52", …]` (nur Ziffern), `backups: [{date: "TT.MM.", serial, status: "OK"/"FEHLER"} ×4]`, `keys: [{nr, k, status: "gültig"/"gesperrt"} ×4]`, `key` (k, sobald eingetragen, sonst null), `note` |
-| 3 | FI-SI | `rescue_terminal` | `ascii_table: {"A":65,…"Z":90}`, `login_len`, `logged_in`, `word_len: 5`, `key`, `note` |
-| 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_nr: 6` / `rows: ["01010101", … ×5]` (beide null bis eingelegt), `weights: [128 … 1]`, `key`, `note` |
+| 3 | MASTER | `rescue_log` | `backups: [{date: "TT.MM.", serial, status: "OK"/"FEHLER"} ×4]`, `keys: [{nr, name, status: "gültig"/"gesperrt"} ×4]` (zwei gültig), `note` |
+| 3 | FI-SI | `rescue_terminal` | `code_table: {"A": "01001101", … "Z": …}` (frei erfunden, jede Runde neu), `word_len: 6`, `note` |
+| 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_id: "0110"` / `tables: [{name, rows: [6 Codes]} ×2]` (beide null bis eingelegt), `note` |
 | 4 | MASTER | `repair_console` | `parts: [{id, name, label, ort: kiste/FI-SI/FI-AE/eingebaut}]`, `console: {bay: 4, fan: 3, psu: 2}`, `wartung: ["bay:2", …]`, `installed`, `phase: einbau/start`, `keys`, `note` |
 | 4 | FI-SI | `repair_front` | `bays: [{nr, led: gruen/rot/aus}]`, `fan_slots: [{nr, belegt}]`, `hand: [{id, name}]`, `installed`, `phase`, `keys`, `note` |
 | 4 | FI-AE | `repair_back` | `psu_bays: [{nr, sicherung: ok/durch}]`, `warmgang: links/rechts`, `hand`, `installed`, `phase`, `keys`, `note` |
@@ -211,7 +207,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 **Beamer:** `game_tick` erhält zusätzlich `parts` (gefundene Teile), damit der Beamer sie neben dem brennenden Server zeigt.
 `game_tick` enthält außerdem `hints: {total, cost, available: [{id, label}], opened: [{id, label, text}]}` – Themen auf dem Abreißblock und abgerissene Zettel der laufenden Aufgabe (Texte nur der abgerissenen).
 
-Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), Finale: `give`, `maintenance`, `install_disk`/`install_fan`/`install_psu`, `return`, `key` (siehe Finale), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `set_key` (MASTER, k als Zahl), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), Finale: `give`, `maintenance`, `install_disk`/`install_fan`/`install_psu`, `return`, `key` (siehe Finale), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer) und `rescue_word` (FI-SI, kein Login mehr) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

@@ -73,7 +73,7 @@
 export const DAUER = { oeffnen: 600, titel: 3000, ende: 4600 }
 export const DAUER_TRESOR = { oeffnen: 300, titel: 4000, ende: 5600 }
 // Tutorial nach der Titelkarte, je nächster Aufgabe (ms). Muss zu PAUSE_NACH im Backend passen.
-export const TUTORIAL_MS = { 2: 12000, 3: 14000 }
+export const TUTORIAL_MS = { 2: 12000, 3: 10000 }
 </script>
 
 <script setup>

@@ -98,16 +98,15 @@ def test_datenrettung_hat_teile_1_bis_3_mit_risskanten():
 
 
 def test_datenrettung_regeln_stehen_bei_dem_der_die_fakten_nicht_hat():
-    """feat/leichter-datenrettung: ① Backup-Platte (Rückseite: Datum/Status im Log des
-    Leitstands), ③ Datenzeile → Zahl (Rückseite: Zeilen und Stellenwerte sieht sie selbst),
-    ② Hex-Login + ④ Zahl → Buchstabe (Vorderseite: ASCII-Tabelle, Hex hat der Leitstand,
-    Zahlen die Rückseite), ⑤ Schlüssel + ⑥ zurückschieben (Leitstand: Schlüssel-Nr. steht
-    auf der Platte, die Buchstaben kommen von der Vorderseite)."""
+    """feat/leichter-datenrettung (nach Rückmeldung): ① Platte (Rückseite: Backups im Log
+    des Leitstands), ② 4-stellige Nr. umrechnen (Leitstand: die Nr. steht auf der Platte),
+    ③ gültiger Schlüssel → Tabelle (Vorderseite: Schlüsselbund beim Leitstand, Tabellen
+    bei der Rückseite), ④ Codes vorlesen (Rückseite: die Code-Tabelle hat die Vorderseite)."""
     regeln = {
         r: [z["text"][0] for z in notes.piece(notes.RESCUE_NOTE, r)["lines"] if z["style"] == "rule"]
         for r in ROLLEN
     }
-    assert regeln == {ROLE_M: ["⑤", "⑥"], ROLE_P1: ["②", "④"], ROLE_P2: ["①", "③"]}
+    assert regeln == {ROLE_M: ["②"], ROLE_P1: ["③"], ROLE_P2: ["①", "④"]}
 
 
 def test_datenrettung_jede_regel_hat_ein_rechenbeispiel():
@@ -121,21 +120,21 @@ def test_datenrettung_jede_regel_hat_ein_rechenbeispiel():
 
 
 def test_datenrettung_ohne_it_begriffe():
-    """Bit, Prüfbit, Paket, Key-ID, REVOKED und „A=10“ verstehen Nicht-ITler nicht."""
+    """Bit, Paket, Key-ID, REVOKED, Hex, ASCII verstehen Nicht-ITler nicht."""
     text = _ganzer_text(notes.RESCUE_NOTE)
-    for wort in ("Bit", "Paket", "Key-ID", "REVOKED", "A=10", "aktiv"):
+    for wort in ("Bit", "Paket", "Key-ID", "REVOKED", "HEX", "Hex", "ASCII", "Login"):
         assert wort not in text, wort
-    assert "Datenzeile" in text and "Schlüssel-Nr." in text
+    assert "Code-Tabelle" in text and "gültig" in text.lower()
 
 
-def test_hex_beispiel_steht_mittig():
-    zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_P1)["lines"]
-    assert any(z["style"] == "beispiel" and "0x52" in z["text"] and "R" in z["text"] for z in zeilen)
-
-
-def test_datenrettung_hat_die_falle_rot13():
+def test_binaer_beispiel_steht_mittig():
     zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_M)["lines"]
-    assert any(z["style"] == "strike" and "ROT13" in z["text"] for z in zeilen)
+    assert any(z["style"] == "beispiel" and "0110" in z["text"] and "6" in z["text"] for z in zeilen)
+
+
+def test_datenrettung_hat_eine_falle():
+    zeilen = notes.piece(notes.RESCUE_NOTE, ROLE_M)["lines"]
+    assert any(z["style"] == "strike" and "Tabelle" in z["text"] for z in zeilen)
 
 
 # ------------------------------------------------------------------ leichter für Nicht-ITler
