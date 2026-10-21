@@ -41,7 +41,7 @@ def _neue_etiketten() -> dict:
     return {
         "psu": {"label": random.choice(["115 V", "230 V"])},
         "fan": {"label": "Pfeil = Luftstrom"},
-        "disk": {"label": f"RAID-Platz {random.choice([1, 2, 3, 4])}"},
+        "disk": {"label": f"Schacht {random.choice([1, 2, 3, 4])}"},
     }
 
 # Punkte (GAME_DESIGN.md, „Punkte“): Endpunkte = restliche Leben + Aufgabenpunkte

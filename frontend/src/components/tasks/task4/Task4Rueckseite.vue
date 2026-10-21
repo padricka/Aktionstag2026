@@ -1,6 +1,6 @@
 <!--
   Finale · Rückseite (view.type "repair_back"): zwei Netzteilschächte mit Sicherung
-  (ok / durchgebrannt) und das Gang-Schild hinten (Warmgang/Kaltgang – die Vorderseite
+  (ok / durchgebrannt) und das Schild, auf welcher Seite der Warmgang ist (die Vorderseite
   braucht es für den Lüfter). Netzteil antippen, Spannung einstellen, in den Schacht.
   Zuletzt Schlüssel „Strom“ – er kommt als erster.
 -->
@@ -12,8 +12,8 @@
     </header>
 
     <p class="hint">
-      Sag der Vorderseite, welcher Gang hinter dem Rack ist. Das Netzteil kommt zuletzt –
-      stell vorher die Spannung vom Etikett ein (das Etikett kennt nur der Leitstand).
+      Sag der Vorderseite, auf welcher Seite der Warmgang ist (Schild). Das Netzteil kommt zuletzt –
+      stell vorher die Spannung vom Etikett ein (Teilekiste beim Leitstand).
     </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
@@ -49,11 +49,11 @@
         </section>
 
         <section class="panel">
-          <span class="panel-label">Rack · Rückseite</span>
+          <span class="panel-label">Serverschrank · Rückseite</span>
           <div class="rack-rahmen">
-            <div class="gang-schild" :class="gang === 'Warmgang' ? 'is-warm' : 'is-kalt'">
-              {{ gang.toUpperCase() }}
-              <small>Schild an der Rückwand</small>
+            <div class="gang-schild is-warm">
+              WARMGANG {{ warmgang === 'links' ? '← LINKS' : 'RECHTS →' }}
+              <small>von vorne gesehen · Schild an der Rückwand</small>
             </div>
 
             <div class="rack-zeile-titel">NETZTEILE</div>
@@ -124,7 +124,7 @@ const emit = defineEmits(['eingabe'])
 const gewaehlt = ref(null)
 const volt = ref('115')
 const hand = computed(() => props.view?.hand || [])
-const gang = computed(() => props.view?.gang || '')
+const warmgang = computed(() => props.view?.warmgang || '')
 
 watch(hand, (h) => {
   if (gewaehlt.value && !h.some((t) => t.id === gewaehlt.value)) gewaehlt.value = null
@@ -187,7 +187,6 @@ function schachtGewaehlt(s) {
 }
 .gang-schild small { font-size: 10px; letter-spacing: 0.1em; font-weight: 400; opacity: 0.8; }
 .gang-schild.is-warm { background: #a8322b; }
-.gang-schild.is-kalt { background: #2a5fa8; }
 
 .nt-schaechte { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .nt-schacht {

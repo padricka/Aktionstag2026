@@ -647,7 +647,7 @@ class RepairTask(PlayableObject):
     @classmethod
     def create(cls, players, parts_spec=None):
         spec = parts_spec or {}
-        disk_label = (spec.get("disk") or {}).get("label") or f"RAID-Platz {random.randint(1, cls.BAYS)}"
+        disk_label = (spec.get("disk") or {}).get("label") or f"Schacht {random.randint(1, cls.BAYS)}"
         psu_label = (spec.get("psu") or {}).get("label") or random.choice(["115 V", "230 V"])
         disk_bay = int(disk_label.split()[-1])
 
@@ -658,7 +658,7 @@ class RepairTask(PlayableObject):
         bays[andere[0] - 1] = "rot"
         bays[andere[1] - 1] = "gruen"
 
-        gang = random.choice(["Warmgang", "Kaltgang"])   # Schild auf der Rückseite
+        warmgang = random.choice(["links", "rechts"])   # Schild auf der Rückseite, von vorne gesehen
         psu_bay = random.randint(1, cls.PSU_BAYS)
         fuses = ["durch"] * cls.PSU_BAYS
         fuses[psu_bay - 1] = "ok"
@@ -668,9 +668,9 @@ class RepairTask(PlayableObject):
             "disk_bay": disk_bay,
             "bays": bays,
             "fan_slot": random.randint(1, cls.FAN_SLOTS),
-            "gang": gang,
-            # Luft strömt vom Kaltgang zum Warmgang: hinten Warmgang → Pfeil nach hinten
-            "fan_dir": "hinten" if gang == "Warmgang" else "vorne",
+            "warmgang": warmgang,
+            # der Lüfterpfeil zeigt immer zum Warmgang (Einbauanleitung ④)
+            "fan_dir": warmgang,
             "psu_bay": psu_bay,
             "fuses": fuses,
             "volt": psu_label.split()[0],
@@ -726,7 +726,7 @@ class RepairTask(PlayableObject):
             ROLE_P2: {
                 "type": "repair_back",
                 "psu_bays": [{"nr": i + 1, "sicherung": f} for i, f in enumerate(state["fuses"])],
-                "gang": state["gang"],
+                "warmgang": state["warmgang"],
                 "hand": cls._hand(state, ROLE_P2),
                 "note": notes.piece(notes.REPAIR_NOTE, ROLE_P2),
                 **gemeinsam,
@@ -744,7 +744,6 @@ class RepairTask(PlayableObject):
         rot = state["bays"].index("rot") + 1
         richtig_verteilt = (orte["disk"] in (ROLE_P1, "eingebaut") and orte["fan"] in (ROLE_P1, "eingebaut")
                             and orte["psu"] in (ROLE_P2, "eingebaut"))
-        richtung = "nach hinten ins Rack" if state["fan_dir"] == "hinten" else "nach vorne zu euch"
         return [
             hint("give", "Wer bekommt was?",
                  "Platte und Lüfter gehören zur Vorderseite, das Netzteil zur Rückseite. "
@@ -756,16 +755,16 @@ class RepairTask(PlayableObject):
                  f"Netzteilschacht {psu} = PSU {psu - 1}.",
                  all(eingebaut.values())),
             hint("disk", "Welcher Plattenschacht?",
-                 f"Auf dem Etikett steht {state['labels']['disk']}: Die Platte kommt in Schacht {bay}. "
+                 f"Auf dem Etikett (Teilekiste beim Leitstand) steht {state['labels']['disk']}: Die Platte kommt in Schacht {bay}. "
                  f"Schacht {rot} mit der roten LED ist defekt.",
                  eingebaut["disk"]),
             hint("fan", "Wie herum der Lüfter?",
-                 f"Hinter dem Rack ist der {state['gang']}. Die Luft strömt vom Kaltgang zum Warmgang – "
-                 f"der Pfeil zeigt {richtung} ({state['fan_dir']}). Er kommt in die Lücke, Platz {slot}.",
+                 f"Laut Schild der Rückseite: Der Warmgang ist {state['warmgang']}. Der Pfeil zeigt immer zum Warmgang – "
+                 f"also nach {state['fan_dir']}. Der Lüfter kommt in die Lücke, Platz {slot}.",
                  eingebaut["fan"]),
             hint("psu", "Netzteil",
                  f"Heil ist die Sicherung in Schacht {psu}. Den Spannungsschalter vorher auf "
-                 f"{state['labels']['psu']} stellen – so steht es auf dem Etikett.",
+                 f"{state['labels']['psu']} stellen – so steht es auf dem Etikett (Teilekiste beim Leitstand).",
                  eingebaut["psu"]),
             hint("keys", "Hochfahren",
                  "Erst alle Plätze in der Konsole aus der Wartung nehmen. Dann die Schlüssel: Strom "
@@ -845,7 +844,7 @@ class RepairTask(PlayableObject):
             if nummer != state["fan_slot"]:
                 return cls._fehler(state, f"Lüfterplatz {nummer} ist schon belegt.")
             if extra != state["fan_dir"]:
-                return cls._fehler(state, "Lüfter verkehrt herum – die Luft muss vom Kaltgang zum Warmgang.")
+                return cls._fehler(state, "Lüfter verkehrt herum – der Pfeil muss zum Warmgang zeigen.")
         else:
             if not 1 <= nummer <= cls.PSU_BAYS or state["fuses"][nummer - 1] != "ok":
                 return cls._fehler(state, f"Schacht {nummer}: Sicherung durchgebrannt.")

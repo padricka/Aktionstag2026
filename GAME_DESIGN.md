@@ -144,12 +144,12 @@ Falsche Platte, falscher Login, falsches k oder falsches Wort kosten Leben. **Fu
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Teilekiste** mit Etiketten (Platte „RAID-Platz n“, Netzteil „115/230 V“, Lüfter) und wo jedes Teil gerade ist · **Management-Konsole** BAY 0–3, FAN 0–2, PSU 0–1 mit Schalter Wartung | 4 Plattenschächte (LED grün = belegt, rot = defekt, aus = leer) · Lüfterwand mit einer Lücke · Teile in der Hand | 2 Netzteilschächte (Sicherung ok/durch) · Gang-Schild an der Rückwand (Warmgang/Kaltgang) · Teile in der Hand |
-| **Zettel** | Einbauanleitung Teil 1/3: ① Reihenfolge + wer was einbaut, ④ Wartung vor jedem Einbau, Konsole zählt ab 0, ⑤ vor dem Hochfahren alle Wartungen aus | Teil 2/3: ② Platte in den Schacht vom Etikett, rote LED = defekt; Lüfterpfeil vom Kaltgang zum Warmgang (Falle: „immer nach vorne“) | Teil 3/3: ③ Netzteil nur in den Schacht mit heiler Sicherung, Spannung vom Etikett; ⑥ Schlüssel Strom → Kühlung → System, je max. 5 s |
-| **Eingabe** | `give` `"disk:FI-SI"` · `maintenance` `"bay:2"` (Umschalter) · `key` `"system"` | `install_disk` `"3"` · `install_fan` `"2:hinten"` · `return` `"psu"` · `key` `"kuehlung"` | `install_psu` `"1:230"` · `return` `"disk"` · `key` `"strom"` |
+| **Sieht** | **Teilekiste** mit Etiketten (Platte „Schacht n“, Netzteil „115/230 V“, Lüfter) und wo jedes Teil gerade ist · **Management-Konsole** BAY 0–3, FAN 0–2, PSU 0–1 mit Schalter Wartung | 4 Plattenschächte (LED grün = belegt, rot = defekt, aus = leer) · Lüfterwand mit einer Lücke · Teile in der Hand | 2 Netzteilschächte (Sicherung ok/durch) · Schild an der Rückwand: Warmgang links oder rechts (von vorne gesehen) · Teile in der Hand |
+| **Zettel** | Einbauanleitung Teil 1/3: ① Reihenfolge + wer was einbaut, **fett: „Die Etiketten siehst nur du – in der Teilekiste!“**; ② Wartung vor jedem Einbau, Konsole zählt ab 0; ⑥ vor dem Hochfahren alle Wartungen aus | Teil 2/3: ③ Platte in den Schacht vom Etikett („steht in der Teilekiste beim Leitstand“), rote LED = defekt; ④ Lüfterpfeil zeigt immer zum **Warmgang: ← links oder rechts →** (Falle: „immer nach rechts“) | Teil 3/3: ⑤ Netzteil nur in den Schacht mit heiler Sicherung, Spannung „115 V oder 230 V“ vom Etikett (Teilekiste beim Leitstand); ⑦ Schlüssel Strom → Kühlung → System, je max. 5 s |
+| **Eingabe** | `give` `"disk:FI-SI"` · `maintenance` `"bay:2"` (Umschalter) · `key` `"system"` | `install_disk` `"3"` · `install_fan` `"2:rechts"` · `return` `"psu"` · `key` `"kuehlung"` | `install_psu` `"1:230"` · `return` `"disk"` · `key` `"strom"` |
 
 - **Reihenfolge:** Platte → Lüfter → Netzteil. Jeder Einbau braucht den Platz in der Konsole auf **Wartung** (sonst Stromschlag); die Konsole zählt ab 0 (Schacht 3 = BAY 2).
-- **Lüfter:** Die Luft strömt vom Kaltgang zum Warmgang – das Schild sieht nur die Rückseite, einbauen muss die Vorderseite.
+- **Lüfter:** Der Pfeil zeigt immer zum Warmgang – links oder rechts (von vorne gesehen). Das Schild sieht nur die Rückseite, einbauen muss die Vorderseite.
 - **Weitergeben:** Wer ein Teil bekommt, das bei ihm nicht passt, gibt es ohne Strafe zurück (kostet nur Zeit).
 - **Drei-Schlüssel-Start:** Wenn alles eingebaut und keine Wartung mehr an ist. Falsche Reihenfolge oder Wartung noch an → Fehler, alle Schlüssel zurück; mehr als 5 s Pause → von vorn.
 - **Fehler** kosten 30 Leben und `input_result.message` sagt, was falsch war (z. B. „Stromschlag! Platz 3 war nicht in Wartung.“).
@@ -162,8 +162,8 @@ Nach jeder der drei Aufgaben öffnet sich ein Fundort und das Team bekommt ein T
 | Aufgabe | Fundort | Teil | Etikett (pro Runde ausgelost) |
 |---|---|---|---|
 | 1 Alarm | **Ersatzteilschrank** – das Schloss war vom Alarm blockiert | **Netzteil** | 115 V oder 230 V |
-| 2 Löschprotokoll | **Lager** hinter der Brandschutztür – entriegelt nach dem Löschen | **Lüfter** | Pfeil = Luftstrom |
-| 3 Datenrettung | **Datentresor** | **Backup-Platte** mit den geretteten Daten | RAID-Platz 1–4 |
+| 2 Löschprotokoll | **Lager** hinter der Brandschutztür – entriegelt nach dem Löschen | **Lüfter** | Pfeil (← links / rechts →) |
+| 3 Datenrettung | **Datentresor** | **Backup-Platte** mit den geretteten Daten | Schacht 1–4 |
 
 - **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, beim Datentresor gut 5 s): **Uhr und Feuer stehen** so lange (`PAUSE_NACH`: 5 s, Datentresor 6 s, vor Aufgabe 2 plus 12 s und vor Aufgabe 3 plus 14 s Tutorial), das ×2-Fenster der nächsten Aufgabe beginnt erst danach. Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
 - **Tutorial Löschanlage** (`TutorialLoeschanlage.vue`, 12 s, `TUTORIAL_MS` in `Zwischenszene.vue`): vor Aufgabe 2 zeigt die Zwischenszene nach der Titelkarte ein vereinfachtes Steuerpult in fünf Schritten – ① Schrank wählen, ② Löschmittel wählen, ③ AUSLÖSEN → gelöscht, „So NICHT“: Wasser auf einen Schrank unter Strom → Stromschlag −30, ④ Freigabe: Leitstand + Rückseite gleichzeitig. Nur Anzeige, Uhr und Feuer stehen.
@@ -204,7 +204,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_nr: 6` / `rows: ["01010101", … ×5]` (beide null bis eingelegt), `weights: [128 … 1]`, `key`, `note` |
 | 4 | MASTER | `repair_console` | `parts: [{id, name, label, ort: kiste/FI-SI/FI-AE/eingebaut}]`, `console: {bay: 4, fan: 3, psu: 2}`, `wartung: ["bay:2", …]`, `installed`, `phase: einbau/start`, `keys`, `note` |
 | 4 | FI-SI | `repair_front` | `bays: [{nr, led: gruen/rot/aus}]`, `fan_slots: [{nr, belegt}]`, `hand: [{id, name}]`, `installed`, `phase`, `keys`, `note` |
-| 4 | FI-AE | `repair_back` | `psu_bays: [{nr, sicherung: ok/durch}]`, `gang: Warmgang/Kaltgang`, `hand`, `installed`, `phase`, `keys`, `note` |
+| 4 | FI-AE | `repair_back` | `psu_bays: [{nr, sicherung: ok/durch}]`, `warmgang: links/rechts`, `hand`, `installed`, `phase`, `keys`, `note` |
 
 **Zettel:** Jede Ansicht mit Notizzettel hat `note: {id, title, part, of, torn: ["top"/"right"/"bottom"/"left"…], lines: [{row, style, text}]}` – nur das eigene Stück (Teil `part` von `of`), jede Regel darauf vollständig (`style`: typed, stamp, rule, text, bold, strike, red, sign; bold = fett mit Textmarker). Die Form der Risskante würfelt das Frontend (`TornNote.vue`, gleiche Aufgabe = gleiche Kante).
 

@@ -5,7 +5,7 @@ Hardware-Teil für das Finale:
 
   Aufgabe 1 (alarm)          → Ersatzteilschrank → Netzteil      (Etikett: 115 V oder 230 V)
   Aufgabe 2 (fire_protocol)  → Lager             → Lüfter        (Etikett: Pfeil = Luftstrom)
-  Aufgabe 3 (data_rescue)    → Datentresor       → Backup-Platte (Etikett: RAID-Platz 1–4)
+  Aufgabe 3 (data_rescue)    → Datentresor       → Backup-Platte (Etikett: Schacht 1–4)
 
 Die Etiketten werden pro Runde ausgelost. game_tick.parts listet die gefundenen Teile
 (Beamer: Umrisse füllen sich; Leitstand: Teilekiste mit Etiketten).
@@ -59,7 +59,7 @@ def test_each_task_opens_its_place_and_gives_its_part(dc):
     dc.skip_task()
     platte = dc.snapshot()["parts"][2]
     assert (platte["id"], platte["name"], platte["fundort"]) == ("disk", "Backup-Platte", "tresor")
-    assert platte["label"] in {f"RAID-Platz {n}" for n in range(1, 5)}
+    assert platte["label"] in {f"Schacht {n}" for n in range(1, 5)}
 
 
 def test_the_finale_gives_no_part(dc):

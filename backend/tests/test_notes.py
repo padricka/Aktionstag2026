@@ -165,3 +165,31 @@ def test_loeschplan_wichtigstes_ist_fett():
     fett = [z["text"] for z in notes.piece(notes.FIRE_NOTE, ROLE_P2)["lines"] if z["style"] == "bold"]
     assert any("2 Stunden abziehen" in t for t in fett)
     assert any("GLEICHZEITIG" in t for t in fett)
+
+
+# ------------------------------------------------------------------ Finale, leichter
+def test_einbauanleitung_regeln_in_der_reihenfolge_in_der_man_sie_braucht():
+    """feat/leichter-finale: Wartung (②) kommt vor dem ersten Einbau, der Lüfter hat eine
+    eigene Regel (④). Leitstand ① ② ⑥, Vorderseite ③ ④, Rückseite ⑤ ⑦."""
+    regeln = {
+        r: [z["text"][0] for z in notes.piece(notes.REPAIR_NOTE, r)["lines"] if z["style"] == "rule"]
+        for r in ROLLEN
+    }
+    assert regeln == {ROLE_M: ["①", "②", "⑥"], ROLE_P1: ["③", "④"], ROLE_P2: ["⑤", "⑦"]}
+
+
+def test_einbauanleitung_sagt_wo_das_etikett_ist_und_spricht_ohne_rack_und_raid():
+    for rolle in (ROLE_P1, ROLE_P2):
+        text = " ".join(z["text"] for z in notes.piece(notes.REPAIR_NOTE, rolle)["lines"])
+        assert "Teilekiste beim Leitstand" in text, rolle
+    leitstand = " ".join(z["text"] for z in notes.piece(notes.REPAIR_NOTE, ROLE_M)["lines"])
+    assert "Teilekiste" in leitstand
+    text = _ganzer_text(notes.REPAIR_NOTE)
+    assert "RAID" not in text and "Rack" not in text
+    assert "115 V oder 230 V" in text
+
+
+def test_einbauanleitung_luefter_links_oder_rechts_zum_warmgang():
+    text = " ".join(z["text"] for z in notes.piece(notes.REPAIR_NOTE, ROLE_P1)["lines"])
+    assert "WARMGANG" in text and "links" in text and "rechts" in text
+    assert "vorne" not in text.replace("Vorderseite", "") and "hinten" not in text

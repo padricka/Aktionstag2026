@@ -39,7 +39,7 @@ function leitstand(view = {}, props = {}) {
       view: {
         type: 'repair_console',
         parts: [
-          { id: 'disk', name: 'Backup-Platte', label: 'RAID-Platz 3', ort: 'kiste' },
+          { id: 'disk', name: 'Backup-Platte', label: 'Schacht 3', ort: 'kiste' },
           { id: 'fan', name: 'Lüfter', label: 'Pfeil = Luftstrom', ort: 'FI-SI' },
           { id: 'psu', name: 'Netzteil', label: '230 V', ort: 'eingebaut' },
         ],
@@ -60,7 +60,7 @@ describe('Task4Leitstand.vue', () => {
   it('zeigt die Teile mit Etikett und wo sie gerade sind', () => {
     const w = leitstand()
     const zeilen = w.findAll('.teil-zeile')
-    expect(zeilen[0].text()).toContain('RAID-Platz 3')
+    expect(zeilen[0].text()).toContain('Schacht 3')
     expect(zeilen[0].text()).toContain('in der Kiste')
     expect(zeilen[1].text()).toContain('bei der Vorderseite')
     expect(zeilen[2].text()).toContain('eingebaut')
@@ -142,12 +142,12 @@ describe('Task4Vorderseite.vue', () => {
     expect(eingaben(w)).toEqual([{ target: 'install_disk', value: '3' }])
   })
 
-  it('Lüfter: Richtung wählen, dann in die Lücke', async () => {
+  it('Lüfter: Pfeil nach links oder rechts wählen, dann in die Lücke (feat/leichter-finale)', async () => {
     const w = vorne()
     await w.find('.hand-teil[data-teil="fan"]').trigger('click')
-    await w.find('.richtung-hinten').trigger('click')
+    await w.find('.richtung-rechts').trigger('click')
     await w.find('.luefter-platz.is-luecke').trigger('click')
-    expect(eingaben(w)).toEqual([{ target: 'install_fan', value: '2:hinten' }])
+    expect(eingaben(w)).toEqual([{ target: 'install_fan', value: '2:rechts' }])
   })
 
   it('ein Teil, das hier nicht passt, geht zurück', async () => {
@@ -170,7 +170,7 @@ function hinten(view = {}) {
       view: {
         type: 'repair_back',
         psu_bays: [{ nr: 1, sicherung: 'durch' }, { nr: 2, sicherung: 'ok' }],
-        gang: 'Warmgang',
+        warmgang: 'links',
         hand: [{ id: 'psu', name: 'Netzteil' }],
         installed: { disk: true, fan: true, psu: false },
         phase: 'einbau',
@@ -183,9 +183,11 @@ function hinten(view = {}) {
 }
 
 describe('Task4Rueckseite.vue', () => {
-  it('zeigt das Gang-Schild und die Sicherungen', () => {
+  it('zeigt das Schild, wo der Warmgang ist, und die Sicherungen', () => {
     const w = hinten()
     expect(w.find('.gang-schild').text()).toContain('WARMGANG')
+    expect(w.find('.gang-schild').text()).toMatch(/LINKS/)
+    expect(w.find('.gang-schild').text()).toMatch(/von vorne gesehen/)
     expect(w.findAll('.nt-schacht').map((s) => s.attributes('data-sicherung'))).toEqual(['durch', 'ok'])
   })
 
@@ -201,5 +203,22 @@ describe('Task4Rueckseite.vue', () => {
     const w = hinten({ phase: 'start', hand: [], installed: { disk: true, fan: true, psu: true } })
     await w.findComponent(SchluesselSchalter).find('button').trigger('click')
     expect(eingaben(w)).toEqual([{ target: 'key', value: 'strom' }])
+  })
+})
+
+describe('Finale ohne Rack und RAID (feat/leichter-finale)', () => {
+  it('Vorder- und Rückseite sprechen vom Serverschrank', () => {
+    for (const w of [vorne(), hinten()]) {
+      expect(w.text()).not.toMatch(/Rack|RAID/)
+      expect(w.text()).toContain('Serverschrank')
+    }
+  })
+
+  it('die Vorderseite bietet ← links und rechts → an, nicht vorne/hinten', async () => {
+    const w = vorne()
+    await w.find('.hand-teil[data-teil="fan"]').trigger('click')
+    expect(w.find('.richtung-links').text()).toContain('links')
+    expect(w.find('.richtung-rechts').text()).toContain('rechts')
+    expect(w.find('.richtung-vorne').exists()).toBe(false)
   })
 })

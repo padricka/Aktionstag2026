@@ -23,8 +23,8 @@ Doch es gibt ein Problem:
 |---|---|
 |**Host**| Zeigt den Spielstand auf dem Beamer, *spielt nicht mit*: Einsatzbesprechung vor dem Start, Zeit, Leben, den brennenden Server mit den gefundenen Teilen und die Hilfe-Notizen |
 |**Master** (Leitstand) | Sitzt im Kontrollraum: Monitore, Logs, Terminal |
-|**Spieler 1** (Vorderseite) | Steht vor dem Server-Rack: Steckplätze, Schalter, Ventile |
-|**Spieler 2** (Rückseite) | Steht hinter dem Server-Rack: Kabel, Aufkleber, Backup-Platten |
+|**Spieler 1** (Vorderseite) | Steht vor dem Serverschrank (Rack): Steckplätze, Schalter, Ventile |
+|**Spieler 2** (Rückseite) | Steht hinter dem Serverschrank (Rack): Kabel, Aufkleber, Backup-Platten |
 
 Es gibt kein Handbuch: Jede Rolle hat ein Stück einer zerrissenen Notiz mit Regeln, die sie allein nicht anwenden kann – die nötigen Fakten sehen die anderen. Details: `GAME_DESIGN.md`.
 
@@ -39,12 +39,12 @@ Nur wenn das Team schnell und effektiv zusammenarbeitet, kann der Server gerette
 ## Die drei Aufgaben
 
 1. **Alarm verifizieren:** Der Master sieht, an welcher Stelle (1–4) die LED rot ist, ob die LED blinkt oder leuchtet, und die Farbfolge. Spieler 1 sieht die Kabel mit Symbolen und kappt das richtige – nie das kaputte an der roten Stelle. Spieler 2 sieht, welches Symbol auf welcher Farbe klebt (manchmal ist ein Aufkleber zerkratzt). Mit der dreigeteilten Wartungsnotiz tippt der Master den Shutdown-Code.
-2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (mit Zeitzonen und Probealarm), Spieler 1 sieht den Strom an den Racks und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
+2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (Rauchmelder gehen 2 h vor, dazu ein Probealarm), Spieler 1 sieht den Strom an den Serverschränken und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
 3. **Datenrettung:** Spieler 2 legt die richtige Backup-Platte ein, liest die Schlüssel-Nr. vor und rechnet die 5 Datenzeilen in Zahlen um (die Stellenwerte 128 … 1 stehen darüber). Spieler 1 meldet sich mit einem Hex-codierten Namen (nur Ziffern) am Backup-Terminal an, macht mit der ASCII-Tabelle aus jeder Zahl einen Buchstaben und hat eine Alphabet-Leiste zum Zurückschieben. Der Master hat das Log mit Backups und Schlüsselbund und trägt k ein – dann sehen es alle. Mit der dreigeteilten Anleitung (Rechenbeispiele mittig eingerahmt) entschlüsseln sie das Wort RENTE.
 
 **Nach jeder Aufgabe** öffnet sich ein Fundort (Ersatzteilschrank, Lager, Datentresor) mit einem Teil: Netzteil, Lüfter, Backup-Platte.
 
-**Finale – Server reparieren:** Der Master verteilt die Teile und schaltet in seiner Konsole die Plätze auf Wartung (die Konsole zählt ab 0!), Spieler 1 baut Platte und Lüfter ein, Spieler 2 das Netzteil – nach der dreigeteilten Einbauanleitung. Zum Schluss fahren alle drei den Server mit ihren Schlüsseln hoch: Strom → Kühlung → System.
+**Finale – Server reparieren:** Der Master verteilt die Teile und schaltet in seiner Konsole die Plätze auf Wartung (die Konsole zählt ab 0!), Spieler 1 baut Platte und Lüfter ein (Pfeil zum Warmgang: links oder rechts), Spieler 2 das Netzteil – nach der dreigeteilten Einbauanleitung. Die Etiketten (Schacht-Nummer, Spannung) stehen nur in der Teilekiste des Masters. Zum Schluss fahren alle drei den Server mit ihren Schlüsseln hoch: Strom → Kühlung → System.
 
 ---
 
