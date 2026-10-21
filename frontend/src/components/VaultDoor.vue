@@ -12,6 +12,9 @@
       open     -> Riegel fahren zurück, Tür schwingt auf, dahinter fährt der Server hoch
       error    -> Tür rüttelt, Anzeige leuchtet rot
 
+  Als Fundort (Datentresor, Zwischenszene): label/status ersetzen „NEUSTART-CODE“ und
+  „GESPERRT · n/3“, der Inhalt (Slot) liegt hinter der Tür statt des Server-Racks.
+
   Alles ist SVG + CSS (keine Bilder), skaliert mit der Breite des Containers.
 -->
 <template>
@@ -23,17 +26,19 @@
   >
     <div class="vault__frame">
       <!-- Inneres hinter der Tür: der Server fährt hoch -->
-      <div class="vault__inside" aria-hidden="true">
-        <div class="vd-rack">
-          <div v-for="n in 6" :key="n" class="vd-rack__unit" :style="{ '--d': n }">
-            <span class="vd-rack__led" /><span class="vd-rack__led" /><span class="vd-rack__led" />
-            <span class="vd-rack__bar" />
+      <div class="vault__inside" :class="{ 'vault__inside--frei': $slots.default }" aria-hidden="true">
+        <slot>
+          <div class="vd-rack">
+            <div v-for="n in 6" :key="n" class="vd-rack__unit" :style="{ '--d': n }">
+              <span class="vd-rack__led" /><span class="vd-rack__led" /><span class="vd-rack__led" />
+              <span class="vd-rack__bar" />
+            </div>
           </div>
-        </div>
-        <div class="vd-inside__text">
-          <span class="vd-inside__granted">ACCESS GRANTED</span>
-          <span class="vd-inside__sub">SERVER REBOOT · ONLINE</span>
-        </div>
+          <div class="vd-inside__text">
+            <span class="vd-inside__granted">ACCESS GRANTED</span>
+            <span class="vd-inside__sub">SERVER REBOOT · ONLINE</span>
+          </div>
+        </slot>
       </div>
 
       <!-- Riegel: stecken im Rahmen, solange verriegelt -->
@@ -48,7 +53,7 @@
 
           <!-- Linkes Bedienfeld -->
           <div class="vd-panel">
-            <div class="vd-panel__label">NEUSTART-CODE</div>
+            <div class="vd-panel__label">{{ label }}</div>
 
             <div class="vd-panel__window" :class="{ 'is-error': state === 'error' }">
               <div
@@ -171,6 +176,9 @@ const props = defineProps({
   },
   // display: gefundene Ziffern (null = unbekannt). input: Startwerte der Räder.
   digits: { type: Array, default: () => [null, null, null] },
+  // Fundort: eigene Beschriftung und eigener Text für „gesperrt“
+  label: { type: String, default: 'NEUSTART-CODE' },
+  status: { type: String, default: '' },
 })
 
 const emit = defineEmits(['unlock'])
@@ -208,7 +216,7 @@ const interactive = computed(
 const statusText = computed(
   () =>
     ({
-      locked: `GESPERRT · ${props.digits.filter((d) => d !== null).length}/3`,
+      locked: props.status || `GESPERRT · ${props.digits.filter((d) => d !== null).length}/3`,
       checking: 'PRÜFE …',
       open: 'OFFEN',
       error: 'FALSCHER CODE',
@@ -277,6 +285,7 @@ function unlock() {
   background: radial-gradient(circle at 30% 50%, rgba(0, 255, 102, .14), transparent 65%), #050806;
   box-shadow: inset 0 0 4cqw #000;
 }
+.vault__inside--frei { grid-template-columns: 1fr; place-items: center; }
 .vd-rack { display: grid; gap: 1.2cqw; }
 .vd-rack__unit {
   display: flex; align-items: center; gap: 1cqw;

@@ -612,6 +612,44 @@ describe('PlayerScreen.vue', () => {
     expect(namen).toEqual(['Anna', 'Bene', 'wartet'])
   })
 
+  describe('Fundorte und Teilekiste (feat/fundorte)', () => {
+    const NETZTEIL = { id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' }
+
+    async function imSpiel(rolle, teile = []) {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: rolle } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: rolle }], status: 'running', ready_to_start: true } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 500, tasks: [{ task_id: 't1', kind: 'alarm', view: {} }], parts: teile } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it('neues Teil gefunden: Zwischenszene mit Fundort und nächster Aufgabe', async () => {
+      const wrapper = await imSpiel('FI-SI')
+      expect(wrapper.find('.zwischenszene').exists()).toBe(false)
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 499, tasks: [{ task_id: 't2', kind: 'fire_protocol', view: {} }], parts: [NETZTEIL] } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.zwischenszene .fundort--schrank').exists()).toBe(true)
+
+      wrapper.findComponent({ name: 'Zwischenszene' }).vm.$emit('fertig')
+      await wrapper.vm.$nextTick()
+      await flushPromises()
+      expect(wrapper.findComponent({ name: 'Zwischenszene' }).exists()).toBe(false)
+    })
+
+    it('wer später dazukommt, sieht keine Zwischenszene für alte Teile', async () => {
+      const wrapper = await imSpiel('FI-SI', [NETZTEIL])
+      expect(wrapper.find('.zwischenszene').exists()).toBe(false)
+    })
+
+    it('nur der Leitstand hat die Teilekiste', async () => {
+      expect((await imSpiel('MASTER', [NETZTEIL])).find('.kiste').exists()).toBe(true)
+      resetGameSocketMock()
+      expect((await imSpiel('FI-AE', [NETZTEIL])).find('.kiste').exists()).toBe(false)
+    })
+  })
+
   describe('Kleinkram (fix/kleinkram)', () => {
     afterEach(() => {
       vi.useRealTimers()

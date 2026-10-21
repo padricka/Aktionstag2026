@@ -145,6 +145,19 @@ Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Belohnungsziff
 
 Jeder kennt **eine** Ziffer, die Reihenfolge ist die der Aufgaben. Richtig → `status: "won"`, der Beamer zeigt den Sieg. Falsch → −60 HP wie überall.
 
+### Fundorte und Teilekiste
+
+Nach jeder der drei Aufgaben öffnet sich ein Fundort und das Team bekommt ein Teil, mit dem es im Finale den Server repariert (`FUNDORTE` in `dataCenter.py`, `game_tick.parts`):
+
+| Aufgabe | Fundort | Teil | Etikett (pro Runde ausgelost) |
+|---|---|---|---|
+| 1 Alarm | **Ersatzteilschrank** – das Schloss war vom Alarm blockiert | **Netzteil** | 115 V oder 230 V |
+| 2 Löschprotokoll | **Lager** hinter der Brandschutztür – entriegelt nach dem Löschen | **Lüfter** | Pfeil = Luftstrom |
+| 3 Datenrettung | **Datentresor** | **Backup-Platte** mit den geretteten Daten | RAID-Platz 1–4 |
+
+- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, die Zeit läuft weiter): Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
+- **Teilekiste** (`Teilekiste.vue`, nur Leitstand): liegt halb im Bild am linken Rand wie der Taschenrechner rechts, ein Klick zieht sie herein. Drei Fächer mit Zeichnung (`TeilGrafik.vue`), gefundene Teile mit Etikett – die Etiketten braucht das Team im Finale.
+
 ### Hilfe-Notizen (Beamer)
 
 Kommt ein Team nicht weiter, reißt der **Host am Beamer** einen Zettel vom **Abreißblock** ab (`open_hint` mit `id`). Alle sehen ihn am Beamer als gelben Zettel mit Risskante.

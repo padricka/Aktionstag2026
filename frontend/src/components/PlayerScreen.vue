@@ -150,7 +150,7 @@
           <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
         </header>
 
-        <main class="task-main" :class="{ 'with-calc': rechnerOffen }">
+        <main class="task-main" :class="{ 'with-calc': rechnerOffen, 'with-kiste': kisteOffen }">
           <!-- von Aufgabe zu Aufgabe: alte gleitet weg, neue kommt herein (style.css: .task-*) -->
           <Transition name="task" mode="out-in">
             <component
@@ -175,6 +175,20 @@
 
         <!-- Taschenrechner für alle Rollen, rechts am Rand -->
         <Calculator v-model:open="rechnerOffen" />
+        <!-- Teilekiste nur beim Leitstand, links am Rand -->
+        <Teilekiste v-if="myRole === 'MASTER'" v-model:open="kisteOffen" :teile="teile" />
+
+        <!-- nach jeder Aufgabe: Fundort öffnet sich, Teil kommt in die Kiste -->
+        <Transition name="phase">
+          <Zwischenszene
+            v-if="zwischenszene"
+            :key="zwischenszene.key"
+            :teil="zwischenszene.teil"
+            :naechste="zwischenszene.naechste"
+            :rolle="myRole"
+            @fertig="zwischenszene = null"
+          />
+        </Transition>
       </div>
     </Transition>
   </div>
@@ -185,6 +199,8 @@ import { ref, computed, watch, onUnmounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
 import Calculator from './Calculator.vue'
+import Teilekiste from './Teilekiste.vue'
+import Zwischenszene from './Zwischenszene.vue'
 
 import Task1P1 from './tasks/task1/Task1P1.vue'
 import Task1P2 from './tasks/task1/Task1P2.vue'
@@ -241,6 +257,10 @@ const startError = ref('')
 
 const restarting = ref(false)
 const rechnerOffen = ref(false)     // Taschenrechner offen → Aufgabe rückt zur Seite
+const kisteOffen = ref(false)       // Teilekiste (Leitstand) offen → Aufgabe rückt zur Seite
+const teile = ref([])               // gefundene Teile (game_tick.parts)
+const zwischenszene = ref(null)     // { teil, naechste, key } solange die Szene läuft
+let teileBekannt = false            // erst ab dem zweiten Tick: Wiedereinstieg zeigt keine alte Szene
 const inputResultNonce = ref(0)   // ← wird bei jedem Server-input_result inkrementiert
 
 const allRoles = ALL_ROLES
@@ -428,6 +448,13 @@ const handleServerMessage = (msg) => {
   }
 
   if (event === 'game_tick') {
+    if (Array.isArray(payload.parts)) {
+      if (teileBekannt && payload.parts.length > teile.value.length) {
+        zwischenszene.value = { teil: payload.parts.at(-1), naechste: payload.parts.length + 1, key: payload.parts.length }
+      }
+      teile.value = payload.parts
+      teileBekannt = true
+    }
     if (typeof payload.health === 'number') hp.value = payload.health
     timeLeft.value = payload.time_left ?? timeLeft.value
     task.value = payload.tasks?.[0] ?? task.value
@@ -584,6 +611,10 @@ function handleRestart() {
 
 /** Alles, was zu einer Runde gehört, auf Anfang (Rolle wird neu gewählt). */
 function resetRound() {
+  teile.value = []
+  teileBekannt = false
+  zwischenszene.value = null
+  kisteOffen.value = false
   if (siegTimer) { clearTimeout(siegTimer); siegTimer = null }
   siegPause.value = false
   isGameOver.value = false
@@ -1072,9 +1103,11 @@ function onTaskSolved(data) {
    die Zahlen der Aufgabe sichtbar bleiben */
 .task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .task-main.with-calc { padding-right: 280px; }
+.task-main.with-kiste { padding-left: 300px; }
 
 @media (max-width: 700px) {
   .task-main.with-calc { padding-right: 16px; padding-bottom: 400px; overflow-y: auto; }
+  .task-main.with-kiste { padding-left: 16px; padding-bottom: 420px; overflow-y: auto; }
 }
 
 @media (max-width: 900px) {

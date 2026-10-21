@@ -96,3 +96,26 @@ describe("VaultDoor – Zustände", () => {
     expect(w.attributes("aria-label")).toBe("Tresor geöffnet");
   });
 });
+
+describe("VaultDoor – als Fundort (Datentresor, feat/fundorte)", () => {
+  it("eigene Beschriftung und Status statt Neustart-Code", () => {
+    const w = mount(VaultDoor, { props: { label: "DATENTRESOR", status: "GESPERRT" } });
+    expect(w.find(".vd-panel__label").text()).toBe("DATENTRESOR");
+    expect(w.find(".vd-panel__status").text()).toBe("GESPERRT");
+  });
+
+  it("zeigt hinter der Tür den mitgegebenen Inhalt statt des Server-Racks", () => {
+    const w = mount(VaultDoor, {
+      props: { state: "open" },
+      slots: { default: '<div class="mein-inhalt">Platte</div>' },
+    });
+    expect(w.find(".vault__inside .mein-inhalt").exists()).toBe(true);
+    expect(w.find(".vd-rack").exists()).toBe(false);
+  });
+
+  it("ohne Inhalt bleibt alles wie im Finale", () => {
+    const w = mount(VaultDoor, { props: { state: "open" } });
+    expect(w.find(".vd-rack").exists()).toBe(true);
+    expect(w.find(".vd-panel__label").text()).toBe("NEUSTART-CODE");
+  });
+});
