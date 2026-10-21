@@ -4,7 +4,8 @@
        (Lüfter) oder Datentresor (Backup-Platte). Alles SVG/CSS, keine Bilder.
     2. Das Teil kommt zum Vorschein, darunter, wo es jetzt liegt (Teilekiste beim Leitstand).
     3. Titelkarte der nächsten Aufgabe.
-    4. Vor Aufgabe 2: Tutorial Löschanlage (TUTORIAL_MS), dann `fertig` – die Aufgabe liegt schon dahinter.
+    4. Vor Aufgabe 2 Tutorial Löschanlage, vor Aufgabe 3 Tutorial Binär (TUTORIAL_MS),
+       dann `fertig` – die Aufgabe liegt schon dahinter.
   Uhr und Feuer stehen solange (PAUSE_NACH im Backend). gross = Beamer.
 -->
 <template>
@@ -61,6 +62,7 @@
       </div>
 
       <TutorialLoeschanlage v-else-if="naechste === 2" key="tutorial" :dauer="TUTORIAL_MS[2]" :gross="gross" />
+      <TutorialBinaer v-else-if="naechste === 3" key="tutorial-binaer" :dauer="TUTORIAL_MS[3]" :gross="gross" />
     </Transition>
   </div>
 </template>
@@ -71,7 +73,7 @@
 export const DAUER = { oeffnen: 600, titel: 3000, ende: 4600 }
 export const DAUER_TRESOR = { oeffnen: 300, titel: 4000, ende: 5600 }
 // Tutorial nach der Titelkarte, je nächster Aufgabe (ms). Muss zu PAUSE_NACH im Backend passen.
-export const TUTORIAL_MS = { 2: 12000 }
+export const TUTORIAL_MS = { 2: 12000, 3: 14000 }
 </script>
 
 <script setup>
@@ -79,6 +81,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import TeilGrafik from './TeilGrafik.vue'
 import VaultDoor from './VaultDoor.vue'
 import TutorialLoeschanlage from './TutorialLoeschanlage.vue'
+import TutorialBinaer from './TutorialBinaer.vue'
 import { FUNDORTE, AUFGABEN_TITEL } from '../utils/teile.js'
 
 const props = defineProps({

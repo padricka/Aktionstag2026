@@ -123,11 +123,52 @@ describe('Zwischenszene.vue', () => {
     })
   })
 
-  it('vor dem Finale heißt die Titelkarte „Finale“', async () => {
-    vi.useFakeTimers()
-    const w = szene({ teil: { id: 'disk', name: 'Backup-Platte', fundort: 'tresor', label: '' }, naechste: 4 })
-    vi.advanceTimersByTime(DAUER_TRESOR.titel + 10)
-    await w.vm.$nextTick()
-    expect(w.find('.zs-titel').text()).toContain('Finale')
+  describe('Tutorial Binär vor Aufgabe 3 (feat/tutorial-binaer)', () => {
+    const LUEFTER = { id: 'fan', name: 'Lüfter', fundort: 'lager', label: '' }
+
+    async function bilder(w) {
+      const texte = []
+      for (let i = 0; i < 8; i++) {
+        texte.push(w.find('.tut-binaer').text())
+        vi.advanceTimersByTime(TUTORIAL_MS[3] / 7)
+        await w.vm.$nextTick()
+      }
+      return texte
+    }
+
+    it('nach der Titelkarte „Datenrettung“: erst 4 Ziffern, dann 8 Ziffern, dann der Buchstabe', async () => {
+      vi.useFakeTimers()
+      const w = szene({ teil: LUEFTER, naechste: 3 })
+      vi.advanceTimersByTime(DAUER.ende + 10)
+      await w.vm.$nextTick()
+      expect(w.emitted('fertig')).toBeUndefined()
+      expect(w.find('.tut-binaer').text()).toContain('So rechnet man eine Datenzeile aus')
+
+      const alles = (await bilder(w)).join(' | ')
+      expect(alles).toMatch(/8 \+ 4 \+ 1 = 13/)
+      expect(alles).toMatch(/64 \+ 16 \+ 4 \+ 1 = 85/)
+      expect(alles).toMatch(/85.*U/)
+    })
+
+    it('zeigt die Stellenwerte über den Ziffern und hebt die Einsen hervor', async () => {
+      vi.useFakeTimers()
+      const w = szene({ teil: LUEFTER, naechste: 3 })
+      vi.advanceTimersByTime(DAUER.ende + 10)
+      await w.vm.$nextTick()                                          // Tutorial hängt sich ein
+      vi.advanceTimersByTime(TUTORIAL_MS[3] / 7)                      // zweites Bild: Einsen leuchten
+      await w.vm.$nextTick()
+      expect(w.findAll('.tut-binaer .tb-wert').map((x) => x.text())).toEqual(['8', '4', '2', '1'])
+      expect(w.findAll('.tut-binaer .tb-ziffer').map((x) => x.text()).join('')).toBe('1101')
+      expect(w.findAll('.tut-binaer .tb-ziffer.is-eins')).toHaveLength(3)
+    })
+
+    it('ist nach TUTORIAL_MS vorbei, dann fertig', () => {
+      vi.useFakeTimers()
+      const w = szene({ teil: LUEFTER, naechste: 3 })
+      vi.advanceTimersByTime(DAUER.ende + TUTORIAL_MS[3] - 10)
+      expect(w.emitted('fertig')).toBeUndefined()
+      vi.advanceTimersByTime(20)
+      expect(w.emitted('fertig')).toHaveLength(1)
+    })
   })
 })
