@@ -5,9 +5,10 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 
 ## REST (nur für den Host)
 
-- `GET /create-game/` → `{"status": "success", "game_id": "<uuid>"}`
-- `GET /force-start/?game_id=<id>` → startet das Spiel
-  - 200 gestartet, 404 unbekannte ID, 409 läuft bereits oder beendet
+- `GET /create-game/` → `{"status": "success", "game_id": "a3k9"}` (4 Zeichen, klein,
+  ohne 0/O/1/I; der Beamer zeigt sie groß – Groß-/Kleinschreibung ist überall egal)
+- `GET /force-start/?game_id=<id>` → startet das Spiel (Notfall, ohne Einsatzbesprechung)
+  - 200 gestartet, 404 unbekannte ID, 409 läuft bereits, beendet oder Lobby nicht vollständig
 - `GET /leaderboard/?page=1&per_page=20` → alle Runden, höchste Punktzahl zuerst
   (Gleichstand: ältere Runde vorn). `per_page` 1–100, Seite wird auf 1…pages begrenzt.
   ```
@@ -43,7 +44,6 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 {
   "event": "owner_settings",
   "payload": {
-    "players": 2,
     "time": 300
   }
 }
@@ -126,6 +126,33 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "payload": {}
 }
 
+// 10. Rolle wählen (nach player_register, nur in waiting/ready)
+// role: "MASTER" (Leitstand) | "FI-SI" (Vorderseite) | "FI-AE" (Rückseite).
+// Antwort: role_assigned an den Absender + lobby_update an alle.
+// Abgelehnt (nicht registriert, unbekannte Rolle, Rolle vergeben, schon eine Rolle,
+// Spiel läuft) → error mit Meldung.
+{
+  "event": "choose_role",
+  "payload": { "role": "FI-SI" }
+}
+
+// 11. Neue Runde in derselben Sitzung (Lobby leeren). "new_lobby" ist ein Alias.
+// Beamer: jederzeit. Spieler: nicht während einer laufenden Runde (running/briefing), sonst error
+// "reset_denied". Danach status "waiting", alle Spieler und Rollen sind gelöscht
+// (die Frontends melden sich automatisch neu an); DEV-Modus und Spielzeit bleiben.
+{
+  "event": "reset_game",
+  "payload": {}
+}
+
+// 12. Beamer meldet sich als Host an (direkt nach dem Verbinden, auch beim Wiederverbinden)
+// Erst danach gelten die Host-Rechte (dev_mode, dev_skip_task, open_hint, owner_settings,
+// Start nach der Einsatzbesprechung). Antwort: lobby_update an den Beamer.
+{
+  "event": "host_register",
+  "payload": {}
+}
+
 ---
 
 ## Server -> Client
@@ -139,13 +166,17 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
     "status": "waiting",
     "players": [
       { "name": "Patrick", "role": "MASTER", "ready": true },
-      { "name": "Bene", "role": "FI-SI", "ready": false }
+      { "name": "Bene", "role": null, "ready": false }
     ],
-    "ready_to_start": true,
+    "ready_to_start": false,
     "all_ready": false,   // true, sobald alle drei Rollen besetzt und alle Spieler „Bereit“ sind
+    "roles_taken": ["MASTER"],
+    "roles_free": ["FI-SI", "FI-AE"],
     "dev_mode": false
   }
 }
+// players: alle Angemeldeten, role = null, solange keine Rolle gewählt ist.
+// status "ready" = alle drei Rollen besetzt (ready_to_start: true).
 
 // 2. Regelmäßiges Game-State Update (Broadcast, jede Sekunde und sofort nach player_input)
 // Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits, hints.
@@ -221,13 +252,14 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   }
 }
 
-// 4. Rolle und Hinweise (nur an den Client, der sich registriert hat)
+// 4. Rolle und Hinweise (nur an den Absender)
+// Nach choose_role – und beim Wiederverbinden (player_register mit schon gewählter Rolle).
 {
   "event": "role_assigned",
   "payload": {
     "player_name": "Patrick",
-    "role": "BLINDER",
-    "hints": {}
+    "role": "MASTER",
+    "hints": { "role": "MASTER" }
   }
 }
 
