@@ -106,6 +106,30 @@ describe('Zwischenszene.vue', () => {
       expect(alles).toMatch(/GLEICHZEITIG/)
     })
 
+    it('nutzt das echte Steuerpult der Vorderseite und die echten Freigabe-Knöpfe', async () => {
+      vi.useFakeTimers()
+      const w = szene({ naechste: 2 })
+      vi.advanceTimersByTime(DAUER.ende + 10)
+      await w.vm.$nextTick()
+      const pult = w.findComponent({ name: 'ControlDesk' })
+      expect(pult.exists()).toBe(true)
+      expect(pult.find('[role="slider"][aria-label="Schrank"]').exists()).toBe(true)
+      expect(w.find('.tut-loesch').attributes('inert')).toBeDefined()   // nur Vorführung
+
+      vi.advanceTimersByTime(TUTORIAL_MS[2] / 5)                       // ① Schrank gewählt
+      await w.vm.$nextTick()
+      expect(pult.find('[role="slider"][aria-label="Schrank"]').attributes('aria-valuetext')).toBe('B-01')
+      vi.advanceTimersByTime(TUTORIAL_MS[2] / 5)                       // ② Löschmittel
+      await w.vm.$nextTick()
+      expect(pult.find('[role="slider"][aria-label="Löschmittel"]').attributes('aria-valuetext')).toBe('CO2')
+      vi.advanceTimersByTime(TUTORIAL_MS[2] / 5)                       // So NICHT: Störung
+      await w.vm.$nextTick()
+      expect(pult.classes()).toContain('cd--error')
+      vi.advanceTimersByTime(TUTORIAL_MS[2] / 5)                       // ④ Freigabe
+      await w.vm.$nextTick()
+      expect(w.findAllComponents({ name: 'ReleaseButton' })).toHaveLength(2)
+    })
+
     it('ist nach TUTORIAL_MS vorbei, dann fertig', () => {
       vi.useFakeTimers()
       const w = szene({ naechste: 2 })
