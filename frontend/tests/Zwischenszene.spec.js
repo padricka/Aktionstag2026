@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import Zwischenszene, { DAUER, DAUER_TRESOR } from '../src/components/Zwischenszene.vue'
+import Zwischenszene, { DAUER, DAUER_TRESOR, TUTORIAL_MS } from '../src/components/Zwischenszene.vue'
 
 const NETZTEIL = { id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' }
 
@@ -59,15 +59,68 @@ describe('Zwischenszene.vue', () => {
 
   it('danach die Titelkarte der nächsten Aufgabe, dann fertig', async () => {
     vi.useFakeTimers()
-    const w = szene({ naechste: 2 })
+    const w = szene({ teil: { id: 'fan', name: 'Lüfter', fundort: 'lager', label: '' }, naechste: 3 })
     vi.advanceTimersByTime(DAUER.titel + 10)
     await w.vm.$nextTick()
-    expect(w.find('.zs-titel').text()).toContain('Aufgabe 2')
-    expect(w.find('.zs-titel').text()).toContain('Löschprotokoll')
+    expect(w.find('.zs-titel').text()).toContain('Aufgabe 3')
+    expect(w.find('.zs-titel').text()).toContain('Datenrettung')
     expect(w.emitted('fertig')).toBeUndefined()
 
-    vi.advanceTimersByTime(DAUER.ende - DAUER.titel)
+    vi.advanceTimersByTime(DAUER.ende - DAUER.titel + (TUTORIAL_MS[3] || 0))
     expect(w.emitted('fertig')).toHaveLength(1)
+  })
+
+  describe('Tutorial Löschanlage vor Aufgabe 2 (feat/tutorial-loeschanlage)', () => {
+    it('nach der Titelkarte „Löschprotokoll“ zeigt es Schritt für Schritt das Steuerpult', async () => {
+      vi.useFakeTimers()
+      const w = szene({ naechste: 2 })
+      vi.advanceTimersByTime(DAUER.titel + 10)
+      await w.vm.$nextTick()
+      expect(w.find('.zs-titel').text()).toContain('Löschprotokoll')
+
+      vi.advanceTimersByTime(DAUER.ende - DAUER.titel)
+      await w.vm.$nextTick()
+      expect(w.emitted('fertig')).toBeUndefined()           // Tutorial läuft noch
+      const tut = w.find('.tut-loesch')
+      expect(tut.exists()).toBe(true)
+      expect(tut.text()).toContain('So funktioniert die Löschanlage')
+      expect(tut.find('.tut-schritt').text()).toContain('Schrank')
+    })
+
+    it('zeigt auch, wie man es falsch macht, und die Freigabe zu zweit', async () => {
+      vi.useFakeTimers()
+      const w = szene({ naechste: 2 })
+      vi.advanceTimersByTime(DAUER.ende + 10)
+      await w.vm.$nextTick()
+      const texte = []
+      for (let i = 0; i < 6; i++) {
+        texte.push(w.find('.tut-schritt').text())
+        vi.advanceTimersByTime(TUTORIAL_MS[2] / 5)
+        await w.vm.$nextTick()
+      }
+      const alles = texte.join(' ')
+      expect(alles).toMatch(/Löschmittel/)
+      expect(alles).toMatch(/AUSLÖSEN/)
+      expect(alles).toMatch(/So NICHT/)
+      expect(alles).toMatch(/−30 Leben/)
+      expect(alles).toMatch(/GLEICHZEITIG/)
+    })
+
+    it('ist nach TUTORIAL_MS vorbei, dann fertig', () => {
+      vi.useFakeTimers()
+      const w = szene({ naechste: 2 })
+      vi.advanceTimersByTime(DAUER.ende + TUTORIAL_MS[2] - 10)
+      expect(w.emitted('fertig')).toBeUndefined()
+      vi.advanceTimersByTime(20)
+      expect(w.emitted('fertig')).toHaveLength(1)
+    })
+
+    it('vor dem Finale gibt es kein Tutorial', () => {
+      vi.useFakeTimers()
+      const w = szene({ teil: { id: 'disk', name: 'Backup-Platte', fundort: 'tresor', label: '' }, naechste: 4 })
+      vi.advanceTimersByTime(DAUER_TRESOR.ende + 10)
+      expect(w.emitted('fertig')).toHaveLength(1)
+    })
   })
 
   it('vor dem Finale heißt die Titelkarte „Finale“', async () => {

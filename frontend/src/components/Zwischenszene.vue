@@ -3,8 +3,9 @@
     1. Der Fundort öffnet sich: Ersatzteilschrank (Netzteil), Brandschutztür zum Lager
        (Lüfter) oder Datentresor (Backup-Platte). Alles SVG/CSS, keine Bilder.
     2. Das Teil kommt zum Vorschein, darunter, wo es jetzt liegt (Teilekiste beim Leitstand).
-    3. Titelkarte der nächsten Aufgabe, dann `fertig` – die Aufgabe liegt schon dahinter.
-  Die Spielzeit läuft weiter (nur gut 4 Sekunden). gross = Beamer.
+    3. Titelkarte der nächsten Aufgabe.
+    4. Vor Aufgabe 2: Tutorial Löschanlage (TUTORIAL_MS), dann `fertig` – die Aufgabe liegt schon dahinter.
+  Uhr und Feuer stehen solange (PAUSE_NACH im Backend). gross = Beamer.
 -->
 <template>
   <div
@@ -14,7 +15,7 @@
     aria-live="polite"
   >
     <Transition name="zs" mode="out-in">
-      <div v-if="phase !== 'titel'" key="fund" class="zs-fund">
+      <div v-if="phase === 'fund'" key="fund" class="zs-fund">
         <p class="zs-ort">{{ ort.titel }}</p>
 
         <!-- Datentresor: derselbe Tresor wie bisher am Beamer, die Platte liegt darin -->
@@ -54,10 +55,12 @@
         </p>
       </div>
 
-      <div v-else key="titel" class="zs-titel">
+      <div v-else-if="phase === 'titel'" key="titel" class="zs-titel">
         <span class="zs-nr">{{ naechste >= 4 ? 'Finale' : `Aufgabe ${naechste}` }}</span>
         <span class="zs-name">{{ AUFGABEN_TITEL[naechste] }}</span>
       </div>
+
+      <TutorialLoeschanlage v-else-if="naechste === 2" key="tutorial" :dauer="TUTORIAL_MS[2]" :gross="gross" />
     </Transition>
   </div>
 </template>
@@ -67,12 +70,15 @@
 // erst fahren die Riegel zurück, dann schwingt die schwere Tür auf.
 export const DAUER = { oeffnen: 600, titel: 3000, ende: 4600 }
 export const DAUER_TRESOR = { oeffnen: 300, titel: 4000, ende: 5600 }
+// Tutorial nach der Titelkarte, je nächster Aufgabe (ms). Muss zu PAUSE_NACH im Backend passen.
+export const TUTORIAL_MS = { 2: 12000 }
 </script>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import TeilGrafik from './TeilGrafik.vue'
 import VaultDoor from './VaultDoor.vue'
+import TutorialLoeschanlage from './TutorialLoeschanlage.vue'
 import { FUNDORTE, AUFGABEN_TITEL } from '../utils/teile.js'
 
 const props = defineProps({
@@ -98,7 +104,9 @@ onMounted(() => {
   const plan = props.teil.fundort === 'tresor' ? DAUER_TRESOR : DAUER
   timer.push(setTimeout(() => { offen.value = true }, plan.oeffnen))
   timer.push(setTimeout(() => { phase.value = 'titel' }, plan.titel))
-  timer.push(setTimeout(() => emit('fertig'), plan.ende))
+  const tutorial = TUTORIAL_MS[props.naechste] || 0
+  if (tutorial) timer.push(setTimeout(() => { phase.value = 'tutorial' }, plan.ende))
+  timer.push(setTimeout(() => emit('fertig'), plan.ende + tutorial))
 })
 onUnmounted(() => timer.forEach(clearTimeout))
 </script>
