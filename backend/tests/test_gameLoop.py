@@ -245,21 +245,22 @@ async def test_start_game_for_cleans_up_when_start_fails(redis_mock, channel_lay
     assert "x" not in games
     channel_layer.group_send.assert_not_awaited()
 
-async def test_tick_sends_reboot_digits_for_beamer(channel_layer, fast_sleep):
-    tick = {**snap(5, 5), "reboot_digits": [4, None, None]}
+async def test_tick_sends_found_parts_for_beamer(channel_layer, fast_sleep):
+    teil = {"id": "psu", "name": "Netzteil", "fundort": "schrank", "label": "230 V"}
+    tick = {**snap(5, 5), "parts": [teil]}
     dc = fake_dc(ticks=[tick, snap(0, 4)])
     await game_with(dc)._run_tick_loop()
 
     payload = channel_layer.group_send.await_args_list[0].args[1]["payload"]
-    assert payload["reboot_digits"] == [4, None, None]
+    assert payload["parts"] == [teil]
 
 
-async def test_tick_without_reboot_digits_sends_empty_slots(channel_layer, fast_sleep):
+async def test_tick_without_parts_sends_empty_list(channel_layer, fast_sleep):
     dc = fake_dc(ticks=[snap(5, 5), snap(0, 4)])
     await game_with(dc)._run_tick_loop()
 
     payload = channel_layer.group_send.await_args_list[0].args[1]["payload"]
-    assert payload["reboot_digits"] == [None, None, None]
+    assert payload["parts"] == []
 
 
 async def test_tick_sends_max_health(channel_layer, fast_sleep):

@@ -719,7 +719,7 @@ async def test_dev_skip_task_moves_everyone_on(env):
     host, a, b, c = await dev_spiel(env, gid)
     try:
         await host.send_json_to({"event": "dev_skip_task", "payload": {}})
-        tick = await recv_until(b, "game_tick", lambda p: p["reboot_digits"][0] is not None)
+        tick = await recv_until(b, "game_tick", lambda p: len(p["parts"]) == 1)
         assert tick["payload"]["tasks"][0]["view"]["type"] == "valve_panel"   # Aufgabe 2, Vorderseite
         task = json.loads(env.hget(state_key(gid), "task"))
         assert task["kind"] == "fire_protocol"
@@ -832,12 +832,12 @@ async def test_game_id_is_case_insensitive(env):
     assert not env.exists("game:COV_CASE:state")
     await comm.disconnect()
 # ---------------------------------------------------------------- game_tick vertragskonform
-TICK_FELDER = {"health", "max_health", "time_left", "tasks", "reboot_digits", "hints", "parts"}
+TICK_FELDER = {"health", "max_health", "time_left", "tasks", "hints", "parts"}
 
 
 @pytest.mark.asyncio
 async def test_tick_after_player_input_is_complete(env):
-    """Auch der Tick direkt nach einer Eingabe hat alle Felder (vorher fehlte reboot_digits)."""
+    """Auch der Tick direkt nach einer Eingabe hat alle Felder (früher fehlte eins)."""
     gid = "cov_tick_input"
     (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
     try:

@@ -21,12 +21,9 @@ MISTAKE_DAMAGE = 60
 HINT_COST = 50
 TOTAL_TASKS = 4
 
-# Drei Rätsel, dann das Finale (GAME_DESIGN.md).
-ROTATION = ["alarm", "fire_protocol", "data_rescue", "reboot"]
-
-# Welche Ziffer des Neustart-Codes eine gelöste Aufgabe aufdeckt.
-REWARD_SLOT = {"alarm": 0, "fire_protocol": 1, "data_rescue": 2}
-REBOOT_CODE_LEN = 3
+# Drei Rätsel, dann das Finale: Server reparieren (GAME_DESIGN.md).
+ROTATION = ["alarm", "fire_protocol", "data_rescue", "repair"]
+FINALE = ROTATION[-1]
 
 # Fundorte (GAME_DESIGN.md): nach jeder Aufgabe öffnet sich ein Ort mit einem Teil fürs Finale
 FUNDORTE = {
@@ -51,7 +48,7 @@ TASK_POINTS = {
     "alarm": 200,
     "fire_protocol": 250,
     "data_rescue": 300,
-    "reboot": 0,
+    "repair": 0,
 }
 FAST_LIMIT = {
     "alarm": 90,
@@ -68,7 +65,6 @@ def tick_payload(snap: dict) -> dict:
         "max_health": snap.get("max_health", MAX_HEALTH),
         "time_left": snap["time_left"],
         "tasks": snap["tasks"],
-        "reboot_digits": snap.get("reboot_digits") or [None] * REBOOT_CODE_LEN,
         "hints": snap.get("hints") or {"total": 0, "opened": [], "cost": HINT_COST},
         "parts": snap.get("parts") or [],
     }
@@ -117,20 +113,6 @@ class DataCenter:
         return self.snapshot()["score"]
 
     @property
-    def reboot_code(self) -> list[int]:
-        raw = self.redis.r.hget(self._key, "reboot_code")
-        return json.loads(raw) if raw else []
-
-    def _reboot_digits(self, state: dict) -> list[int | None]:
-        """Neustart-Code für den Beamer: nur die bereits aufgedeckten Ziffern."""
-        code = json.loads(state["reboot_code"]) if state.get("reboot_code") else []
-        revealed = json.loads(state["reboot_revealed"]) if state.get("reboot_revealed") else []
-        return [
-            code[i] if i in revealed and i < len(code) else None
-            for i in range(REBOOT_CODE_LEN)
-        ]
-
-    @property
     def parts_spec(self) -> dict:
         raw = self.redis.r.hget(self._key, "parts_spec")
         return json.loads(raw) if raw else {}
@@ -150,15 +132,6 @@ class DataCenter:
         gefunden = json.loads(raw) if raw else []
         if teil["id"] not in gefunden:
             self.redis.r.hset(self._key, "parts_found", json.dumps(gefunden + [teil["id"]]))
-
-    def _reveal_digit(self, kind: str) -> None:
-        slot = REWARD_SLOT.get(kind)
-        if slot is None:
-            return
-        raw = self.redis.r.hget(self._key, "reboot_revealed")
-        revealed = json.loads(raw) if raw else []
-        if slot not in revealed:
-            self.redis.r.hset(self._key, "reboot_revealed", json.dumps(sorted(revealed + [slot])))
 
     @property
     def time_left(self) -> int:
@@ -184,7 +157,6 @@ class DataCenter:
             "hint_penalty": penalty,
             "hints": self._hints(task),
             "max_health": self.max_health,
-            "reboot_digits": self._reboot_digits(state),
             "parts": self._parts(state),
         }
 
@@ -244,8 +216,6 @@ class DataCenter:
             "hint_penalty": 0,
             "solved_count": 0,
             "fire_seconds": 0,
-            "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
-            "reboot_revealed": json.dumps([]),
             "parts_found": json.dumps([]),
             "parts_spec": json.dumps(_neue_etiketten()),
         })
@@ -338,8 +308,7 @@ class DataCenter:
         return {"result": "skipped", "won": won}
 
     def _advance(self, task: dict) -> bool:
-        """Nach gelöster/übersprungener Aufgabe: Ziffer aufdecken, nächste Aufgabe. True = gewonnen."""
-        self._reveal_digit(task.get("kind", ""))
+        """Nach gelöster/übersprungener Aufgabe: Teil finden, nächste Aufgabe. True = gewonnen."""
         self._find_part(task.get("kind", ""))
         solved = self.redis.r.hincrby(self._key, "solved_count", 1)
         if solved >= TOTAL_TASKS:
@@ -380,8 +349,9 @@ class DataCenter:
                 kind = ROTATION[0]
 
         task_cls = TASK_TYPES[kind]
-        if kind == "reboot":
-            state = task_cls.create(players_data, digits=self.reboot_code)
+        if kind == "repair":
+            # das Finale baut die Teile ein – mit den Etiketten aus der Teilekiste
+            state = task_cls.create(players_data, parts_spec=self.parts_spec)
         else:
             state = task_cls.create(players_data)
         task = {
@@ -464,13 +434,23 @@ class DataCenter:
                 # Aufgabenpunkte (×2 bei schneller Lösung) – bewusst nicht in der Antwort,
                 # der Duplikator bleibt für die Spieler unsichtbar
                 self.redis.r.hincrby(self._key, "score", self._points_for(task))
-                if task.get("kind") != "reboot":
+                if task.get("kind") != FINALE:
                     # Zeitbonus nur, wenn noch eine Aufgabe kommt (nach dem Finale zählt die Restzeit)
                     self.redis.r.hincrby(self._key, "time_left", TIME_BONUS)
 
                 if self._advance(task):
                     return {"result": "correct", "won": True}
                 return {"result": "correct"}
+
+            # WRONG: Fehler kostet Leben; manche Aufgaben speichern dabei einen Rücksetzer
+            if res.persist:
+                task["state"] = res.state
+                self.redis.r.hset(self._key, "task", json.dumps(task))
+            self.register_mistake()
+            out = {"result": "wrong"}
+            if res.message:
+                out["message"] = res.message
+            return out
 
         self.register_mistake()
         return {"result": "wrong"}

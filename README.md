@@ -21,7 +21,7 @@ Doch es gibt ein Problem:
 
 | Rolle | Sicht |
 |---|---|
-|**Host**| Zeigt den Spielstand auf dem Beamer, *spielt nicht mit*: Einsatzbesprechung vor dem Start, Zeit, Leben, Neustart-Code und die Hilfe-Notizen |
+|**Host**| Zeigt den Spielstand auf dem Beamer, *spielt nicht mit*: Einsatzbesprechung vor dem Start, Zeit, Leben, den brennenden Server mit den gefundenen Teilen und die Hilfe-Notizen |
 |**Master** (Leitstand) | Sitzt im Kontrollraum: Monitore, Logs, Terminal |
 |**Spieler 1** (Vorderseite) | Steht vor dem Server-Rack: Steckplätze, Schalter, Ventile |
 |**Spieler 2** (Rückseite) | Steht hinter dem Server-Rack: Kabel, Aufkleber, Backup-Platten |
@@ -42,7 +42,9 @@ Nur wenn das Team schnell und effektiv zusammenarbeitet, kann der Server gerette
 2. **Richtiges Löschprotokoll:** Der Master hat das Brandmelde-Log (mit Zeitzonen und Probealarm), Spieler 1 sieht den Strom an den Racks und löscht, Spieler 2 kennt das Brandgut. Mit dem dreigeteilten Löschplan wählen sie Reihenfolge und Löschmittel. Am Ende geben Master und Spieler 2 gleichzeitig frei (Vier-Augen-Prinzip).
 3. **Datenrettung:** Spieler 2 legt die richtige Backup-Platte ein und liest danach die Datenpakete vor (binär, eins beschädigt). Spieler 1 meldet sich mit einem Hex-codierten Namen am Backup-Terminal an und hat die ASCII-Tabelle. Der Master hat das Log mit Backups und Schlüsselbund. Mit der dreigeteilten Anleitung (mit Rechenbeispielen) entschlüsseln sie das Wort RENTE.
 
-**Finale – Neustart:** Jede gelöste Aufgabe deckt eine Ziffer des Neustart-Codes auf, jede Rolle kennt eine. Der Master tippt die drei Ziffern in Aufgabenreihenfolge – dann öffnet sich der Tresor.
+**Nach jeder Aufgabe** öffnet sich ein Fundort (Ersatzteilschrank, Lager, Datentresor) mit einem Teil: Netzteil, Lüfter, Backup-Platte.
+
+**Finale – Server reparieren:** Der Master verteilt die Teile und schaltet in seiner Konsole die Plätze auf Wartung (die Konsole zählt ab 0!), Spieler 1 baut Platte und Lüfter ein, Spieler 2 das Netzteil – nach der dreigeteilten Einbauanleitung. Zum Schluss fahren alle drei den Server mit ihren Schlüsseln hoch: Strom → Kühlung → System.
 
 ---
 

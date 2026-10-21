@@ -1,6 +1,6 @@
 # Test-Triage Backend
 
-Aktueller Stand (nach `fix/kleinkram`): **360 grün · 23 übersprungen (veraltet) · 0 rot** – Frontend **312 grün**.
+Aktueller Stand (nach `feat/finale-reparatur`): **376 grün · 36 übersprungen (veraltet) · 0 rot** – Frontend **363 grün · 2 übersprungen**.
 Die aktuellen Zahlen stehen immer in `STATUS.md`; diese Datei erklärt die übersprungenen Tests.
 
 Stand direkt nach der Triage: 138 grün · 23 übersprungen · 4 rot (gültig, Code fehlt).
@@ -20,6 +20,8 @@ Maßstab für „veraltet" ist `JSON_Vertrag.md` (Events `event` + `payload`) un
 | `test_gameConsumer::test_register_assigns_role_and_broadcasts` | 1 | erwartet `role_assigned` schon beim Registrieren; gibt es erst nach `choose_role` | **skip** |
 | `test_hostManager` | 14 | Alt-Design (`set_host`/`is_host`/…); aktueller `HostManager` kann nur `start()` | **skip** |
 | `test_multiplayerManager` | 5 | Alt-Design (`add_player`/Heartbeat); Lobby läuft über `register_player`/`choose_role` | **skip** |
+| `test_taskNeustart` | 13 | altes Finale (Neustart-Code mit Belohnungsziffern); das Finale ist seit `feat/finale-reparatur` die Reparatur (`test_taskReparatur.py`) | **skip** (ganze Datei) |
+| Frontend `PlayerScreen.spec.js`: „sendet beim Finale reboot_code …“, „zeigt das Finale auch der Vorderseite …“ | 2 | prüfen `reboot_code` des alten Finales | **skip** (`it.skip`) |
 | `test_taskDatenRettung` | 4 | damals gültig: Sync-Button fehlte im Code | **erledigt**: Aufgabe 3 neu entworfen ohne Sync-Knopf (Entscheidung im Team), Tests nach neuer Spezifikation (`feat/datenrettung-aufgabe3`) |
 
 ## Wie man „übersprungen" liest
@@ -48,3 +50,4 @@ python -m pytest -rs
 - **Frontend-Specs:** alle Bildschirme und alle Aufgaben-Ansichten (Task1–Task4, auch Leitstand) haben eigene Specs (312 grün). Cleanup entfernte ungenutzte Screens (`ClientScreen`, `MasterScreen`-Hülle) und Attrappen (`HealthBar`, `SwitchPanel`) samt Specs.
 - **`ChannelConsumer`** (Spielzeug-`/ws/channel/`) samt Test entfernt — nicht Teil des Spiels.
 - Das CI (`.github/workflows/ci.yml`) ist bewusst nicht blockierend. Nach Happy Path verschärfen (`continue-on-error` entfernen).
+- **Altes Finale aufräumen:** `Task4Reboot.vue` (Neustart-Terminal) wird seit `feat/finale-reparatur` nicht mehr verwendet, seine Spec läuft noch grün. Zusammen mit `tests/test_taskNeustart.py` und den zwei übersprungenen PlayerScreen-Tests entfernen, sobald das neue Finale abgenommen ist. `VaultDoor.vue` bleibt (Datentresor in der Zwischenszene).

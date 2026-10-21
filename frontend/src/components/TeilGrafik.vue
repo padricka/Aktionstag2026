@@ -48,7 +48,7 @@
     <g v-else-if="teil === 'fan'">
       <rect class="rahmen" x="32" y="7" width="96" height="96" rx="10" />
       <circle v-for="(p, i) in ECKEN" :key="i" class="loch" :cx="p[0]" :cy="p[1]" r="4" />
-      <circle class="schacht" cx="80" cy="55" r="42" :fill="`url(#tg-dunkel-${uid})`" />
+      <circle class="luefter-ring" cx="80" cy="55" r="42" :fill="`url(#tg-dunkel-${uid})`" />
       <g class="rotor">
         <path
           v-for="i in 7"
@@ -124,7 +124,7 @@ const name = computed(() => TEILE[props.teil]?.name || props.teil)
 /* Lüfter */
 .rahmen { fill: #262a31; stroke: #4a505a; stroke-width: 2; }
 .loch { fill: #0c0d10; stroke: #4a505a; }
-.schacht { stroke: #3a3f48; stroke-width: 2; }
+.luefter-ring { stroke: #3a3f48; stroke-width: 2; }
 .schaufel { fill: #3e444d; stroke: #5d646e; stroke-width: 1; }
 .nabe { fill: #2b3038; stroke: #5d646e; }
 .nabe-aufkleber { fill: var(--green, #00ff66); opacity: 0.85; }

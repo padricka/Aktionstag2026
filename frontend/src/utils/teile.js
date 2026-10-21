@@ -19,5 +19,5 @@ export const AUFGABEN_TITEL = {
   1: 'Alarm verifizieren',
   2: 'Löschprotokoll',
   3: 'Datenrettung',
-  4: 'Neustart',
+  4: 'Server reparieren',
 }

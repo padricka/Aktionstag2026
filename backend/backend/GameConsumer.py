@@ -307,7 +307,10 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.send_error(result["message"])
             return
 
-        await self.send_event("input_result", {"result": result["result"]})
+        antwort = {"result": result["result"]}
+        if result.get("message"):
+            antwort["message"] = result["message"]   # was falsch war (z. B. „Stromschlag!“)
+        await self.send_event("input_result", antwort)
 
         snap = await asyncio.to_thread(self.data_center.snapshot)
 

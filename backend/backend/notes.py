@@ -210,3 +210,69 @@ RESCUE_NOTE = {
         },
     },
 }
+
+
+# ------------------------------------------------------------------ Finale · Reparatur
+# Jedes Stück: die Regeln, für die man die Fakten der anderen braucht (Etiketten hat
+# der Leitstand, Schächte die Vorderseite, Sicherungen und Gang-Schild die Rückseite).
+REPAIR_NOTE = {
+    "id": "repair",
+    "title": "Einbauanleitung",
+    "pieces": {
+        # Leitstand: Teilekiste + Konsole – muss wissen, wer was einbaut und welcher Platz
+        M: {
+            "part": 1,
+            "torn": ["right", "bottom"],
+            "lines": [
+                _line(0, "typed", "DRV SCHWABEN · RAUM B-04"),
+                _line(1, "typed", "EINBAUANLEITUNG · TEIL 1/3"),
+                _line(3, "rule", "① Reihenfolge: erst Platte,"),
+                _line(4, "text", "dann Lüfter, Netzteil ZULETZT."),
+                _line(5, "text", "Platte + Lüfter → Vorderseite,"),
+                _line(6, "text", "Netzteil → Rückseite."),
+                _line(8, "rule", "④ Vor jedem Einbau den Platz"),
+                _line(9, "text", "in der Konsole auf WARTUNG –"),
+                _line(10, "text", "sonst Stromschlag!"),
+                _line(11, "text", "Konsole zählt ab 0:"),
+                _line(12, "text", "Schacht 1 = BAY 0, Platz 2 = FAN 1"),
+                _line(14, "rule", "⑤ Vor dem Hochfahren ALLE"),
+                _line(15, "text", "Plätze aus der Wartung nehmen."),
+            ],
+        },
+        # Vorderseite: Schächte + Lüfterwand – Etikett kennt der Leitstand, Gang die Rückseite
+        V: {
+            "part": 2,
+            "torn": ["left", "bottom"],
+            "lines": [
+                _line(0, "stamp", "NUR FÜR TECHNIKER"),
+                _line(1, "typed", "EINBAUANLEITUNG · TEIL 2/3"),
+                _line(3, "rule", "② Platte in den Schacht mit"),
+                _line(4, "text", "der Nummer vom Etikett"),
+                _line(5, "text", "(RAID-Platz). Rote LED = defekt!"),
+                _line(7, "rule", "Lüfter in die Lücke der Wand."),
+                _line(8, "text", "Der Pfeil zeigt, wohin die Luft"),
+                _line(9, "text", "strömt: immer vom KALTGANG"),
+                _line(10, "text", "zum WARMGANG."),
+                _line(12, "strike", "Pfeil zeigt immer nach vorne."),
+                _line(12, "red", "falsch!"),
+            ],
+        },
+        # Rückseite: Sicherungen + Gang-Schild – Spannung steht auf dem Etikett beim Leitstand
+        R: {
+            "part": 3,
+            "torn": ["top"],
+            "lines": [
+                _line(0, "typed", "EINBAUANLEITUNG · TEIL 3/3"),
+                _line(2, "rule", "③ Netzteil nur in den Schacht"),
+                _line(3, "text", "mit HEILER Sicherung. Vorher"),
+                _line(4, "text", "den Spannungsschalter auf den"),
+                _line(5, "text", "Wert vom Etikett stellen!"),
+                _line(7, "rule", "⑥ Hochfahren: drei Schlüssel"),
+                _line(8, "text", "Strom (Rückseite) → Kühlung"),
+                _line(9, "text", "(Vorderseite) → System"),
+                _line(10, "text", "(Leitstand). Je max. 5 s Abstand!"),
+                _line(12, "sign", "– M. Kaiser, IT"),
+            ],
+        },
+    },
+}

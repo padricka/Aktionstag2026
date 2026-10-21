@@ -97,7 +97,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 }
 
 // 7. Aktuelle Aufgabe für alle überspringen (nur Host, nur im DEV-Modus, Spiel läuft)
-// Wie gelöst, aber ohne Punkte und ohne HP-Bonus; die Ziffer fürs Finale wird aufgedeckt.
+// Wie gelöst, aber ohne Punkte und ohne HP-Bonus; das Teil fürs Finale wird trotzdem gefunden.
 // Danach game_tick mit der nächsten Aufgabe, beim Finale game_over "victory".
 {
   "event": "dev_skip_task",
@@ -179,7 +179,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // status "ready" = alle drei Rollen besetzt (ready_to_start: true).
 
 // 2. Regelmäßiges Game-State Update (Broadcast, jede Sekunde und sofort nach player_input)
-// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, reboot_digits, hints, parts.
+// Jeder game_tick hat immer alle Felder: health, max_health, time_left, tasks, hints, parts.
 // Spielregeln (Max-HP, Spielende, Aufgabenreihenfolge) kennt nur das Backend: Das Frontend
 // zeigt health/max_health an, wählt die Ansicht über tasks[].kind und beendet das Spiel
 // erst bei game_over, nicht selbst bei health 0 oder time_left 0.
@@ -201,7 +201,6 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
                   "p_done": false }
       }
     ],
-    "reboot_digits": [4, null, null],
     "hints": { "task_id": "c0ffee…", "total": 4, "cost": 50,
                "available": [{ "id": "cable", "label": "Welches Kabel?" }, { "id": "symbols", "label": "Welches Symbol zuerst?" }, { "id": "scratch", "label": "Zerkratzter Aufkleber" }],
                "opened": [{ "id": "order", "label": "LED und Farbfolge", "text": "Die LED blinkt – der Code ist die Farbfolge rückwärts: …" }] },
@@ -224,7 +223,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //            Aufgabe 3 (rescue_log / rescue_terminal / packet_dump, mit note; Eingaben
 //              "mount_disk" = Seriennummer nur FI-AE, "terminal_login" und danach
 //              "rescue_word" = das gerettete Wort nur FI-SI),
-//            Finale (reboot: {digit, terminal}; Eingabe target "reboot_code", nur MASTER).
+//            Finale (repair_console / repair_front / repair_back; Eingaben give, maintenance,
+//              install_disk, install_fan, install_psu, return, key – GAME_DESIGN.md „Finale“).
 // "hints": Abreißblock der laufenden Aufgabe für den Beamer: available = Themen, die noch passen
 // (nicht abgerissen, Schritt laut Spielstand nicht erledigt; nur id + label), opened = abgerissene
 // Zettel mit Text (in Abriss-Reihenfolge). Texte nicht abgerissener Themen gehen nie raus.
@@ -234,11 +234,9 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // Aufgabe 3 → Backup-Platte (disk, "tresor", "RAID-Platz 1…4"). Etiketten pro Runde
 // ausgelost, auch beim DEV-Überspringen; das Finale gibt kein Teil. Wird die Liste länger,
 // zeigen Handys und Beamer die Zwischenszene (Fundort öffnet sich, Titel der nächsten Aufgabe).
-// "reboot_digits": Neustart-Code für den Beamer. Jede gelöste Aufgabe deckt ihre
-// Ziffer auf (Aufgabe 1 -> Stelle 1 usw.), null = noch verdeckt.
 
 // 3. Spielende (Broadcast)
-// result: "meltdown" (HP 0 oder Zeit abgelaufen – dann HP 0) | "victory" (Neustart-Code richtig).
+// result: "meltdown" (HP 0 oder Zeit abgelaufen – dann HP 0) | "victory" (Server repariert und hochgefahren).
 // score: Endpunkte = restliche HP + Aufgabenpunkte (200/250/300, unsichtbar ×2 bei schneller
 //        Lösung) + Restzeit (nur bei victory) − 50 je Hilfe-Notiz, nie unter 0 (GAME_DESIGN „Punkte“).
 {
@@ -271,10 +269,13 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 
 // 5. Ergebnis der eigenen Eingabe (nur an den Absender von player_input)
 // result: "correct" | "wrong" | "ignored" – bewusst ohne Punkte (der ×2 bleibt unsichtbar)
+// message (optional, bei "wrong"): was falsch war, z. B. im Finale „Stromschlag! Platz 3 war
+// nicht in Wartung.“ – das Frontend zeigt es statt „Falsche Eingabe“.
 {
   "event": "input_result",
   "payload": {
-    "result": "correct"
+    "result": "wrong",
+    "message": "Stromschlag! Platz 3 war nicht in Wartung."
   }
 }
 
