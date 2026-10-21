@@ -69,9 +69,9 @@
       </div>
     </section>
 
-    <section class="settings-section audio-stub">
+    <section class="settings-section">
       <h2 class="label">Audio</h2>
-      <p class="stub-note">Noch nicht verdrahtet — Werte werden gespeichert, ändern aber noch keinen Sound.</p>
+      <p class="audio-note">Ton kommt vom Beamer (Funkspruch, Ambience, Effekte). Änderungen gelten nach „Speichern“.</p>
 
       <div class="setting">
         <div class="setting-info">
@@ -126,6 +126,21 @@
           {{ settings.sfxEnabled ? 'Deaktivieren' : 'Aktivieren' }}
         </button>
       </div>
+
+      <div class="setting">
+        <div class="setting-info">
+          <span class="setting-name">Funkspruch (Stimme)</span>
+          <span class="setting-value mono">{{ settings.voiceEnabled ? 'an' : 'aus' }}</span>
+        </div>
+        <button
+          type="button"
+          class="btn"
+          :class="{ active: settings.voiceEnabled }"
+          @click="settings.voiceEnabled = !settings.voiceEnabled"
+        >
+          {{ settings.voiceEnabled ? 'Deaktivieren' : 'Aktivieren' }}
+        </button>
+      </div>
     </section>
 
     <footer class="settings-actions">
@@ -148,6 +163,7 @@ const DEFAULT_SETTINGS = {
   musicEnabled: true,
   musicVolume: 60,
   sfxEnabled: true,
+  voiceEnabled: true,
 }
 
 const settings = reactive({ ...DEFAULT_SETTINGS })
@@ -250,10 +266,10 @@ function resetToDefaults() {
   margin: 0 0 var(--space-3) 0;
 }
 
-.stub-note {
+.audio-note {
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--amber);
+  color: var(--fg-3);
   margin: 0 0 var(--space-3) 0;
   letter-spacing: 0.02em;
 }
