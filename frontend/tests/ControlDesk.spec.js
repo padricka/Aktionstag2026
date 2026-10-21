@@ -124,3 +124,15 @@ describe("ControlDesk – Beschriftung", () => {
     expect(w.text()).toContain("LÖSCHMITTEL");
   });
 });
+
+describe("ControlDesk – von außen gestellt (Tutorial, feat/tutorial-loeschanlage)", () => {
+  it("valveIndex und colorIndex stellen die Regler", async () => {
+    const w = mount(ControlDesk, { props: { ...PROPS, valves: ["A-01", "B-01"], colors: ["WASSER", "CO2"], valveLabel: "Schrank", colorLabel: "Löschmittel" } });
+    const dreh = () => w.find('[role="slider"][aria-label="Schrank"]');
+    const schieber = () => w.find('[role="slider"][aria-label="Löschmittel"]');
+    expect(dreh().attributes("aria-valuetext")).toBe("A-01");
+    await w.setProps({ valveIndex: 1, colorIndex: 1 });
+    expect(dreh().attributes("aria-valuetext")).toBe("B-01");
+    expect(schieber().attributes("aria-valuetext")).toBe("CO2");
+  });
+});
