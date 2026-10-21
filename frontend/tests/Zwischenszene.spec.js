@@ -125,41 +125,55 @@ describe('Zwischenszene.vue', () => {
 
   describe('Tutorial Binär vor Aufgabe 3 (feat/tutorial-binaer)', () => {
     const LUEFTER = { id: 'fan', name: 'Lüfter', fundort: 'lager', label: '' }
+    const BILDER = 5
 
     async function bilder(w) {
       const texte = []
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < BILDER + 1; i++) {
         texte.push(w.find('.tut-binaer').text())
-        vi.advanceTimersByTime(TUTORIAL_MS[3] / 7)
+        vi.advanceTimersByTime(TUTORIAL_MS[3] / BILDER)
         await w.vm.$nextTick()
       }
       return texte
     }
 
-    it('nach der Titelkarte „Datenrettung“: erst 4 Ziffern, dann 8 Ziffern, dann der Buchstabe', async () => {
+    it('nach der Titelkarte „Datenrettung“: die Nr. der Platte ausrechnen, dann Codes nur nachschlagen', async () => {
       vi.useFakeTimers()
       const w = szene({ teil: LUEFTER, naechste: 3 })
       vi.advanceTimersByTime(DAUER.ende + 10)
       await w.vm.$nextTick()
       expect(w.emitted('fertig')).toBeUndefined()
-      expect(w.find('.tut-binaer').text()).toContain('So rechnet man eine Datenzeile aus')
+      expect(w.find('.tut-binaer').text()).toContain('Nr. auf der Platte')
 
       const alles = (await bilder(w)).join(' | ')
-      expect(alles).toMatch(/8 \+ 4 \+ 1 = 13/)
-      expect(alles).toMatch(/64 \+ 16 \+ 4 \+ 1 = 85/)
-      expect(alles).toMatch(/85.*U/)
+      expect(alles).toMatch(/4 \+ 2 = 6/)
+      expect(alles).toMatch(/NICHT rechnen/)
+      expect(alles).toMatch(/Code-Tabelle/)
+      expect(alles).not.toMatch(/ASCII|64 \+ 16/)
     })
 
-    it('zeigt die Stellenwerte über den Ziffern und hebt die Einsen hervor', async () => {
+    it('zeigt die Werte 8 4 2 1 über den Ziffern und hebt die Einsen hervor', async () => {
       vi.useFakeTimers()
       const w = szene({ teil: LUEFTER, naechste: 3 })
       vi.advanceTimersByTime(DAUER.ende + 10)
       await w.vm.$nextTick()                                          // Tutorial hängt sich ein
-      vi.advanceTimersByTime(TUTORIAL_MS[3] / 7)                      // zweites Bild: Einsen leuchten
+      vi.advanceTimersByTime(TUTORIAL_MS[3] / BILDER)                 // zweites Bild: Einsen leuchten
       await w.vm.$nextTick()
       expect(w.findAll('.tut-binaer .tb-wert').map((x) => x.text())).toEqual(['8', '4', '2', '1'])
-      expect(w.findAll('.tut-binaer .tb-ziffer').map((x) => x.text()).join('')).toBe('1101')
-      expect(w.findAll('.tut-binaer .tb-ziffer.is-eins')).toHaveLength(3)
+      expect(w.findAll('.tut-binaer .tb-ziffer').map((x) => x.text()).join('')).toBe('0110')
+      expect(w.findAll('.tut-binaer .tb-ziffer.is-eins')).toHaveLength(2)
+    })
+
+    it('beim Nachschlagen ist die passende Zeile der Code-Tabelle markiert', async () => {
+      vi.useFakeTimers()
+      const w = szene({ teil: LUEFTER, naechste: 3 })
+      vi.advanceTimersByTime(DAUER.ende + 10)
+      await w.vm.$nextTick()
+      vi.advanceTimersByTime((TUTORIAL_MS[3] / BILDER) * 4)          // letztes Bild
+      await w.vm.$nextTick()
+      const treffer = w.find('.tut-binaer .tb-eintrag.is-treffer')
+      expect(treffer.exists()).toBe(true)
+      expect(treffer.text()).toContain('R')
     })
 
     it('ist nach TUTORIAL_MS vorbei, dann fertig', () => {
