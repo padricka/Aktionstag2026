@@ -1112,3 +1112,45 @@ async def test_player_start_during_briefing_explains_the_beamer(env):
         assert env.hget(state_key(gid), "status").decode() == "briefing"
     finally:
         await beenden(host, a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Wiedereinstieg (fix/wiedereinstieg)
+@pytest.mark.asyncio
+async def test_running_game_resumes_when_someone_connects_after_a_restart(env):
+    gid = "cov_resume"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        await games[gid].stop_game()                       # = Server neu gestartet, Schleife weg
+        games.pop(gid, None)
+        assert env.hget(state_key(gid), "status").decode() == "running"
+
+        neu = await verbinden_ohne_initial(gid)            # jemand verbindet sich (neu)
+        assert games[gid].is_active
+        await recv_until(neu, "game_tick")                 # die Zeit läuft wieder
+        await neu.disconnect()
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_late_joiner_after_victory_gets_the_real_result(env):
+    gid = "cov_late_result"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        env.hset(state_key(gid), "status", "won")
+        over = await recv_until(a, "game_over", timeout=5)
+        assert over["payload"]["result"] == "victory"
+
+        neu = await verbinden(gid)
+        comm = neu[0]
+        erstes = await comm.receive_json_from()
+        assert erstes["event"] == "game_over"              # vor dem lobby_update: kein falsches Bild
+        assert erstes["payload"]["result"] == "victory"
+        assert erstes["payload"]["score"] == over["payload"]["score"]
+        await comm.disconnect()
+    finally:
+        await beenden(a, b, c, game_ids=[gid])

@@ -142,6 +142,18 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
+  describe('Wiedereinstieg nach Spielende (fix/wiedereinstieg)', () => {
+    it('Beamer neu geladen nach einem Sieg: game_over (Sieg) + lobby_update won → offener Tresor', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 1425, survived_seconds: 240, leaderboard: null } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'won', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.vault').classes()).toContain('vault--open')
+      expect(wrapper.find('.end').exists()).toBe(false)
+    })
+  })
+
   describe('Beamer-Anwesenheit (fix/beamer-anwesenheit)', () => {
     afterEach(() => vi.useRealTimers())
 

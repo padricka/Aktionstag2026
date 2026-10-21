@@ -199,7 +199,7 @@ class DataCenter:
             "reboot_code": json.dumps([random.randint(0, 9) for _ in range(REBOOT_CODE_LEN)]),
             "reboot_revealed": json.dumps([]),
         })
-        self.redis.r.hdel(self._key, "task", "over_announced")
+        self.redis.r.hdel(self._key, "task", "over_announced", "game_over")
         self.new_task(kind="alarm")
         self.redis.refresh_ttl(self.game_id)
 
@@ -231,6 +231,14 @@ class DataCenter:
 
     def finish(self):
         self.redis.r.hset(self._key, "status", "game_over")
+
+    def remember_game_over(self, payload: dict):
+        """Ergebnis merken, damit später Verbindende es bekommen (siehe GameConsumer.connect)."""
+        self.redis.r.hset(self._key, "game_over", json.dumps(payload))
+
+    def last_game_over(self) -> dict | None:
+        raw = self.redis.r.hget(self._key, "game_over")
+        return json.loads(raw) if raw else None
 
     def claim_game_over(self) -> bool:
         """True nur beim ersten Aufruf pro Runde: wer True bekommt, meldet das Spielende."""

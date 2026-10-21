@@ -325,3 +325,38 @@ async def test_start_from_briefing_is_allowed(redis_mock, channel_layer):
     redis_mock.get_lobby_payload.return_value = {"status": "briefing", "players": [], "ready_to_start": True}
     with patch.object(GameLoop, "start_game", new=AsyncMock()):
         assert await start_game_for("x") == "started"
+
+
+# ---------------------------------------------------------------- Wiedereinstieg (fix/wiedereinstieg)
+async def test_resume_reattaches_a_running_game_after_restart(redis_mock, channel_layer):
+    """Server-Neustart: Redis sagt „running“, aber keine Schleife läuft → wieder anhängen,
+    ohne die Runde neu zu starten (kein DataCenter.start)."""
+    from backend.gameLoop import resume_game_for
+    redis_mock.r.hget.return_value = b"running"
+    with patch("backend.gameLoop.DataCenter") as dc_cls, \
+         patch.object(GameLoop, "_run_tick_loop", new=AsyncMock()):
+        assert await resume_game_for("x") is True
+        dc_cls.return_value.start.assert_not_called()
+    assert isinstance(games["x"], GameLoop)
+
+
+async def test_resume_does_nothing_if_not_running(redis_mock):
+    from backend.gameLoop import resume_game_for
+    redis_mock.r.hget.return_value = b"waiting"
+    assert await resume_game_for("x") is False
+    assert "x" not in games
+
+
+async def test_resume_does_nothing_if_a_loop_is_active(redis_mock):
+    from backend.gameLoop import resume_game_for
+    redis_mock.r.hget.return_value = b"running"
+    games["x"] = MagicMock(is_active=True)
+    assert await resume_game_for("x") is False
+
+
+async def test_game_over_is_remembered_for_late_joiners(channel_layer, fast_sleep):
+    dc = fake_dc(ticks=[snap(0, 4)])
+    await game_with(dc)._run_tick_loop()
+    gespeichert = dc.remember_game_over.call_args.args[0]
+    assert gespeichert["result"] == "meltdown"
+    assert "score" in gespeichert

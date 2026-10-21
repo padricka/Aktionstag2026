@@ -260,6 +260,18 @@ describe('PlayerScreen.vue', () => {
     expect(wrapper.find('.start-btn').exists()).toBe(false)
   })
 
+  describe('Wiedereinstieg nach Spielende (fix/wiedereinstieg)', () => {
+    it('neu beigetreten nach einem Sieg: zeigt den Sieg mit den echten Punkten', async () => {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 1425, survived_seconds: 240, leaderboard: null } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'won', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.end').classes()).toContain('is-win')
+      expect(wrapper.text()).toContain('1425')
+    })
+  })
+
   describe('Einsatzbesprechung ohne Beamer (fix/beamer-anwesenheit)', () => {
     afterEach(() => vi.useRealTimers())
 
