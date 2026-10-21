@@ -155,7 +155,7 @@ RESCUE_NOTE = {
                 _line(1, "typed", "DATENRETTUNG · TEIL 1/3"),
                 _line(3, "rule", "② Auf der Platte steht eine Nr."),
                 _line(4, "text", "mit 4 Ziffern. Über den Ziffern"),
-                _line(5, "text", "stehen die Werte 8 · 4 · 2 · 1."),
+                _line(5, "text", "stehen die Werte 8 + 4 + 2 + 1."),
                 _line(6, "text", "Zähl die Werte über jeder 1 zusammen."),
                 _line(7, "beispiel", "0110 → 4 + 2 = 6"),
                 _line(9, "strike", "Die erste Tabelle ist immer richtig."),

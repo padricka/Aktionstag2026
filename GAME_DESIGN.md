@@ -121,7 +121,7 @@ Falscher Schrank / falsches Löschmittel kostet Leben; wer zu spät drückt, war
 
 **Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, das Beispiel mittig eingerahmt (Zettel-Stil `beispiel`):
 - **①** *(Rückseite)* Richtige Platte = das **neueste** Backup mit Status **OK**. Datum ist TAG.MONAT – erst Monat, dann Tag vergleichen. *Bsp: 03.04. ist neuer als 28.03.* *Die Backup-Jobs hat der Leitstand.*
-- **②** *(Leitstand)* Die Nr. auf der Platte hat 4 Ziffern, darüber stehen die Werte 8 · 4 · 2 · 1 – die Werte über jeder 1 zusammenzählen. *Bsp: 0110 → 4 + 2 = 6.* *Die Nr. sieht die Rückseite.*
+- **②** *(Leitstand)* Die Nr. auf der Platte hat 4 Ziffern, darüber stehen die Werte 8 + 4 + 2 + 1 – die Werte über jeder 1 zusammenzählen. *Bsp: 0110 → 4 + 2 = 6.* *Die Nr. sieht die Rückseite.*
 - **③** *(Vorderseite)* Im Schlüsselbund den **gültigen** Schlüssel mit dieser Nr. suchen – nie gesperrt. Sein Name steht über der richtigen Tabelle. *Bsp: Nr. 6 · DELTA · gültig → Tabelle DELTA.* *Schlüsselbund beim Leitstand, Tabellen bei der Rückseite.*
 - **④** *(Rückseite)* Die 6 Codes der richtigen Tabelle der Reihe nach vorlesen, **nicht rechnen** – die Vorderseite sucht jeden Code in ihrer Code-Tabelle. *Die Code-Tabelle hat die Vorderseite.*
 - **Fallen:** das allerneueste Backup ist immer FEHLER; Datum als Text verglichen („28.03.“ > „03.04.“) führt zur falschen Platte; die zweite Tabelle gehört zum anderen **gültigen** Schlüssel und ergibt ein anderes echtes Wort; „Die erste Tabelle ist immer richtig.“ – durchgestrichen.

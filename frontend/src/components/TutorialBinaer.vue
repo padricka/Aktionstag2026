@@ -56,7 +56,7 @@ const TABELLE = [
   { b: 'S', c: '1001 0110' },
 ]
 const TEXTE = [
-  'Über den 4 Ziffern stehen die Werte 8 · 4 · 2 · 1.',
+  'Über den 4 Ziffern stehen die Werte 8 + 4 + 2 + 1.',
   'Nur die Werte über einer 1 zählen.',
   'Zusammenzählen – die Platte hat Nr. 6.',
   'Die langen Codes mit 8 Ziffern NICHT rechnen!',
