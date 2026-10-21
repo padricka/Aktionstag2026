@@ -137,22 +137,23 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.host-top').exists()).toBe(false)
   })
 
-  it('zeigt die gefundenen Ziffern aus reboot_digits auf dem Beamer', async () => {
+  it('zeigt am Beamer den brennenden Server mit den Teilen statt des Tresors (feat/brennender-server)', async () => {
     const wrapper = mount(HostScreen)
     await new Promise((r) => setTimeout(r, 10))
 
     simulateMessage({
       event: 'game_tick',
-      payload: { health: 240, time_left: 290, tasks: [], reboot_digits: [4, 7, null] },
+      payload: { health: 240, time_left: 290, tasks: [], reboot_digits: [4, null, null],
+                 parts: [{ id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' }] },
     })
     await wrapper.vm.$nextTick()
 
-    const raeder = wrapper.findAll('[role="spinbutton"]')
-    expect(raeder.map((r) => r.attributes('aria-valuenow'))).toEqual(['4', '7', undefined])
-    expect(wrapper.find('.vd-panel__status').text()).toBe('GESPERRT · 2/3')
+    expect(wrapper.find('.brennender-server').exists()).toBe(true)
+    expect(wrapper.find('.vault').exists()).toBe(false)
+    expect(wrapper.findAll('.bs-teil.is-da')).toHaveLength(1)
   })
 
-  it('zeigt bei Sieg den offenen Tresor statt des Game-Over-Overlays', async () => {
+  it('zeigt bei Sieg den gelöschten Server statt des Game-Over-Overlays', async () => {
     const wrapper = mount(HostScreen)
     await new Promise((r) => setTimeout(r, 10))
 
@@ -166,19 +167,19 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     })
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('.vault').classes()).toContain('vault--open')
+    expect(wrapper.find('.brennender-server').classes()).toContain('is-geloescht')
     expect(wrapper.find('.end').exists()).toBe(false)
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
   describe('Wiedereinstieg nach Spielende (fix/wiedereinstieg)', () => {
-    it('Beamer neu geladen nach einem Sieg: game_over (Sieg) + lobby_update won → offener Tresor', async () => {
+    it('Beamer neu geladen nach einem Sieg: game_over (Sieg) + lobby_update won → gelöschter Server', async () => {
       const wrapper = mount(HostScreen)
       await new Promise((r) => setTimeout(r, 10))
       simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 1425, survived_seconds: 240, leaderboard: null } })
       simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'won', ready_to_start: true } })
       await wrapper.vm.$nextTick()
-      expect(wrapper.find('.vault').classes()).toContain('vault--open')
+      expect(wrapper.find('.brennender-server').classes()).toContain('is-geloescht')
       expect(wrapper.find('.end').exists()).toBe(false)
     })
   })
@@ -587,12 +588,12 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       expect(sound.playSfx).not.toHaveBeenCalledWith('sfx-error')
     })
 
-    it('bestätigt eine neue Ziffer des Neustart-Codes', async () => {
+    it('bestätigt ein neu gefundenes Teil', async () => {
       const wrapper = await beamer()
       lobby('running')
-      tick({ reboot_digits: [null, null, null] })
+      tick({ parts: [] })
       await wrapper.vm.$nextTick()
-      tick({ reboot_digits: [4, null, null] })
+      tick({ parts: [{ id: 'psu', name: 'Netzteil', fundort: 'schrank', label: '230 V' }] })
       await wrapper.vm.$nextTick()
       expect(sound.playSfx).toHaveBeenCalledWith('sfx-solved')
     })

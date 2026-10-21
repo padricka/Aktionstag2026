@@ -30,7 +30,7 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 
 - **Die Rollen-IDs bleiben unverändert** (`MASTER`, `FI-SI`, `FI-AE`), damit Lobby, Redis, Tests und Frontend-Routing nicht brechen. Geändert werden nur Anzeigenamen und Inhalte. Umbenennen der IDs ist eine Aufgabe nach Freitag.
 - Es gibt **kein Handbuch** mehr. Die bisherigen `Task*Master`-Komponenten werden zu normalen Ansichten des Leitstands.
-- Der **Beamer** (`HostScreen`) spielt nicht mit. Er zeigt Health, Zeit, die aktuelle Aufgabe und die **drei Ziffernfelder des Neustart-Codes** (`_ _ _`), die sich beim Lösen füllen.
+- Der **Beamer** (`HostScreen`) spielt nicht mit. Er zeigt Zeit, Leben und den **brennenden Server** (`BrennenderServer.vue`): je weniger Leben, desto mehr Flammen und Rauch (Stufe 1–3), ein Fehler lässt das Feuer auflodern, beim Sieg geht es aus und die LEDs werden grün. Daneben die drei Teile fürs Finale, als Umriss bis sie gefunden sind.
 
 ## 4. Die Aufgaben
 
