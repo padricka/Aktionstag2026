@@ -13,6 +13,9 @@ HEALTH_BONUS = 15
 TIME_BONUS = 60
 # Der Server brennt: alle FIRE_EVERY Sekunden kostet das Feuer ein Leben (DEV: steht)
 FIRE_EVERY = 3
+# Sekunden Pause nach einer gelösten Aufgabe: so lange läuft die Zwischenszene
+# (Zwischenszene.vue, DAUER/DAUER_TRESOR) – Uhr und Feuer stehen, das ×2-Fenster wartet
+PAUSE_NACH = {"alarm": 5, "fire_protocol": 5, "data_rescue": 6}
 
 # Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
 INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
@@ -43,17 +46,18 @@ def _neue_etiketten() -> dict:
 
 # Punkte (GAME_DESIGN.md, „Punkte“): Endpunkte = restliche Leben + Aufgabenpunkte
 # (×2, wenn innerhalb FAST_LIMIT Sekunden ab Aufgabenstart gelöst) + Restzeit bei Sieg
-# − HINT_COST je Hilfe-Notiz. Das Finale bringt keine eigenen Aufgabenpunkte.
+# − HINT_COST je Hilfe-Notiz. Auch das Finale zählt (feat/finale-hilfen-punkte).
 TASK_POINTS = {
     "alarm": 200,
     "fire_protocol": 250,
     "data_rescue": 300,
-    "repair": 0,
+    "repair": 350,
 }
 FAST_LIMIT = {
     "alarm": 90,
     "fire_protocol": 150,
     "data_rescue": 210,
+    "repair": 180,
 }
 
 
@@ -219,7 +223,7 @@ class DataCenter:
             "parts_found": json.dumps([]),
             "parts_spec": json.dumps(_neue_etiketten()),
         })
-        self.redis.r.hdel(self._key, "task", "over_announced", "game_over")
+        self.redis.r.hdel(self._key, "task", "over_announced", "game_over", "pause_until")
         self.new_task(kind="alarm")
         self.redis.refresh_ttl(self.game_id)
 
@@ -245,7 +249,7 @@ class DataCenter:
         if self.dev_mode:
             return self.snapshot()
         with self.redis.lock(self._input_lock_name) as acquired:
-            if acquired and self.status == "running":
+            if acquired and self.status == "running" and not self._pausiert():
                 if self.redis.r.hincrby(self._key, "time_left", -1) <= 0:
                     self.redis.r.hset(self._key, mapping={"time_left": 0, "health": 0, "status": "game_over"})
                 elif self.redis.r.hincrby(self._key, "fire_seconds", 1) % FIRE_EVERY == 0:
@@ -308,14 +312,22 @@ class DataCenter:
         return {"result": "skipped", "won": won}
 
     def _advance(self, task: dict) -> bool:
-        """Nach gelöster/übersprungener Aufgabe: Teil finden, nächste Aufgabe. True = gewonnen."""
+        """Nach gelöster/übersprungener Aufgabe: Teil finden, Pause für die Zwischenszene,
+        nächste Aufgabe. True = gewonnen."""
         self._find_part(task.get("kind", ""))
         solved = self.redis.r.hincrby(self._key, "solved_count", 1)
         if solved >= TOTAL_TASKS:
             self.redis.r.hset(self._key, "status", "won")
             return True
-        self.new_task()
+        pause = PAUSE_NACH.get(task.get("kind", ""), 0)
+        self.redis.r.hset(self._key, "pause_until", self._now() + pause)
+        self.new_task(start_delay=pause)
         return False
+
+    def _pausiert(self) -> bool:
+        """Läuft gerade die Zwischenszene? Dann stehen Uhr und Feuer."""
+        bis = self.redis.r.hget(self._key, "pause_until")
+        return bool(bis) and self._now() < float(bis)
 
     @staticmethod
     def _public(task: dict) -> dict:
@@ -335,7 +347,7 @@ class DataCenter:
         raw = self.redis.r.hget(self._key, "task")
         return json.loads(raw) if raw else None
 
-    def new_task(self, kind: str | None = None) -> dict:
+    def new_task(self, kind: str | None = None, start_delay: float = 0) -> dict:
         r = self.redis.r
         players_data = self.redis._load_players(self.game_id)
         counter = r.hincrby(self._key, "task_counter", 1)
@@ -360,7 +372,8 @@ class DataCenter:
             "instruction": state.get("instruction", task_cls.instruction),
             "assigned_to_player": state.get("assigned_to_player"),
             "state": state,
-            "started_at": self._now(),   # ab hier läuft das ×2-Limit (FAST_LIMIT)
+            # ab hier läuft das ×2-Limit (FAST_LIMIT) – erst nach der Zwischenszene
+            "started_at": self._now() + start_delay,
         }
         r.hset(self._key, mapping={"task": json.dumps(task), "last_task_idx": kind})
         return task

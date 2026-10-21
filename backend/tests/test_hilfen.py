@@ -55,6 +55,7 @@ def _nach_id(cls, st):
     (AlarmTask, ["cable", "order", "symbols", "scratch"]),
     (FireProtocolTask, ["probe", "order", "power", "agents", "release"]),
     (DataRescueTask, ["disk", "login", "parity", "convert", "key", "decrypt"]),
+    (RepairTask, ["give", "maintenance", "disk", "fan", "psu", "keys"]),
 ])
 def test_each_task_has_its_topics(cls, ids):
     for _ in range(30):
@@ -67,9 +68,22 @@ def test_each_task_has_its_topics(cls, ids):
             assert isinstance(h["done"], bool)
 
 
-def test_finale_has_no_hints():
-    assert RepairTask.HINTS == 0
-    assert RepairTask.hints(RepairTask.create({})) == []
+def test_finale_hints_fit_the_round_and_know_what_is_done():
+    """feat/finale-hilfen-punkte: auch das Finale hat Hilfe-Notizen, passend zur Runde."""
+    st = RepairTask.create({}, {"disk": {"label": "RAID-Platz 3"}, "psu": {"label": "230 V"}})
+    h = _nach_id(RepairTask, st)
+    assert "Vorderseite" in h["give"]["text"] and "Rückseite" in h["give"]["text"]
+    assert "BAY 2" in h["maintenance"]["text"] and f"FAN {st['fan_slot'] - 1}" in h["maintenance"]["text"]
+    assert "Schacht 3" in h["disk"]["text"]
+    assert st["gang"] in h["fan"]["text"] and st["fan_dir"] in h["fan"]["text"]
+    assert f"Schacht {st['psu_bay']}" in h["psu"]["text"] and "230 V" in h["psu"]["text"]
+    assert "Strom" in h["keys"]["text"]
+    assert not any(x["done"] for x in h.values())
+
+    st["orte"] = {"disk": "eingebaut", "fan": "FI-SI", "psu": "FI-AE"}
+    h = _nach_id(RepairTask, st)
+    assert h["give"]["done"] and h["disk"]["done"]
+    assert not h["fan"]["done"] and not h["maintenance"]["done"]
 
 
 def test_alarm_hints_fit_the_round_and_know_what_is_done():
@@ -226,13 +240,16 @@ def test_next_task_has_its_own_topics_but_keeps_the_penalty(dc):
     assert dc.snapshot()["hint_penalty"] == HINT_COST
 
 
-def test_finale_offers_no_hints(dc):
+def test_finale_offers_its_hints(dc):
     dc.redis.r.hset(dc._key, "dev_mode", "1")
     for _ in range(3):
         dc.skip_task()
+    dc.redis.r.hset(dc._key, "dev_mode", "0")
     assert dc.current_task()["kind"] == "repair"
-    assert _hints(dc) == {"total": 0, "available": [], "opened": [], "cost": HINT_COST}
-    assert dc.open_hint("cable")["result"] == "error"
+    assert _hints(dc)["total"] == 6
+    assert dc.open_hint("cable")["result"] == "error"            # Thema einer anderen Aufgabe
+    assert dc.open_hint("maintenance")["result"] == "opened"
+    assert dc.snapshot()["hint_penalty"] == HINT_COST
 
 
 def test_no_hints_when_game_is_not_running(dc):

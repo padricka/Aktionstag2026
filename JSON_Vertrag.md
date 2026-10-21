@@ -106,7 +106,7 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 
 // 8. Hilfe-Zettel vom Abreißblock reißen (nur Host, Spiel läuft)
 // id = ein Thema aus game_tick.hints.available (beliebige Reihenfolge). Kostet 50 Punkte
-// (DEV-Modus: gratis). Themen je Aufgabe: 1 → 4, 2 → 5, 3 → 6, Finale → 0.
+// (DEV-Modus: gratis). Themen je Aufgabe: 1 → 4, 2 → 5, 3 → 6, Finale → 6.
 // Danach game_tick an alle.
 // Abgelehnt (nicht Host, id fehlt/unbekannt/schon abgerissen/Schritt erledigt, keine Hilfen,
 // Spiel läuft nicht, task_id passt nicht) → error "hint_denied".
@@ -233,7 +233,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // "schrank", Etikett "115 V" | "230 V"), Aufgabe 2 → Lüfter (fan, "lager", "Pfeil = Luftstrom"),
 // Aufgabe 3 → Backup-Platte (disk, "tresor", "RAID-Platz 1…4"). Etiketten pro Runde
 // ausgelost, auch beim DEV-Überspringen; das Finale gibt kein Teil. Wird die Liste länger,
-// zeigen Handys und Beamer die Zwischenszene (Fundort öffnet sich, Titel der nächsten Aufgabe).
+// zeigen Handys und Beamer die Zwischenszene (Fundort öffnet sich, Titel der nächsten Aufgabe);
+// so lange (5 s, Datentresor 6 s) bleiben time_left und health stehen.
 
 // 3. Spielende (Broadcast)
 // result: "meltdown" (HP 0 oder Zeit abgelaufen – dann HP 0) | "victory" (Server repariert und hochgefahren).

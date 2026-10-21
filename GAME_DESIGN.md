@@ -55,12 +55,12 @@ Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung*
 
 | | Aufgabe 1 | Aufgabe 2 | Aufgabe 3 | Finale |
 |---|---|---|---|---|
-| Aufgabenpunkte (`TASK_POINTS`) | 200 | 250 | 300 | – |
-| ×2, wenn gelöst innerhalb (`FAST_LIMIT`, ab Start der Aufgabe) | 1:30 | 2:30 | 3:30 | – |
-| Hilfe-Notizen | 4 | 5 | 6 | – |
+| Aufgabenpunkte (`TASK_POINTS`) | 200 | 250 | 300 | 350 |
+| ×2, wenn gelöst innerhalb (`FAST_LIMIT`, ab Start der Aufgabe) | 1:30 | 2:30 | 3:30 | 3:00 |
+| Hilfe-Notizen | 4 | 5 | 6 | 6 |
 
 - Der **×2 ist unsichtbar:** Die Spieler erfahren ihn nicht (keine Anzeige, kein `score_gain` mehr in `input_result`), er steckt nur in der Endpunktzahl.
-- **Beispiel Sieg:** 180 Leben + (200 ×2) + 250 + (300 ×2) + 95 s Restzeit − 2 Hilfen = 180 + 400 + 250 + 600 + 95 − 100 = **1425**.
+- **Beispiel Sieg:** 180 Leben + (200 ×2) + 250 + (300 ×2) + 350 (Finale nach über 3:00) + 95 s Restzeit − 2 Hilfen = 180 + 400 + 250 + 600 + 350 + 95 − 100 = **1775**.
 - **Niederlage:** Leben sind 0, Restzeit zählt nicht – es bleiben die Aufgabenpunkte minus Hilfen.
 - DEV-Überspringen gibt keine Aufgabenpunkte.
 
@@ -138,7 +138,7 @@ Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Fundort:** Dat
 
 ### Finale — Server reparieren (`kind: "repair"`)
 
-**Geschichte:** Mit den drei Teilen aus den Fundorten wird der Server repariert und hochgefahren. Keine Aufgabenpunkte, keine Hilfen; die Lage wird jede Runde neu ausgelost (`RepairTask`, Tests: `test_taskReparatur.py`).
+**Geschichte:** Mit den drei Teilen aus den Fundorten wird der Server repariert und hochgefahren. 350 Aufgabenpunkte (×2 innerhalb 3:00) und 6 Hilfe-Notizen (Wer bekommt was? · Wartung und Konsole · Welcher Plattenschacht? · Wie herum der Lüfter? · Netzteil · Hochfahren); die Lage wird jede Runde neu ausgelost (`RepairTask`, Tests: `test_taskReparatur.py`).
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
@@ -163,7 +163,7 @@ Nach jeder der drei Aufgaben öffnet sich ein Fundort und das Team bekommt ein T
 | 2 Löschprotokoll | **Lager** hinter der Brandschutztür – entriegelt nach dem Löschen | **Lüfter** | Pfeil = Luftstrom |
 | 3 Datenrettung | **Datentresor** | **Backup-Platte** mit den geretteten Daten | RAID-Platz 1–4 |
 
-- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, die Zeit läuft weiter): Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
+- **Zwischenszene** (`Zwischenszene.vue`, gut 4 s, beim Datentresor gut 5 s): **Uhr und Feuer stehen** so lange (`PAUSE_NACH`: 5 s, Datentresor 6 s), das ×2-Fenster der nächsten Aufgabe beginnt erst danach.: Auf allen Handys und groß am Beamer öffnet sich der Fundort (Schranktüren, Schiebetür, beim Datentresor der bekannte Tresor `VaultDoor` – SVG/CSS), das Teil kommt zum Vorschein, dann die Titelkarte der nächsten Aufgabe. Wer später dazukommt, sieht keine Szene für alte Teile.
 - **Teilekiste** (`Teilekiste.vue`, nur Leitstand): liegt halb im Bild am linken Rand wie der Taschenrechner rechts, ein Klick zieht sie herein. Drei Fächer mit Zeichnung (`TeilGrafik.vue`), gefundene Teile mit Etikett – die Etiketten braucht das Team im Finale.
 
 ### Hilfe-Notizen (Beamer)
@@ -173,7 +173,7 @@ Kommt ein Team nicht weiter, reißt der **Host am Beamer** einen Zettel vom **Ab
 - **Nur was noch passt:** Themen, deren Schritt laut Spielstand schon erledigt ist (`done`), stehen nicht mehr auf dem Block – z. B. „Backup-Platte“, sobald sie eingelegt ist. Schon abgerissene Zettel bleiben sichtbar.
 - **Passend zur Runde:** Die Texte erzeugt das Backend aus dem Aufgabenstand (`PlayableObject.hints(state)` → `{id, label, text, done}`), z. B. „0x42 = 4 · 16 + 2 = 66 = B“.
 - **Kosten:** jeder abgerissene Zettel **−50 Punkte** (`HINT_COST`), im DEV-Modus gratis. Der Abzug gilt fürs ganze Spiel (`hint_penalty`).
-- **Anzahl Themen:** Aufgabe 1 → 4, Aufgabe 2 → 5, Aufgabe 3 → 6, Finale → keine.
+- **Anzahl Themen:** Aufgabe 1 → 4, Aufgabe 2 → 5, Aufgabe 3 → 6, Finale → 6.
 
 | Aufgabe | Themen (`id`) – erledigt, wenn … | Zettel (gekürzt, `…` = aus der Runde) |
 |---|---|---|
