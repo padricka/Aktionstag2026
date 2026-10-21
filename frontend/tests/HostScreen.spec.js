@@ -15,6 +15,7 @@ import {
   simulateMessage,
   resetGameSocketMock,
   getSentEvents,
+  setConnected,
 } from './mocks/useGameSocket.js'
 import * as sound from '../src/composables/useSound.js'
 
@@ -31,6 +32,7 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
   })
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/')   // Sitzung aus der Adresse (siehe fix/verbindung)
     vi.unstubAllGlobals()
   })
 
@@ -138,6 +140,44 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.vault').classes()).toContain('vault--open')
     expect(wrapper.find('.end').exists()).toBe(false)
     expect(wrapper.find('.finale-win').exists()).toBe(true)
+  })
+
+  describe('Verbindung und Neuladen (fix/verbindung)', () => {
+    it('schreibt die Sitzung in die Adresse, damit Neuladen in derselben Sitzung bleibt', async () => {
+      const spion = vi.spyOn(window.history, 'replaceState')
+      mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      expect(spion).toHaveBeenCalledWith(null, '', '?host=1&game_id=test')
+      spion.mockRestore()
+    })
+
+    it('Verbindung weg: Banner am Beamer', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      setConnected(false)
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.conn-banner').text()).toMatch(/Verbindung verloren/)
+    })
+
+    it('Start nach dem Intro gescheitert (start_failed): Meldung und das Intro ist wieder bedienbar', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true, all_ready: true } })
+      await wrapper.vm.$nextTick()
+      await wrapper.find('button.intro-skip').trigger('click')
+      vi.useFakeTimers()
+      await wrapper.find('button.intro-start').trigger('click')
+      vi.advanceTimersByTime(5000)
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.intro-outro').exists()).toBe(true)        // hängt auf „LOS!“
+
+      simulateMessage({ event: 'error', payload: { code: 'start_failed', message: 'Lobby nicht vollständig – alle drei Rollen nötig.' } })
+      await wrapper.vm.$nextTick()
+      vi.useRealTimers()
+      expect(wrapper.find('.host-error').text()).toContain('Lobby nicht vollständig')
+      expect(wrapper.find('.intro-outro').exists()).toBe(false)       // Intro neu aufgebaut
+      expect(wrapper.find('.intro-nav').exists()).toBe(true)
+    })
   })
 
   describe('Einsatzbesprechung (Intro)', () => {

@@ -120,4 +120,32 @@ describe('App.vue', () => {
     expect(wrapper.find('.leaderboard-screen').exists()).toBe(false)
     expect(wrapper.findComponent(StartMenu).exists()).toBe(true)
   })
+
+  describe('Beamer neu laden (fix/verbindung)', () => {
+    afterEach(() => window.history.replaceState(null, '', '/'))
+
+    it('mit ?host=1&game_id=… in der Adresse geht es direkt zurück an den Beamer', async () => {
+      window.history.replaceState(null, '', '/?host=1&game_id=abcd')
+      const wrapper = mount(App, { global: { stubs } })
+      await flushPromises()
+      expect(wrapper.find('.host-screen').exists()).toBe(true)
+      expect(wrapper.findComponent(StartMenu).exists()).toBe(false)
+    })
+
+    it('ohne host=1 bleibt es beim Startmenü (z. B. Spieler-Link)', async () => {
+      window.history.replaceState(null, '', '/?game_id=abcd')
+      const wrapper = mount(App, { global: { stubs } })
+      await flushPromises()
+      expect(wrapper.findComponent(StartMenu).exists()).toBe(true)
+    })
+
+    it('„Verlassen“ nimmt die Sitzung aus der Adresse', async () => {
+      window.history.replaceState(null, '', '/?host=1&game_id=abcd')
+      const hostStub = { name: 'HostScreen', template: '<div class="host-screen"><button class="fake-exit" @click="$emit(\'exit\')">x</button></div>' }
+      const wrapper = mount(App, { global: { stubs: { ...stubs, HostScreen: hostStub } } })
+      await flushPromises()
+      await wrapper.find('.fake-exit').trigger('click')
+      expect(window.location.search).toBe('')
+    })
+  })
 })

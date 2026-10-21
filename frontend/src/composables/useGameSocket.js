@@ -1,10 +1,19 @@
 import { ref, onUnmounted } from 'vue'
 
+// Wiederverbinden nach einem Abbruch (WLAN-Aussetzer, Server-Neustart):
+// 1 s, 2 s, 4 s, danach alle 5 s – bis die Verbindung wieder steht.
+const RECONNECT_START_MS = 1000
+const RECONNECT_MAX_MS = 5000
+
 export function useGameSocket(optionsOrUrl = {}) {
   const isConnected = ref(false)
+  const reconnecting = ref(false)   // Verbindung weg, neuer Versuch läuft
   const error = ref(null)
   let socket = null
   let messageQueue = []
+  let letzteVerbindung = null       // { url, onMsg, onOpen } für das Wiederverbinden
+  let versuche = 0
+  let reconnectTimer = null
 
   let defaultUrl = typeof optionsOrUrl === 'string' ? optionsOrUrl : optionsOrUrl?.url || null
   let defaultOnMessage = typeof optionsOrUrl === 'object' ? optionsOrUrl?.onMessage : null
@@ -31,12 +40,79 @@ export function useGameSocket(optionsOrUrl = {}) {
     }
   }
 
+  function stoppeReconnect() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+  }
+
+  function planeReconnect() {
+    stoppeReconnect()
+    reconnecting.value = true
+    const warte = Math.min(RECONNECT_START_MS * 2 ** versuche, RECONNECT_MAX_MS)
+    versuche += 1
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      if (letzteVerbindung) oeffnen(letzteVerbindung)
+    }, warte)
+  }
+
+  function oeffnen({ url, onMsg, onOpen }) {
+    try {
+      const ws = new WebSocket(url)
+      socket = ws
+
+      ws.onopen = () => {
+        console.log(`[SOCKET] Verbunden mit: ${url}`)
+        isConnected.value = true
+        reconnecting.value = false
+        versuche = 0
+        error.value = null
+
+        // Vorab eingereihte Nachrichten senden
+        while (messageQueue.length > 0) {
+          ws.send(messageQueue.shift())
+        }
+
+        // auch beim Wiederverbinden: Anmeldung (player_register / host_register) erneut
+        if (typeof onOpen === 'function') {
+          onOpen()
+        }
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          if (typeof onMsg === 'function') {
+            onMsg(data)
+          }
+        } catch (e) {
+          console.error('[SOCKET] Fehler beim Parsen der WebSocket-Nachricht:', e, event.data)
+        }
+      }
+
+      // Unerwartet geschlossen (nicht über disconnect/connect): neu verbinden
+      ws.onclose = () => {
+        console.log('[SOCKET] Verbindung geschlossen')
+        isConnected.value = false
+        if (socket === ws) planeReconnect()
+      }
+
+      ws.onerror = (err) => {
+        console.error('[SOCKET] WebSocket-Fehler:', err)
+        error.value = 'CONNECTION_ERROR'
+        isConnected.value = false
+      }
+    } catch (err) {
+      console.error('[SOCKET] Verbindungsaufbau fehlgeschlagen:', err)
+      error.value = 'CONNECTION_ERROR'
+      isConnected.value = false
+      planeReconnect()
+    }
+  }
+
   const connect = (urlOrCallback, onMessageCallback, onOpenCallback) => {
     let targetUrl = defaultUrl
     let onMsg = defaultOnMessage
     let onOpen = null
-
-    console.warn("Logging in")
 
     if (typeof urlOrCallback === 'string') {
       targetUrl = urlOrCallback
@@ -58,65 +134,28 @@ export function useGameSocket(optionsOrUrl = {}) {
       return
     }
 
+    schliessen()
+    versuche = 0
+    letzteVerbindung = { url: targetUrl, onMsg, onOpen }
+    oeffnen(letzteVerbindung)
+  }
+
+  // Gewollt schließen: kein Wiederverbinden
+  function schliessen() {
+    stoppeReconnect()
+    reconnecting.value = false
     if (socket) {
-      socket.onclose = null
-      socket.onerror = null
-      socket.close()
+      const alt = socket
       socket = null
-    }
-
-    try {
-      socket = new WebSocket(targetUrl)
-
-      socket.onopen = () => {
-        console.log(`[SOCKET] Verbunden mit: ${targetUrl}`)
-        isConnected.value = true
-        error.value = null
-
-        // Vorab eingereihte Nachrichten senden
-        while (messageQueue.length > 0) {
-          const queued = messageQueue.shift()
-          socket.send(queued)
-        }
-
-        if (typeof onOpen === 'function') {
-          onOpen()
-        }
-      }
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          if (typeof onMsg === 'function') {
-            onMsg(data)
-          }
-        } catch (e) {
-          console.error('[SOCKET] Fehler beim Parsen der WebSocket-Nachricht:', e, event.data)
-        }
-      }
-
-      socket.onclose = () => {
-        console.log('[SOCKET] Verbindung geschlossen')
-        isConnected.value = false
-      }
-
-      socket.onerror = (err) => {
-        console.error('[SOCKET] WebSocket-Fehler:', err)
-        error.value = 'CONNECTION_ERROR'
-        isConnected.value = false
-      }
-    } catch (err) {
-      console.error('[SOCKET] Verbindungsaufbau fehlgeschlagen:', err)
-      error.value = 'CONNECTION_ERROR'
-      isConnected.value = false
+      alt.onclose = null
+      alt.onerror = null
+      alt.close()
     }
   }
 
   const disconnect = () => {
-    if (socket) {
-      socket.close()
-      socket = null
-    }
+    letzteVerbindung = null
+    schliessen()
     isConnected.value = false
   }
 
@@ -126,21 +165,11 @@ export function useGameSocket(optionsOrUrl = {}) {
 
   return {
     isConnected,
+    reconnecting,
     error,
     connect,
     disconnect,
     sendEvent,
     sendMessage
   }
-}
-
-export function simulateMessage(payload) {
-  if (typeof registrierter_on_message_callback !== 'function') {
-    throw new Error('Kein onMessage registriert. Die Vue-Komponente muss useGameSocket({ onMessage }) aufrufen.')
-  }
-  registrierter_on_message_callback(payload)
-}
-
-export function resetGameSocketMock() {
-  registrierter_on_message_callback = null
 }

@@ -417,7 +417,8 @@ async def test_start_game_success_and_second_fails(env):
 
         await a.send_json_to({"event": "start_game", "payload": {}})
         msg = await recv_until(a, "error")
-        assert "already_running" in msg["payload"]["message"]
+        assert msg["payload"]["code"] == "start_failed"
+        assert "läuft bereits" in msg["payload"]["message"]
     finally:
         await beenden(a, b, c, game_ids=["cov_start_ok"])
 
@@ -1002,5 +1003,32 @@ async def test_host_cannot_start_before_all_roles_are_taken(env):
         await host.send_json_to({"event": "start_game", "payload": {}})
         await recv_until(host, "error")
         assert gid not in games
+    finally:
+        await beenden(host, a, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Fehlercodes für das Frontend (fix/verbindung)
+@pytest.mark.asyncio
+async def test_full_lobby_rejects_with_register_denied(env):
+    gid = "cov_register_denied"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    d = await verbinden_ohne_initial(gid)
+    try:
+        await registrieren(d, "D")
+        msg = await recv_until(d, "error")
+        assert msg["payload"]["code"] == "register_denied"
+    finally:
+        await beenden(a, b, c, d, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_failed_start_reports_start_failed(env):
+    gid = "cov_start_failed"
+    host = await host_verbinden(gid)
+    (a,) = await spieler(gid, ("A", "MASTER"))
+    try:
+        await host.send_json_to({"event": "start_game", "payload": {}})
+        msg = await recv_until(host, "error")
+        assert msg["payload"]["code"] == "start_failed"
     finally:
         await beenden(host, a, game_ids=[gid])

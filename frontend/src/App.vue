@@ -108,6 +108,12 @@ function handleMouseMove(e) {
 
 onMounted(() => {
   applySavedVisuals()
+  // Beamer neu geladen (F5): Adresse enthält ?host=1&game_id=… → direkt zurück in dieselbe Sitzung
+  const params = new URLSearchParams(location.search)
+  if (params.get('host') && params.get('game_id')) {
+    gestartet.value = true
+    role.value = 'host'
+  }
   window.addEventListener('mousemove', handleMouseMove)
 })
 
@@ -125,6 +131,8 @@ function zurueck() {
   gestartet.value = false
   role.value = null
   playerName.value = ''
+  // Sitzung aus der Adresse nehmen, sonst landet ein Neuladen wieder am Beamer
+  if (location.search) history.replaceState(null, '', location.pathname)
 }
 </script>
 

@@ -174,7 +174,7 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         result = await self.lobby.register_player(name, self.channel_name)
         if result["event"] == "error":
-            await self.send_error(result["payload"]["message"])
+            await self.send_error(result["payload"]["message"], code="register_denied")
             return
 
         self.player_name = name
@@ -278,7 +278,7 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def handle_start_game(self):
         payload = await self.lobby.lobby_payload()
         if not payload.get("ready_to_start"):
-            await self.send_error(f"Es werden {len(ROLES)} Spieler mit Rollen benötigt")
+            await self.send_error(f"Es werden {len(ROLES)} Spieler mit Rollen benötigt", code="start_failed")
             return
 
         # Der Beamer wartet auf die Spieler: Start erst, wenn alle „Bereit“ sind (DEV: egal)
@@ -300,7 +300,10 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         result = await self.host.start(self.game_id)
         if result != "started":
-            await self.send_error(f"start failed: {result}")
+            meldung = {"not_ready": "Lobby nicht vollständig – alle drei Rollen nötig.",
+                       "already_running": "Das Spiel läuft bereits.",
+                       "not_found": "Sitzung nicht gefunden."}.get(result, f"Start fehlgeschlagen: {result}")
+            await self.send_error(meldung, code="start_failed")
 
     async def _send_own_tick(self, snap):
         """Aktueller Stand nur an diese Verbindung (später Beitritt / Reconnect)."""

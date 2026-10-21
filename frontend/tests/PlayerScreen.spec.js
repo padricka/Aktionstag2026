@@ -9,6 +9,7 @@ import {
   simulateMessage,
   resetGameSocketMock,
   getSentEvents,
+  setConnected,
 } from './mocks/useGameSocket.js'
 
 vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
@@ -257,6 +258,51 @@ describe('PlayerScreen.vue', () => {
 
     expect(wrapper.find('.briefing-note').text()).toContain('Einsatzbesprechung')
     expect(wrapper.find('.start-btn').exists()).toBe(false)
+  })
+
+  describe('Verbindung und Fehler (fix/verbindung)', () => {
+    async function imSpiel() {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 280, tasks: [{ kind: 'data_rescue', view: { type: 'rescue_terminal' } }] } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+    const fehlerDerAufgabe = (w) => w.find('.task3-stub').attributes('server-error')
+
+    it('Verbindung weg: Banner und die Aufgabe wird freigegeben; wieder da: Banner weg', async () => {
+      const wrapper = await imSpiel()
+      expect(wrapper.find('.conn-banner').exists()).toBe(false)
+
+      setConnected(false)
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.conn-banner').text()).toMatch(/Verbindung verloren/)
+      expect(fehlerDerAufgabe(wrapper)).toMatch(/Verbindung unterbrochen/)
+
+      setConnected(true)
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.conn-banner').exists()).toBe(false)
+    })
+
+    it.each([['error', /Nicht angekommen/], ['ignored', /Nicht angenommen/]])(
+      'input_result %s gibt die Aufgabe frei (Meldung statt hängendem „Prüfe …“)',
+      async (result, text) => {
+        const wrapper = await imSpiel()
+        simulateMessage({ event: 'input_result', payload: { result } })
+        await wrapper.vm.$nextTick()
+        expect(fehlerDerAufgabe(wrapper)).toMatch(text)
+      },
+    )
+
+    it('abgelehnter Beitritt (register_denied) führt zurück zur ID-Eingabe, Meldung bleibt', async () => {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'error', payload: { code: 'register_denied', message: 'Lobby ist bereits voll!' } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.phase-connect').exists()).toBe(true)
+      expect(wrapper.text()).toContain('Lobby ist bereits voll!')
+    })
   })
 
   describe('Bereit-Knopf in der Einsatzbesprechung', () => {

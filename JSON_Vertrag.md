@@ -223,6 +223,10 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   "unknown_game" = die Sitzungs-ID aus der URL gibt es nicht (vertippt oder abgelaufen).
 //                    Kommt direkt nach dem Verbinden; danach schließt der Server die
 //                    Verbindung (Close-Code 4404). Es wird keine Lobby angelegt.
+//   "register_denied" = player_register abgelehnt (Spiel läuft schon, Lobby voll) → das
+//                    Frontend geht zurück zur ID-Eingabe und zeigt die Meldung.
+//   "start_failed" = start_game abgelehnt (Lobby nicht vollständig, läuft schon, unbekannt);
+//                    der Beamer macht das Intro wieder bedienbar.
 //   "hint_denied"  = open_hint abgelehnt (nicht Host, Thema nicht auf dem Block, Aufgabe ohne
 //                    Hilfen, Spiel läuft nicht).
 //   "dev_denied"   = dev_mode / dev_skip_task abgelehnt (nicht Host, DEV-Modus aus,
