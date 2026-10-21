@@ -93,9 +93,18 @@
       </div>
 
       <button v-if="!istLetzte" class="intro-next" type="button" @click="weiter">Weiter ›</button>
-      <button v-else class="intro-start" type="button" :disabled="gestartet" @click="starten">
-        {{ gestartet ? 'Startet …' : 'Einsatz starten ▶' }}
-      </button>
+      <template v-else>
+        <!-- Die letzte Folie wartet, bis alle drei Spieler auf dem Handy „Bereit“ gedrückt haben -->
+        <div v-if="bereit && !gestartet" class="intro-ready" role="status" aria-live="polite">
+          <span class="intro-ready-pips" aria-hidden="true">
+            <i v-for="n in bereit.total" :key="n" :class="{ on: n <= bereit.count }"></i>
+          </span>
+          <span>{{ bereit.all ? 'Alle bereit' : `Warte auf Spieler … ${bereit.count}/${bereit.total} bereit` }}</span>
+        </div>
+        <button class="intro-start" type="button" :disabled="gestartet || wartetAufSpieler" @click="starten">
+          {{ gestartet ? 'Startet …' : 'Einsatz starten ▶' }}
+        </button>
+      </template>
     </footer>
 
     <!-- Übergang ins Spiel: Kamerafahrt aufs brennende Rack, Verbinden, 3 – 2 – 1 – LOS! -->
@@ -243,12 +252,19 @@ const START_BILD = startScreen
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import TornNote from './TornNote.vue'
+import { playSfx, playVoice, stopVoice } from '../composables/useSound.js'
 
 const props = defineProps({
   // ms pro Zeichen in der Sprechblase (0 = sofort, z. B. in Tests)
   typeSpeed: { type: Number, default: 24 },
   // ms je Schritt des Übergangs (Verbinden, 3, 2, 1, LOS!); 0 = sofort starten
   outroSpeed: { type: Number, default: 900 },
+  // Bereit-Stand der Spieler { count, total, all }; null = nicht warten (DEV-Modus, Tests)
+  bereit: { type: Object, default: null },
+  // Funkspruch zu jeder Folie und Töne im Countdown (am Beamer an, in Tests aus)
+  sound: { type: Boolean, default: false },
+  // Folien laufen von selbst (nach dem Funkspruch bzw. der Lesezeit); die letzte wartet auf die Spieler
+  auto: { type: Boolean, default: false },
 })
 const emit = defineEmits(['start'])
 
@@ -263,6 +279,7 @@ let timer = null
 
 const slide = computed(() => SLIDES[index.value])
 const istLetzte = computed(() => index.value === SLIDES.length - 1)
+const wartetAufSpieler = computed(() => !!props.bereit && !props.bereit.all)
 const tippt = computed(() => zeichen.value < slide.value.text.length)
 const getippt = computed(() => slide.value.text.slice(0, zeichen.value))
 
@@ -289,10 +306,40 @@ function tippen() {
   }, props.typeSpeed)
 }
 
-watch(index, tippen)
-onMounted(() => { tippen(); root.value?.focus({ preventScroll: true }) })
+// Lesezeit ohne Ton: mindestens 3 s, sonst ~55 ms pro Zeichen; nach dem Spruch kurze Pause
+const LESEZEIT_MIN_MS = 3000
+const LESEZEIT_PRO_ZEICHEN_MS = 55
+const PAUSE_NACH_SPRUCH_MS = 900
+let autoTimer = null
+
+/** Spielt den Funkspruch der aktuellen Folie. Rückgabe: true, wenn er läuft (beiEnde kommt). */
+function sprechen(beiEnde) {
+  if (!props.sound) return false
+  const name = `intro-slide-${index.value + 1}`
+  return beiEnde ? playVoice(name, beiEnde) : playVoice(name)
+}
+
+function szeneStart() {
+  tippen()
+  clearTimeout(autoTimer)
+  if (!props.auto || istLetzte.value) { sprechen(); return }   // die letzte Folie wartet
+  const nummer = index.value
+  const lesezeit = Math.max(LESEZEIT_MIN_MS, slide.value.text.length * LESEZEIT_PRO_ZEICHEN_MS)
+  const begonnen = Date.now()
+  const blaettern = (wartezeit) => {
+    autoTimer = setTimeout(() => { if (index.value === nummer) index.value += 1 }, wartezeit)
+  }
+  // Mit Ton entscheidet das Ende des Spruchs; ohne Ton oder bei Blockade die Lesezeit
+  const spricht = sprechen(() => blaettern(Math.max(PAUSE_NACH_SPRUCH_MS, lesezeit - (Date.now() - begonnen))))
+  if (!spricht) blaettern(lesezeit)
+}
+
+watch(index, szeneStart)
+onMounted(() => { szeneStart(); root.value?.focus({ preventScroll: true }) })
 onUnmounted(() => {
   stopp()
+  clearTimeout(autoTimer)
+  if (props.sound) stopVoice()
   if (outroTimer) clearInterval(outroTimer)
 })
 
@@ -313,6 +360,8 @@ function springeZumTutorial() {
 function starten() {
   if (gestartet.value) return
   gestartet.value = true
+  clearTimeout(autoTimer)
+  if (props.sound) stopVoice()   // der Funkspruch läuft nicht in den Countdown
   if (!props.outroSpeed) { emit('start'); return }
   // erst der Übergang, dann startet das Spiel (die Zeit läuft also erst nach „LOS!“)
   schritt.value = 0
@@ -327,11 +376,24 @@ function starten() {
   }, props.outroSpeed)
 }
 
+// Countdown 3 – 2 – 1 piept, LOS! gibt das Startsignal
+watch(schritt, (n) => {
+  if (!props.sound) return
+  if (n >= 1 && n <= 3) playSfx('sfx-count')
+  else if (n === 4) playSfx('sfx-go')
+})
+
+// Werden die Spieler auf der letzten Folie bereit, geht es von selbst mit dem Countdown los.
+// Waren sie schon vorher bereit, entscheidet der Beamer-Host (Knopf ist dann frei).
+watch(() => props.bereit?.all, (alle) => {
+  if (alle && istLetzte.value) starten()
+})
+
 function taste(e) {
   if (outroAktiv.value) return
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); weiter() }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); zurueck() }
-  else if (e.key === 'Enter') { e.preventDefault(); istLetzte.value ? starten() : weiter() }
+  else if (e.key === 'Enter') { e.preventDefault(); if (!istLetzte.value) weiter(); else if (!wartetAufSpieler.value) starten() }
 }
 </script>
 
@@ -884,4 +946,25 @@ function taste(e) {
   .outro-bild, .outro-count, .intro-outro { animation: none; }
   .szene-enter-active, .szene-leave-active { transition: none; }
 }
+
+.intro-ready {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--fg-2);
+}
+.intro-ready-pips { display: inline-flex; gap: 6px; }
+.intro-ready-pips i {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-2);
+  border-radius: 50%;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.intro-ready-pips i.on { background: var(--green); box-shadow: 0 0 8px var(--green); border-color: var(--green); }
+.intro-start:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

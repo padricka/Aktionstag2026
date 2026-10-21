@@ -7,6 +7,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import IntroStory, { SLIDES } from '../src/components/IntroStory.vue'
+import * as sound from '../src/composables/useSound.js'
+
+vi.mock('../src/composables/useSound.js')
 
 const weiter = (w) => w.find('button.intro-next')
 const zurueck = (w) => w.find('button.intro-back')
@@ -146,3 +149,157 @@ describe('IntroStory.vue – Übergang ins Spiel', () => {
     expect(w.find('.intro-nav').exists()).toBe(false)
   })
 })
+
+describe('IntroStory.vue — wartet auf „Bereit“ der Spieler', () => {
+  const bereit = (count, all = count === 3) => ({ count, total: 3, all })
+
+  function mountMitBereit(b) {
+    return mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0, bereit: b } })
+  }
+
+  it('hält die letzte Folie an, solange nicht alle bereit sind', async () => {
+    const w = mountMitBereit(bereit(1))
+    await bisZumEnde(w)
+    expect(w.find('button.intro-start').attributes('disabled')).toBeDefined()
+    expect(w.find('.intro-ready').text()).toContain('1/3')
+    expect(w.emitted('start')).toBeUndefined()
+  })
+
+  it('startet von selbst, sobald auf der letzten Folie alle bereit sind', async () => {
+    const w = mountMitBereit(bereit(2))
+    await bisZumEnde(w)
+    await w.setProps({ bereit: bereit(3) })
+    expect(w.emitted('start')).toHaveLength(1)
+  })
+
+  it('waren schon vorher alle bereit, gibt der Knopf frei, aber der Host entscheidet', async () => {
+    const w = mountMitBereit(bereit(3))
+    await bisZumEnde(w)
+    expect(w.emitted('start')).toBeUndefined()   // Tutorial bleibt lesbar
+    expect(w.find('button.intro-start').attributes('disabled')).toBeUndefined()
+    await w.find('button.intro-start').trigger('click')
+    expect(w.emitted('start')).toHaveLength(1)
+  })
+
+  it('ohne bereit-Angabe bleibt der Knopf frei (Tests, DEV-Modus)', async () => {
+    const w = mountIntro()
+    await bisZumEnde(w)
+    expect(w.find('button.intro-start').attributes('disabled')).toBeUndefined()
+    expect(w.find('.intro-ready').exists()).toBe(false)
+  })
+})
+
+describe('IntroStory.vue — Funkspruch und Countdown-Töne', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
+
+  const mitTon = (extra = {}) => mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0, sound: true, ...extra } })
+
+  it('spielt zu jeder Folie den passenden Funkspruch', async () => {
+    const w = mitTon()
+    expect(sound.playVoice).toHaveBeenLastCalledWith('intro-slide-1')
+    await weiter(w).trigger('click')
+    expect(sound.playVoice).toHaveBeenLastCalledWith('intro-slide-2')
+    await w.find('button.intro-skip').trigger('click')
+    expect(sound.playVoice).toHaveBeenLastCalledWith(`intro-slide-${SLIDES.length}`)
+  })
+
+  it('hält den Funkspruch an, wenn das Intro verschwindet', () => {
+    const w = mitTon()
+    w.unmount()
+    expect(sound.stopVoice).toHaveBeenCalled()
+  })
+
+  it('bleibt ohne sound-Angabe stumm', async () => {
+    const w = mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0 } })
+    await weiter(w).trigger('click')
+    expect(sound.playVoice).not.toHaveBeenCalled()
+    expect(sound.playSfx).not.toHaveBeenCalled()
+  })
+
+  it('piept beim Countdown 3, 2, 1 und gibt bei LOS das Startsignal', async () => {
+    vi.useFakeTimers()
+    const w = mitTon({ outroSpeed: 900 })
+    await bisZumEnde(w)
+    await w.find('button.intro-start').trigger('click')
+    expect(sound.stopVoice).toHaveBeenCalled()   // kein Funkspruch über den Countdown
+    for (let i = 0; i < 3; i++) {
+      vi.advanceTimersByTime(900)
+      await w.vm.$nextTick()
+    }
+    expect(sound.playSfx.mock.calls.filter(([n]) => n === 'sfx-count')).toHaveLength(3)
+    vi.advanceTimersByTime(900)
+    await w.vm.$nextTick()
+    expect(sound.playSfx).toHaveBeenLastCalledWith('sfx-go')
+  })
+})
+
+describe('IntroStory.vue — Folien laufen von selbst (auto)', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
+
+  const auto = (extra = {}) => mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0, auto: true, ...extra } })
+  const aktuellerText = (w) => w.find('.bubble').text()
+
+  it('geht mit Ton nach dem Funkspruch kurz darauf zur nächsten Folie', async () => {
+    vi.useFakeTimers()
+    let beiEnde
+    sound.playVoice.mockImplementation((name, cb) => { beiEnde = cb; return true })
+    const w = auto({ sound: true })
+    expect(aktuellerText(w)).toContain(SLIDES[0].text)
+    vi.advanceTimersByTime(20000)
+    await w.vm.$nextTick()
+    expect(aktuellerText(w)).toContain(SLIDES[0].text)   // Spruch läuft noch
+    beiEnde()
+    vi.advanceTimersByTime(1500)
+    await w.vm.$nextTick()
+    expect(aktuellerText(w)).toContain(SLIDES[1].text)
+  })
+
+  it('ohne Ton blättert es nach der Lesezeit weiter (Länge des Textes)', async () => {
+    vi.useFakeTimers()
+    const w = auto()
+    vi.advanceTimersByTime(2500)
+    await w.vm.$nextTick()
+    expect(aktuellerText(w)).toContain(SLIDES[0].text)
+    vi.advanceTimersByTime(6000)
+    await w.vm.$nextTick()
+    expect(aktuellerText(w)).toContain(SLIDES[1].text)
+  })
+
+  it('bleibt auf der letzten Folie stehen und wartet auf die Spieler', async () => {
+    vi.useFakeTimers()
+    const w = auto({ bereit: { count: 0, total: 3, all: false } })
+    for (let i = 0; i < 40; i++) {   // jede Folie wartet ihre Lesezeit; zwischen den Folien läuft Vue
+      await vi.advanceTimersByTimeAsync(7000)
+    }
+    expect(w.find('button.intro-start').exists()).toBe(true)   // letzte Folie erreicht ...
+    expect(w.find('button.intro-start').attributes('disabled')).toBeDefined()   // ... und sie wartet
+    expect(w.find('.intro-ready').text()).toContain('0/3')
+    expect(w.emitted('start')).toBeUndefined()
+  })
+
+  it('manuelles Weiter plant die Automatik neu, es wird keine Folie übersprungen', async () => {
+    vi.useFakeTimers()
+    const w = auto()
+    vi.advanceTimersByTime(4000)
+    await w.find('button.intro-next').trigger('click')
+    expect(aktuellerText(w)).toContain(SLIDES[1].text)
+    vi.advanceTimersByTime(2000)
+    await w.vm.$nextTick()
+    expect(aktuellerText(w)).toContain(SLIDES[1].text)   // der alte Timer ist weg
+  })
+
+  it('ohne auto bleibt alles manuell', async () => {
+    vi.useFakeTimers()
+    const w = mount(IntroStory, { props: { typeSpeed: 0, outroSpeed: 0 } })
+    vi.advanceTimersByTime(60000)
+    await w.vm.$nextTick()
+    expect(aktuellerText(w)).toContain(SLIDES[0].text)
+  })
+})
+
