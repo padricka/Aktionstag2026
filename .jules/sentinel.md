@@ -1,4 +1,4 @@
-## 2026-10-17 - [Remove Hardcoded Secret Key Fallback]
-**Vulnerability:** Found a hardcoded string used as a fallback for Django's SECRET_KEY in production.
-**Learning:** Hardcoded fallbacks in configuration allow attackers to guess session tokens or CSRF tokens if the environment variable is accidentally omitted. The correct approach in Django is to raise an ImproperlyConfigured exception so the service fails securely, or only use the insecure fallback during development (DEBUG=True).
-**Prevention:** Never use hardcoded security keys as fallbacks. Always validate the presence of sensitive environment variables and raise an exception if they are missing in production environments.
+## 2025-02-14 - Fix Hardcoded SECRET_KEY in Django Settings
+**Vulnerability:** A hardcoded `SECRET_KEY` string ("django-insecure-drv-ak26-reaktorspiel-secret-key-change-in-production") was present in `backend/backend/settings.py` as a fallback during development.
+**Learning:** Hardcoding a secret key in code is a critical security risk. Although it was intended as a development fallback when `DEBUG` is true, keeping any static secret strings in the codebase is picked up by security scanners, and if accidentally deployed or leaked, it allows attackers to bypass cryptographic signing validations, perform session hijacking, and escalate privileges.
+**Prevention:** Always read sensitive secrets from environment variables. If a fallback is necessary for development environments (`DEBUG=True`), generate a random string dynamically (e.g. `secrets.token_urlsafe()`) so that the secret isn't written statically in the source code.

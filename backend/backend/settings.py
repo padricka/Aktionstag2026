@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 
@@ -9,7 +10,7 @@ DEBUG = os.environ.get("DEBUG", "True").lower() in ("true", "1")
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
     if DEBUG:
-        SECRET_KEY = "django-insecure-drv-ak26-reaktorspiel-secret-key-change-in-production"
+        SECRET_KEY = secrets.token_urlsafe(50)
     else:
         raise ImproperlyConfigured("The SECRET_KEY environment variable is not set and is required in production.")
 
