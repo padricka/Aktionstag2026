@@ -305,6 +305,43 @@ describe('PlayerScreen.vue', () => {
     })
   })
 
+  describe('Bereit-Knopf in der Einsatzbesprechung', () => {
+    async function imBriefing(players) {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+      simulateMessage({ event: 'lobby_update', payload: { players, status: 'briefing', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      return wrapper
+    }
+
+    it('meldet „Bereit“ an den Server', async () => {
+      const wrapper = await imBriefing([{ name: 'Patrick', role: 'MASTER', ready: false }])
+      await wrapper.find('.ready-btn').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'player_ready', payload: { ready: true } })
+    })
+
+    it('zeigt nach dem Server-Update „bereit“ und nimmt es beim nächsten Klick zurück', async () => {
+      const wrapper = await imBriefing([
+        { name: 'Patrick', role: 'MASTER', ready: true },
+        { name: 'Bene', role: 'FI-SI', ready: false },
+      ])
+      expect(wrapper.find('.ready-btn').classes()).toContain('is-ready')
+      expect(wrapper.find('.briefing-note').text()).toContain('1/3')
+      await wrapper.find('.ready-btn').trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'player_ready', payload: { ready: false } })
+    })
+
+    it('gibt es nur in der Einsatzbesprechung', async () => {
+      const wrapper = mount(PlayerScreen, { props: { playerName: 'Patrick' }, global: { stubs } })
+      await joinAs(wrapper)
+      simulateMessage({ event: 'role_assigned', payload: { role: 'MASTER' } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [{ name: 'Patrick', role: 'MASTER' }], status: 'ready', ready_to_start: true } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.ready-btn').exists()).toBe(false)
+    })
+  })
+
   it('zeigt Task-UI und HP nach game_tick', async () => {
     const wrapper = mount(PlayerScreen, {
       props: { playerName: 'Patrick' },

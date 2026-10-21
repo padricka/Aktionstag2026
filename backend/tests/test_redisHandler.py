@@ -277,7 +277,7 @@ def test_lobby_payload_lists_players_with_roles(handler):
     handler.register_player("g", "A")
     handler.choose_role("g", "A", "MASTER")
     payload = handler.get_lobby_payload("g")
-    assert payload["players"] == [{"name": "A", "role": "MASTER"}]
+    assert payload["players"] == [{"name": "A", "role": "MASTER", "ready": False}]
 
 
 # ---------------------------------------------------------------- update_owner_settings
