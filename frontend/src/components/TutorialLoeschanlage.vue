@@ -121,13 +121,13 @@ onUnmounted(() => timer.forEach((t) => { clearTimeout(t); clearInterval(t) }))
 
 .tut-freigabe {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
   gap: 16px;
   width: 100%;
 }
-.tut-person { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 15px; color: var(--fg-2); max-width: 260px; }
+.tut-person { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 15px; color: var(--fg-2); }
 .tut-zaehlen { font-size: 24px; font-weight: 700; color: var(--amber); }
 
 .tut-meldung { margin: 0; font-size: 18px; font-weight: 700; }

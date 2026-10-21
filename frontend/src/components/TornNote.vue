@@ -1,32 +1,37 @@
 <template>
-  <div
-    v-if="note"
-    class="tn"
-    :class="tornClasses"
-    role="note"
-    :aria-label="ariaLabel"
-  >
-    <div class="tn-paper" :style="paperStyle">
-      <div
-        v-for="r in rows"
-        :key="r.row"
-        class="tn-row"
-        :data-row="r.row"
-        :style="`top: calc(${r.row - firstRow} * var(--tn-line))`"
-      >
-        <span
-          v-for="(l, i) in r.lines"
-          :key="i"
-          class="tn-text"
-          :class="`is-${l.style || 'text'}`"
-        >{{ l.text }}</span>
+  <!-- Hülle: passt der Zettel nicht in die Spalte, wird er als Ganzes kleiner – nie abgeschnitten -->
+  <div v-if="note" ref="huelle" class="tn-fit" :class="{ 'is-skaliert': skala < 1 }" :style="huellenStil">
+    <div
+      ref="zettel"
+      class="tn"
+      :class="tornClasses"
+      role="note"
+      :aria-label="ariaLabel"
+      :style="zettelStil"
+    >
+      <div class="tn-paper" :style="paperStyle">
+        <div
+          v-for="r in rows"
+          :key="r.row"
+          class="tn-row"
+          :data-row="r.row"
+          :style="`top: calc(${r.row - firstRow} * var(--tn-line))`"
+        >
+          <span
+            v-for="(l, i) in r.lines"
+            :key="i"
+            class="tn-text"
+            :class="`is-${l.style || 'text'}`"
+          >{{ l.text }}</span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { skalaBreite } from '../utils/passend.js'
 
 /**
  * Ein Stück eines zerrissenen Notizzettels. Nur Darstellung (PANELS.md):
@@ -100,9 +105,63 @@ const clipPath = computed(() => {
 })
 
 const paperStyle = computed(() => `clip-path: ${clipPath.value}; --tn-lines: ${lineCount.value}`)
+
+// ---------------------------------------------------------------- nie abgeschnitten
+// Zeilen brechen nicht um. Ist die längste Zeile breiter als die Spalte, bekommt der Zettel
+// seine natürliche Breite und wird als Ganzes verkleinert (fix/alles-passt).
+const huelle = ref(null)
+const zettel = ref(null)
+const skala = ref(1)
+const naturBreite = ref(0)
+const naturHoehe = ref(0)
+
+const zettelStil = computed(() => (skala.value < 1
+  ? { width: `${naturBreite.value}px`, maxWidth: 'none', transform: `scale(${skala.value})`, transformOrigin: 'top left' }
+  : {}))
+const huellenStil = computed(() => (skala.value < 1 ? { height: `${naturHoehe.value * skala.value}px` } : {}))
+
+function messen() {
+  const h = huelle.value
+  const z = zettel.value
+  if (!h || !z) return
+  const reihen = [...z.querySelectorAll('.tn-row')]
+  if (!reihen.length) return
+  const paper = z.querySelector('.tn-paper')
+  const links = reihen[0].offsetLeft
+  const rechts = paper.clientWidth - links - reihen[0].clientWidth
+  const laengste = Math.max(...reihen.map((r) => {
+    const teile = [...r.children]
+    const luecke = parseFloat(getComputedStyle(r).columnGap) || 0
+    return teile.reduce((s, t) => s + t.offsetWidth, 0) + luecke * Math.max(0, teile.length - 1)
+  }))
+  const noetig = Math.ceil(laengste + links + rechts + 2)
+  const platz = Math.min(h.clientWidth, 520)
+  naturBreite.value = Math.max(noetig, platz)
+  naturHoehe.value = z.offsetHeight
+  skala.value = skalaBreite(noetig, platz)
+}
+
+let ro = null
+let frame = 0
+const spaeter = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(messen) }
+onMounted(() => {
+  if (typeof ResizeObserver === 'undefined') return   // Tests (jsdom): kein Layout, nichts zu tun
+  ro = new ResizeObserver(spaeter)
+  if (huelle.value) ro.observe(huelle.value)
+  document.fonts?.ready?.then(spaeter)                // die Handschrift-Schrift ändert die Breiten
+  spaeter()
+})
+watch(() => props.note, () => nextTick(() => {
+  if (ro && huelle.value) { ro.disconnect(); ro.observe(huelle.value) }
+  spaeter()
+}))
+onUnmounted(() => { ro?.disconnect(); cancelAnimationFrame(frame) })
 </script>
 
 <style scoped>
+.tn-fit { width: 100%; max-width: 520px; }
+.tn-fit.is-skaliert { overflow: visible; }
+
 .tn {
   --tn-line: 32px;
   --tn-pad: 18px;
