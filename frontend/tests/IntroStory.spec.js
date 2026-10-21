@@ -100,15 +100,15 @@ describe('IntroStory.vue – Bilder und letzte Seite (Feedback)', () => {
     expect(w.findAll('.intro-notes .tn')).toHaveLength(3)
   })
 
-  it('letzte Seite: großes Beispiel-Notizblatt und der Taschenrechner', async () => {
+  it('letzte Seite: großes Beispiel-Notizblatt, kein Taschenrechner mehr (feat/ohne-taschenrechner)', async () => {
     const w = mountIntro()
     await bisZumEnde(w)
     expect(w.find('.tutorial-note .tn').exists()).toBe(true)
-    expect(w.find('.calc-mini').exists()).toBe(true)
+    expect(w.find('.calc-mini').exists()).toBe(false)
     const punkte = w.findAll('.tutorial li').map((li) => li.text())
-    expect(punkte).toHaveLength(5)
+    expect(punkte).toHaveLength(4)
     expect(punkte.some((p) => /Reihenfolge/.test(p))).toBe(true)
-    expect(punkte.some((p) => /Taschenrechner/.test(p))).toBe(true)
+    expect(punkte.join(' ')).not.toMatch(/Taschenrechner/)
     expect(punkte.join(' ')).not.toMatch(/Hilfe-Zettel/)
   })
 })

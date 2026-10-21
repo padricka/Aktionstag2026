@@ -2,7 +2,7 @@
   IntroStory — Einsatzbesprechung am Beamer, bevor die Zeit läuft (Status "briefing").
 
   Szenen mit Sprechblasen, die sich wie getippt aufbauen; zum Schluss ein Tutorial mit
-  einem echten Notizblatt und dem Taschenrechner. Erst „Einsatz starten“ meldet start →
+  einem echten Notizblatt. Erst „Einsatz starten“ meldet start →
   HostScreen schickt start_game, das Spiel beginnt. Blättern: Knöpfe, Pfeiltasten, Enter.
 
   Bilder: Szene 1 ist das Startbild. Szenen 2, 3 und 5 sind Ausschnitte daraus (Kamera-
@@ -48,17 +48,10 @@
           </div>
         </div>
 
-        <!-- Tutorial: großes Beispiel-Notizblatt + Taschenrechner -->
+        <!-- Tutorial: großes Beispiel-Notizblatt -->
         <div v-else-if="slide.visual === 'tutorial'" class="tutorial-visual">
           <div class="tutorial-note">
             <TornNote :note="BEISPIEL_NOTIZ" seed="intro-beispiel" />
-          </div>
-          <div class="calc-mini" aria-label="So sieht der Taschenrechner aus">
-            <div class="calc-mini-top"><span>DRV·CALC</span><i></i></div>
-            <div class="calc-mini-lcd"><small>64 + 2 + 1</small><b>67</b></div>
-            <div class="calc-mini-keys">
-              <span v-for="k in MINI_TASTEN" :key="k" :class="{ op: '÷×−+'.includes(k), eq: k === '=' }">{{ k }}</span>
-            </div>
           </div>
         </div>
 
@@ -197,7 +190,6 @@ export const SLIDES = [
       { icon: '①', text: 'Drei Aufgaben, dann das Finale. Jede gelöste Aufgabe bringt ein Teil – im Finale baut ihr damit den Server wieder zusammen.' },
       { icon: '♥', text: 'Das Feuer frisst laufend Leben, falsche Eingaben noch mehr. Sind die Leben weg oder läuft die Zeit ab, ist der Server verloren.' },
       { icon: '✎', text: 'Eure Notizzettel (wie links) sagen, wie ihr vorgehen müsst: Die Nummern ①②③ geben die Reihenfolge vor, Rechenbeispiele stehen gleich dabei.' },
-      { icon: '⌗', text: 'Rechts auf dem Handy liegt ein Taschenrechner – antippen, dann gleitet er herein.' },
       { icon: '★', text: 'Je schneller und je weniger Hilfe, desto mehr Punkte.' },
     ],
   },
@@ -242,7 +234,6 @@ export const BEISPIEL_NOTIZ = {
   ],
 }
 
-const MINI_TASTEN = ['C', '⌫', '÷', '×', '7', '8', '9', '−', '4', '5', '6', '+', '1', '2', '3', '=']
 
 // Übergang ins Spiel: ein Schritt je outroSpeed ms, danach start
 const OUTRO = ['VERBINDE', '3', '2', '1', 'LOS!']
@@ -616,67 +607,6 @@ function taste(e) {
   transform: rotate(-2deg);
 }
 
-.calc-mini {
-  position: absolute;
-  right: 0;
-  bottom: 4%;
-  width: 200px;
-  padding: 10px;
-  border-radius: 12px;
-  background: linear-gradient(160deg, #3a3f48 0%, #262a31 55%, #1d2026 100%);
-  box-shadow: -6px 16px 26px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transform: rotate(8deg);
-}
-
-.calc-mini-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.15em;
-  color: #c9ced6;
-}
-
-.calc-mini-top i { width: 36px; height: 7px; background: #3b2e22; border-radius: 2px; }
-
-.calc-mini-lcd {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  padding: 4px 7px;
-  margin-bottom: 7px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #b7c6a0, #a6b78e);
-  color: #1c2818;
-  font-family: var(--mono);
-}
-
-.calc-mini-lcd small { font-size: 11px; opacity: 0.75; }
-.calc-mini-lcd b { font-size: 24px; }
-
-.calc-mini-keys {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-}
-
-.calc-mini-keys span {
-  display: grid;
-  place-items: center;
-  height: 24px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #4a505a, #353a42);
-  box-shadow: 0 2px 0 #15171b;
-  color: #eef1f5;
-  font-family: var(--mono);
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.calc-mini-keys span.op { background: linear-gradient(180deg, #6a5a3a, #4f4329); color: #ffd27a; }
-.calc-mini-keys span.eq { background: linear-gradient(180deg, #2f7a4f, #1f5a39); }
 
 /* ------------------------------------------------------------ Sprechblase (Comic) */
 .intro-talk {

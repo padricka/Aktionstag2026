@@ -1,9 +1,9 @@
 <!--
   Teilekiste — nur beim Leitstand (GAME_DESIGN.md, „Fundorte und Teilekiste“).
 
-  Zu: eine Kunststoffkiste liegt schräg und halb im Bild am linken Rand (der
-  Taschenrechner liegt rechts), oben die Zahl der gefundenen Teile. Ein Klick zieht
-  sie herein, die Aufgabe rückt zur Seite (v-model:open, wie beim Taschenrechner).
+  Zu: eine Kunststoffkiste liegt schräg und halb im Bild am linken Rand,
+  oben die Zahl der gefundenen Teile. Ein Klick zieht
+  sie herein, die Aufgabe rückt zur Seite (v-model:open).
   Drei Fächer: Netzteil, Lüfter, Backup-Platte – gefunden mit Etikett, sonst nur der
   Umriss. Die Etiketten braucht das Team im Finale. Kommt ein Teil dazu, wackelt sie kurz.
 -->

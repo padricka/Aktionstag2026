@@ -150,7 +150,7 @@
           <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
         </header>
 
-        <main class="task-main" :class="{ 'with-calc': rechnerOffen, 'with-kiste': kisteOffen }">
+        <main class="task-main" :class="{ 'with-kiste': kisteOffen }">
           <!-- von Aufgabe zu Aufgabe: alte gleitet weg, neue kommt herein (style.css: .task-*) -->
           <Transition name="task" mode="out-in">
             <component
@@ -174,8 +174,6 @@
           </Transition>
         </main>
 
-        <!-- Taschenrechner für alle Rollen, rechts am Rand -->
-        <Calculator v-model:open="rechnerOffen" />
         <!-- Teilekiste nur beim Leitstand, links am Rand -->
         <Teilekiste v-if="myRole === 'MASTER'" v-model:open="kisteOffen" :teile="teile" />
 
@@ -199,7 +197,6 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
-import Calculator from './Calculator.vue'
 import Teilekiste from './Teilekiste.vue'
 import Zwischenszene from './Zwischenszene.vue'
 
@@ -259,7 +256,6 @@ const starting = ref(false)
 const startError = ref('')
 
 const restarting = ref(false)
-const rechnerOffen = ref(false)     // Taschenrechner offen → Aufgabe rückt zur Seite
 const kisteOffen = ref(false)       // Teilekiste (Leitstand) offen → Aufgabe rückt zur Seite
 const teile = ref([])               // gefundene Teile (game_tick.parts)
 const zwischenszene = ref(null)     // { teil, naechste, key } solange die Szene läuft
@@ -1106,14 +1102,12 @@ function onTaskSolved(data) {
   overflow: hidden;
 }
 
-/* Platz für den offenen Taschenrechner (rechts, auf dem Handy unten), damit
+/* Platz für die offene Teilekiste (links, auf dem Handy unten), damit
    die Zahlen der Aufgabe sichtbar bleiben */
 .task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
-.task-main.with-calc { padding-right: 280px; }
 .task-main.with-kiste { padding-left: 300px; }
 
 @media (max-width: 700px) {
-  .task-main.with-calc { padding-right: 16px; padding-bottom: 400px; overflow-y: auto; }
   .task-main.with-kiste { padding-left: 16px; padding-bottom: 420px; overflow-y: auto; }
 }
 
