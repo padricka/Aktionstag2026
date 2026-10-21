@@ -114,6 +114,11 @@
           <div v-if="status === 'briefing'" class="briefing-note">
             <span class="briefing-title">Einsatzbesprechung läuft</span>
             <span class="briefing-sub">Schaut auf den Beamer – gleich geht's los.</span>
+            <!-- Der Beamer wartet auf der letzten Folie, bis alle drei „Bereit“ gedrückt haben -->
+            <button class="ready-btn" :class="{ 'is-ready': meReady }" type="button" @click="toggleReady">
+              {{ meReady ? '✓ Bereit – tippen zum Zurücknehmen' : 'Bereit' }}
+            </button>
+            <span class="briefing-count">{{ readyCount }}/3 bereit</span>
             <!-- Notfall: Beamer weg (Tab zu, abgestürzt) – nach 20 s auch ohne Besprechung starten -->
             <button v-if="notstartMoeglich" class="briefing-fallback" type="button" @click="startGame">
               Kein Beamer da? Ohne Einsatzbesprechung starten
@@ -243,6 +248,10 @@ const lastError = ref('')
 const roleError = ref('')
 
 const readyToStart = ref(false)
+const meReady = computed(() => lobbyPlayers.value.some(
+  (p) => p.name === (props.playerName || 'Agent') && p.ready
+))
+const readyCount = computed(() => lobbyPlayers.value.filter((p) => p.ready).length)
 const starting = ref(false)
 const startError = ref('')
 
@@ -568,6 +577,10 @@ function pickRole(r) {
   if (isTaken(r)) return
   roleError.value = ''
   sendEvent('choose_role', { role: r })
+}
+
+function toggleReady() {
+  sendEvent('player_ready', { ready: !meReady.value })
 }
 
 function startGame() {
@@ -1009,6 +1022,23 @@ function onTaskSolved(data) {
 
 .briefing-title { font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.12em; color: var(--green); }
 .briefing-sub { font-size: 14px; color: var(--fg-2); }
+.briefing-count { font-family: var(--mono); font-size: 13px; letter-spacing: 0.1em; color: var(--fg-3); }
+.ready-btn {
+  margin-top: 10px;
+  min-height: 52px;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  background: transparent;
+  color: var(--green);
+  border: 2px solid var(--green);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.ready-btn:hover { background: rgba(0, 255, 140, 0.12); }
+.ready-btn.is-ready { background: var(--green); color: var(--bg); }
 
 .briefing-fallback {
   margin-top: 10px;

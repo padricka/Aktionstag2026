@@ -114,9 +114,19 @@ describe('SettingsScreen.vue', () => {
     expect(document.documentElement.classList.contains('theme-dark')).toBe(true)
   })
 
-  it('zeigt Audio-Stub-Hinweis', async () => {
+  it('Audio ist verdrahtet: kein „Noch nicht verdrahtet“-Hinweis mehr, dafür ein Schalter für den Funkspruch', async () => {
     const wrapper = mount(SettingsScreen)
     await flushPromises()
-    expect(wrapper.text()).toContain('Noch nicht verdrahtet')
+    expect(wrapper.text()).not.toContain('Noch nicht verdrahtet')
+    expect(wrapper.text()).toContain('Funkspruch')
+  })
+
+  it('speichert den Funkspruch-Schalter', async () => {
+    const wrapper = mount(SettingsScreen)
+    await flushPromises()
+    const zeile = wrapper.findAll('.setting').find((z) => z.text().includes('Funkspruch'))
+    await zeile.find('button').trigger('click')
+    await wrapper.findAll('button.btn').find((b) => b.text() === 'Speichern').trigger('click')
+    expect(JSON.parse(localStorage.getItem('drv_game_settings')).voiceEnabled).toBe(false)
   })
 })
