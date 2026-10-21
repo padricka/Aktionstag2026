@@ -109,32 +109,34 @@ Falscher Schrank / falsches Löschmittel kostet Leben; wer zu spät drückt, war
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
-**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden. Dafür muss die richtige Platte eingelegt, das Backup-Terminal entsperrt und das Passwort aus den Datenpaketen entschlüsselt werden – als **Kette**: Platte → Login → Pakete prüfen → Binär → Dezimal → Buchstabe → zurückschieben. Das Ergebnis ist immer **RENTE**, der Login ein DRV-Begriff (REHA, BUND oder DRV).
+**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden. Dafür muss die richtige Platte eingelegt, das Backup-Terminal entsperrt und das Passwort aus den Datenzeilen entschlüsselt werden – als **Kette**: Platte → Login → Datenzeile → Zahl → Buchstabe → zurückschieben. Das Ergebnis ist immer **RENTE**, der Login ein DRV-Begriff (REHA oder DRV).
+
+**Leichte Fassung** (`feat/leichter-datenrettung`, nach Rückmeldung von Nicht-ITlern): kein Prüfbit und kein kaputtes Paket mehr, keine Binär-Schlüssel, keine Hex-Buchstaben (A–F), die Stellenwerte stehen direkt über den Ziffern, k wird eingetragen und ist dann für alle sichtbar, die Vorderseite hat eine Alphabet-Leiste.
 
 | | Leitstand (`MASTER`) | Vorderseite (`FI-SI`) | Rückseite (`FI-AE`) |
 |---|---|---|---|
-| **Sieht** | **Log:** Login-Name als Hex-Codes, **Backup-Jobs** (Datum, Platte, Status), **Schlüsselbund** (Key-ID, Schlüssel binär, Status aktiv/REVOKED/abgelaufen) | **ASCII-Tabelle** A=65 … Z=90, **Backup-Terminal** (erst gesperrt) | 4 **Backup-Platten**; nach dem Einlegen **6 Datenpakete** à 8 Bit (Prüfbit P abgesetzt) und die **Key-ID** im Paket-Kopf (binär) |
-| **Zettel** | Anleitung Teil 1/3: Regeln ④ + ⑥ + Falle | Anleitung Teil 2/3: Regeln ② + ③ | Anleitung Teil 3/3: Regeln ① + ⑤ |
-| **Eingabe** | – | `terminal_login`, danach `rescue_word` | `mount_disk` |
+| **Sieht** | **Log:** Login-Name als Hex-Codes (nur Ziffern), **Backup-Jobs** (Datum, Platte, Status), **Schlüsselbund** (Nr., k, gültig/gesperrt) | **ASCII-Tabelle** A=65 … Z=90, **Backup-Terminal** (erst gesperrt), nach dem Login die **Alphabet-Leiste** | 4 **Backup-Platten**; nach dem Einlegen die **Schlüssel-Nr.** und **5 Datenzeilen** à 8 Ziffern, darüber die Stellenwerte 128 64 32 16 8 4 2 1 |
+| **Zettel** | Anleitung Teil 1/3: Regeln ⑤ + ⑥ + Falle | Anleitung Teil 2/3: Regeln ② + ④ | Anleitung Teil 3/3: Regeln ① + ③ |
+| **Eingabe** | `set_key` (k eintragen – danach sehen alle „k = …“) | `terminal_login`, danach `rescue_word` | `mount_disk` |
 
-**Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, **mit Rechenbeispiel** (auch ohne Informatik-Vorwissen lösbar), und jeweils bei dem, der die Fakten dazu nicht sieht. Nummern in der Reihenfolge, in der man sie braucht:
+**Die Anleitung** (`backend/notes.py`, `RESCUE_NOTE`) – jede Regel vollständig, das **Rechenbeispiel mittig eingerahmt** (Zettel-Stil `beispiel`):
 - **①** *(Rückseite)* Richtige Platte = das **neueste** Backup mit Status **OK**. Datum ist TAG.MONAT – erst Monat, dann Tag vergleichen. *Bsp: 03.04. ist neuer als 28.03.* *Die Backup-Jobs hat der Leitstand.*
-- **②** *(Vorderseite)* Login-Name in **Hex**: erste Ziffer · 16 + zweite, A=10 … F=15; dann Zahl → Buchstabe in der ASCII-Tabelle. *Bsp: 0x4E → 4 · 16 + 14 = 78 → N.* *Die Hex-Codes hat der Leitstand.*
-- **③** *(Vorderseite)* Pakete prüfen: Einsen zählen, **gerade** → heil, **ungerade** → weglassen. *Bsp: 1 1000011 → 4 Einsen → heil.* *Die Pakete hat die Rückseite.*
-- **④** *(Leitstand)* Binär → Dezimal: erstes Bit = Prüfbit, zählt nicht; 64 32 16 8 4 2 1. Key-ID und Schlüssel: 4 Bit = 8 4 2 1. *Bsp: 1 1000011 → 64 + 2 + 1 = 67; 0110 → 6.* *Die Pakete hat die Rückseite.*
-- **⑤** *(Rückseite)* Schlüssel k = der **aktive** Eintrag mit der Key-ID aus dem Paket-Kopf – nie REVOKED, nie abgelaufen. *Den Schlüsselbund hat der Leitstand.*
-- **⑥** *(Leitstand)* Jeden Buchstaben um k im Alphabet **zurück**, vor A kommt Z. *Bsp k = 3: F → C.* *Die Buchstaben kommen von der Vorderseite.*
-- **Fallen:** das allerneueste Backup ist immer FEHLER; Datum als Text verglichen („28.03.“ > „03.04.“) führt zur falschen Platte; zur Key-ID gibt es einen REVOKED-Zwilling; „Immer ROT13“ durchgestrichen (k ist 1–9).
+- **②** *(Vorderseite)* Login-Name in **Hex**: erste Ziffer · 16 + zweite. *Bsp: 0x52 → 5 · 16 + 2 = 82 → R.* *Die Hex-Codes hat der Leitstand.*
+- **③** *(Rückseite)* Jede Datenzeile ist eine Zahl: die Werte über jeder 1 zusammenzählen, jede Zahl an die Vorderseite. *Bsp: 0101 0101 → 64 + 16 + 4 + 1 = 85.*
+- **④** *(Vorderseite)* Zahl → Buchstabe in der ASCII-Tabelle. *Bsp: 85 → U.* *Die Zahlen kommen von der Rückseite.*
+- **⑤** *(Leitstand)* Schlüssel k = der **gültige** Eintrag mit der Schlüssel-Nr. von der Platte – nie gesperrt. k eintragen, dann sehen es alle. *Bsp: Nr. 6 · gültig · k = 3.* *Die Nr. hat die Rückseite.*
+- **⑥** *(Leitstand)* Jeden Buchstaben um k im Alphabet **zurück**, vor A kommt Z. *Bsp k = 3: F → E → D → C.* *Die Buchstaben hat die Vorderseite (mit Alphabet-Leiste).*
+- **Fallen:** das allerneueste Backup ist immer FEHLER; Datum als Text verglichen („28.03.“ > „03.04.“) führt zur falschen Platte; zur Schlüssel-Nr. gibt es einen gesperrten Zwilling; „Immer ROT13“ durchgestrichen (k ist 1–9).
 
-**So entsteht die Runde** (Backend rechnet rückwärts): RENTE → um k **vor** → ASCII → Prüfbit so, dass jedes heile Paket eine gerade Anzahl Einsen hat; ein Paket mit falschem Prüfbit an zufälliger Stelle. Backups über einen Monatswechsel (zwei Ende Monat m, zwei Anfang m+1, das neueste FEHLER).
+**So entsteht die Runde** (Backend rechnet rückwärts): RENTE → um k **vor** → ASCII-Zahl → 8 Ziffern. Backups über einen Monatswechsel (zwei Ende Monat m, zwei Anfang m+1, das neueste FEHLER).
 
 **Lösung (Beispiel):**
 1. Backups: 22.03. SN-1356 OK, 27.03. SN-4471 OK, 03.04. SN-9083 OK, 07.04. SN-2210 FEHLER → ① **SN-9083** einlegen.
 2. Login `0x52 0x45 0x48 0x41` → ② 82 69 72 65 → **REHA**.
-3. Paket-Kopf `KEY-ID 0110` → ④ 6 → ⑤ aktiver Schlüssel mit ID 6 = `0011` → k = 3 (der REVOKED-Zwilling `0111` wäre falsch).
-4. Pakete `0 1010101`, `0 1001000`, `1 1001011`, `1 1010001`, `1 1010111`, `0 1001000` → ③ Paket 3 (5 Einsen) weg → ④ 85, 72, 81, 87, 72 → U H Q W H → ⑥ je 3 zurück → **RENTE**.
+3. Auf der Platte: Schlüssel-Nr. 6 → ⑤ gültiger Schlüssel Nr. 6 = k 3 (der gesperrte Zwilling wäre falsch) → Leitstand trägt **3** ein.
+4. Datenzeilen `01010101`, `01001000`, `01010001`, `01010111`, `01001000` → ③ 85, 72, 81, 87, 72 → ④ U H Q W H → ⑥ je 3 zurück → **RENTE**.
 
-Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Fundort:** Datentresor → Backup-Platte.
+Falsche Platte, falscher Login, falsches k oder falsches Wort kosten Leben. **Fundort:** Datentresor → Backup-Platte.
 
 ### Finale — Server reparieren (`kind: "repair"`)
 
@@ -180,7 +182,7 @@ Kommt ein Team nicht weiter, reißt der **Host am Beamer** einen Zettel vom **Ab
 |---|---|---|
 | 1 Alarm | `cable` Kabel gekappt · `order`, `symbols`, `scratch` Code richtig | „Die LED ist rot an Stelle …, kappt Stelle …“ · „LED … → Farbfolge …“ · „Code beginnt mit …“ · was der zerkratzte Aufkleber zählt (oder: keiner zerkratzt) |
 | 2 Löschprotokoll | `probe` erstes Rack gelöscht · `order`, `agents` alle gelöscht · `power` dieses Rack gelöscht · `release` nie | Probealarm-Meldung · Reihenfolge … → … → … · „Rack … unter Strom → CO2“ · alle Löschmittel · Freigabe auf „3, 2, 1“ |
-| 3 Datenrettung | `disk` Platte drin · `login` angemeldet · `parity`, `convert`, `key`, `decrypt` erst mit dem Wort | richtige Platte · erster Login-Buchstabe in Hex vorgerechnet · kaputtes Paket · ein Paket umgerechnet · Key-ID → k · erster Buchstabe entschlüsselt |
+| 3 Datenrettung | `disk` Platte drin · `login` angemeldet · `key` k eingetragen · `convert`, `ascii`, `decrypt` erst mit dem Wort | richtige Platte · erster Login-Buchstabe in Hex vorgerechnet · erste Datenzeile zusammengezählt · Zahl → Buchstabe · Schlüssel-Nr. → k · erster Buchstabe entschlüsselt |
 
 ## 5. Schnittstelle (für paralleles Arbeiten)
 
@@ -196,9 +198,9 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 | 2 | MASTER | `fire_log` | `log: [{time: "HH:MM", source: "BMZ"/"RM", rack, test}]` (nach angezeigter Uhrzeit sortiert), `release: {armed, window}`, `note` |
 | 2 | FI-SI | `valve_panel` | `racks: [4 Rack-IDs]`, `agents: [WASSER, SCHAUM, CO2, INERTGAS, ABSCHOTTEN]`, `power: {rack: true/false}`, `sequence_len`, `step`, `p_done`, `note` |
 | 2 | FI-AE | `rack_rear` | `rear: [{rack, material, label} ×4]`, `release: {armed, window}`, `note` |
-| 3 | MASTER | `rescue_log` | `login_hex: ["0x52", …]`, `backups: [{date: "TT.MM.", serial, status: "OK"/"FEHLER"} ×4]`, `keys: [{id, key: "0011", status: "aktiv"/"REVOKED"/"abgelaufen"} ×4]`, `note` |
-| 3 | FI-SI | `rescue_terminal` | `ascii_table: {"A":65,…"Z":90}`, `login_len`, `logged_in`, `word_len: 5`, `note` |
-| 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_id: "0110"` / `packets: ["01010101", …]` (beide null bis eingelegt), `note` |
+| 3 | MASTER | `rescue_log` | `login_hex: ["0x52", …]` (nur Ziffern), `backups: [{date: "TT.MM.", serial, status: "OK"/"FEHLER"} ×4]`, `keys: [{nr, k, status: "gültig"/"gesperrt"} ×4]`, `key` (k, sobald eingetragen, sonst null), `note` |
+| 3 | FI-SI | `rescue_terminal` | `ascii_table: {"A":65,…"Z":90}`, `login_len`, `logged_in`, `word_len: 5`, `key`, `note` |
+| 3 | FI-AE | `packet_dump` | `disks: [4 Seriennummern]`, `mounted`, `key_nr: 6` / `rows: ["01010101", … ×5]` (beide null bis eingelegt), `weights: [128 … 1]`, `key`, `note` |
 | 4 | MASTER | `repair_console` | `parts: [{id, name, label, ort: kiste/FI-SI/FI-AE/eingebaut}]`, `console: {bay: 4, fan: 3, psu: 2}`, `wartung: ["bay:2", …]`, `installed`, `phase: einbau/start`, `keys`, `note` |
 | 4 | FI-SI | `repair_front` | `bays: [{nr, led: gruen/rot/aus}]`, `fan_slots: [{nr, belegt}]`, `hand: [{id, name}]`, `installed`, `phase`, `keys`, `note` |
 | 4 | FI-AE | `repair_back` | `psu_bays: [{nr, sicherung: ok/durch}]`, `gang: Warmgang/Kaltgang`, `hand`, `installed`, `phase`, `keys`, `note` |
@@ -208,7 +210,7 @@ Transport bleibt wie im `JSON_Vertrag.md`: Jeder Spieler bekommt im `game_tick` 
 **Beamer:** `game_tick` erhält zusätzlich `parts` (gefundene Teile), damit der Beamer sie neben dem brennenden Server zeigt.
 `game_tick` enthält außerdem `hints: {total, cost, available: [{id, label}], opened: [{id, label, text}]}` – Themen auf dem Abreißblock und abgerissene Zettel der laufenden Aufgabe (Texte nur der abgerissenen).
 
-Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), Finale: `give`, `maintenance`, `install_disk`/`install_fan`/`install_psu`, `return`, `key` (siehe Finale), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
+Neue Eingaben: `open_hint` (nur Host, `{id}` = Thema vom Abreißblock), Finale: `give`, `maintenance`, `install_disk`/`install_fan`/`install_psu`, `return`, `key` (siehe Finale), `release` (Aufgabe 2, MASTER und FI-AE, Wert `"press"`; gelöst, wenn beide innerhalb von `window` Sekunden drücken). `valve_action` hat jetzt den Wert `"RACK:LÖSCHMITTEL"`, `release_pw` entfällt. Aufgabe 3: `mount_disk` (FI-AE, Seriennummer), `set_key` (MASTER, k als Zahl), `terminal_login` und danach `rescue_word` (FI-SI) statt `ascii_answer` / `binary_answer` / `sync_button`. Alle anderen `target`-Namen bleiben wie bisher.
 `JSON_Vertrag.md` wird mit dem Backend-PR um die neuen `view`-Typen ergänzt.
 
 ## 6. Umsetzung und Aufteilung

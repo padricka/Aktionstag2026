@@ -221,7 +221,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //              target "valve_action" = "RACK:LÖSCHMITTEL" nur FI-SI, target "release"
 //              = Vier-Augen-Freigabe von MASTER + FI-AE innerhalb release.window s),
 //            Aufgabe 3 (rescue_log / rescue_terminal / packet_dump, mit note; Eingaben
-//              "mount_disk" = Seriennummer nur FI-AE, "terminal_login" und danach
+//              "mount_disk" = Seriennummer nur FI-AE, "set_key" = k als Zahl nur MASTER
+//              (danach steht view.key bei allen), "terminal_login" und danach
 //              "rescue_word" = das gerettete Wort nur FI-SI),
 //            Finale (repair_console / repair_front / repair_back; Eingaben give, maintenance,
 //              install_disk, install_fan, install_psu, return, key – GAME_DESIGN.md „Finale“).

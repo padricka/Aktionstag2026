@@ -2,8 +2,8 @@
   Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "rescue_log").
 
   Der Leitstand hat das Log: Login-Name in Hex (für die Vorderseite), Backup-Jobs
-  (für die Rückseite) und den Schlüsselbund. Umgerechnet oder ausgewählt wird hier
-  nichts – das ist Teil des Rätsels.
+  (für die Rückseite) und den Schlüsselbund. Einzige Eingabe: k eintragen (set_key),
+  danach sehen es alle. Umgerechnet wird hier nichts – das ist Teil des Rätsels.
 -->
 <template>
   <div class="task">
@@ -14,7 +14,7 @@
 
     <p class="hint">
       Lies den anderen dein Log vor: Login für die Vorderseite, Backups für die Rückseite.
-      Mit Regel ④ rechnest du die Pakete um, mit Regel ⑥ entschlüsselst du das Wort.
+      Die Schlüssel-Nr. steht auf der Platte der Rückseite – such den gültigen Schlüssel (⑤) und trag k ein.
     </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
@@ -51,24 +51,44 @@
         </section>
 
         <section class="panel keyring">
-          <span class="panel-label">Schlüsselbund · Verschlüsselungs-Log</span>
+          <span class="panel-label">Schlüsselbund</span>
           <table class="log-table">
             <thead>
-              <tr><th>Key-ID</th><th>Schlüssel (binär)</th><th>Status</th></tr>
+              <tr><th>Nr.</th><th>Schlüssel k</th><th>Status</th></tr>
             </thead>
             <tbody>
               <tr
                 v-for="(s, i) in view.keys"
                 :key="i"
                 class="key-row"
-                :class="{ 'is-bad': s.status !== 'aktiv' }"
+                :class="{ 'is-bad': s.status !== 'gültig' }"
               >
-                <td>{{ s.id }}</td>
-                <td class="bits">{{ s.key }}</td>
+                <td>{{ s.nr }}</td>
+                <td class="bits">{{ s.k }}</td>
                 <td class="status">{{ s.status }}</td>
               </tr>
             </tbody>
           </table>
+
+          <!-- k eintragen (Regel ⑤): danach sehen es alle -->
+          <p v-if="view.key" class="key-set">Schlüssel eingetragen · k = {{ view.key }}</p>
+          <div v-else class="key-form">
+            <label class="key-label" for="k-eingabe">k eintragen</label>
+            <input
+              id="k-eingabe"
+              v-model="kEingabe"
+              class="key-input"
+              inputmode="numeric"
+              maxlength="1"
+              placeholder="k"
+              :disabled="sending"
+              @keyup.enter="eintragen"
+            />
+            <button class="key-btn" type="button" :disabled="!kEingabe.trim() || sending" @click="eintragen">
+              {{ sending ? 'Prüfe …' : 'Eintragen' }}
+            </button>
+          </div>
+          <p v-if="serverError && !view.key" class="msg-err">{{ serverError }}</p>
         </section>
       </div>
 
@@ -81,13 +101,30 @@
 </template>
 
 <script setup>
+import { ref, watch } from 'vue'
 import TornNote from '../../TornNote.vue'
 
-defineProps({
+const props = defineProps({
   view: { type: Object, default: null },
+  serverError: { type: String, default: '' },
   // gleiche Aufgabe → gleiche Risskante
   noteSeed: { type: String, default: '' },
 })
+const emit = defineEmits(['solved'])
+
+const kEingabe = ref('')
+const sending = ref(false)
+
+// Antwort vom Server: falsches k → wieder frei; richtiges → view.key ist gesetzt
+watch(() => props.serverError, (e) => { if (e) { sending.value = false; kEingabe.value = '' } })
+watch(() => props.view?.key, () => { sending.value = false })
+
+function eintragen() {
+  const k = kEingabe.value.trim()
+  if (!k || sending.value) return
+  sending.value = true
+  emit('solved', { target: 'set_key', value: k })
+}
 </script>
 
 <style scoped>
@@ -209,6 +246,33 @@ defineProps({
 .log-table .bits { letter-spacing: 0.2em; color: var(--green); font-weight: 700; }
 .log-table .status { font-weight: 700; color: var(--green); }
 .log-table .is-bad .status { color: var(--red); }
+
+.key-form { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.key-label { font-size: 13px; color: var(--fg-2); letter-spacing: 0.1em; text-transform: uppercase; }
+.key-input {
+  width: 72px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-3);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 26px;
+  text-align: center;
+}
+.key-btn {
+  padding: 12px 20px;
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.key-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.key-set { margin: 0; font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--green); }
+.msg-err { margin: 0; font-size: 13px; color: var(--red); }
 
 .note-col {
   display: flex;

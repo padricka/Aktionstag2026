@@ -75,3 +75,26 @@ describe('Task3P1.vue (rescue_terminal)', () => {
     expect(knopf(w).attributes('disabled')).toBeUndefined()
   })
 })
+
+describe('Task3P1.vue — leichter (feat/leichter-datenrettung)', () => {
+  it('nach dem Login: Alphabet-Leiste zum Zurückschieben', async () => {
+    const w = mount(Task3P1, { props: { view: { ...view, logged_in: true } } })
+    const buchstaben = w.findAll('.alphabet .abc')
+    expect(buchstaben).toHaveLength(26)
+    expect(buchstaben[0].text()).toBe('A')
+    expect(buchstaben[25].text()).toBe('Z')
+  })
+
+  it('zeigt k, sobald der Leitstand es eingetragen hat', async () => {
+    const w = mount(Task3P1, { props: { view: { ...view, logged_in: true } } })
+    expect(w.find('.key-badge').exists()).toBe(false)
+    await w.setProps({ view: { ...view, logged_in: true, key: 3 } })
+    expect(w.find('.key-badge').text()).toContain('k = 3')
+    expect(w.find('.alphabet').text()).toMatch(/3 Schritte/)
+  })
+
+  it('spricht nicht mehr von Paketen', () => {
+    const w = mount(Task3P1, { props: { view } })
+    expect(w.text()).not.toMatch(/Paket/)
+  })
+})

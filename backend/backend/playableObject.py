@@ -450,35 +450,33 @@ class DataRescueTask(PlayableObject):
     instruction = "Daten retten!"
 
     WORD = "RENTE"
-    LOGINS = ["REHA", "BUND", "DRV"]     # Rentenversicherung, kurz – Hex soll machbar bleiben
-    PACKETS = len(WORD) + 1              # ein beschädigtes Paket dazu
+    # DRV-Begriffe, deren Hex-Codes nur Ziffern haben (nie A–F) – Nicht-ITler rechnen nie „A = 10“
+    LOGINS = ["REHA", "DRV"]
     DISKS = 4
     ASCII_TABLE = {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
+    WEIGHTS = [128, 64, 32, 16, 8, 4, 2, 1]   # Stellenwerte, stehen bei der Rückseite über den Ziffern
 
-    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3) – das Wort als Kette:
-    #   RENTE → Caesar um k VOR → ASCII-Code → Prüfbit + 7 Bit (gerade Anzahl Einsen)
-    #   Leitstand: Log (Login in Hex, Backup-Jobs, Schlüsselbund)
+    # Escape-Room-Verteilung (GAME_DESIGN.md, Aufgabe 3, leichte Fassung) – das Wort als Kette:
+    #   RENTE → um k VOR im Alphabet → ASCII-Zahl → Datenzeile aus 8 Ziffern
+    #   Leitstand: Log (Login in Hex, Backup-Jobs, Schlüsselbund), trägt k ein (alle sehen es)
     #   Vorderseite: ASCII-Tabelle, Terminal (erst Login, dann das Wort)
-    #   Rückseite: Backup-Platten, nach dem Einlegen Pakete + Key-ID im Paket-Kopf
+    #   Rückseite: Backup-Platten, nach dem Einlegen Schlüssel-Nr. + Datenzeilen
     #   Die Regeln dazu (notes.RESCUE_NOTE) stehen jeweils bei einem anderen.
     @classmethod
     def create(cls, players):
         login = random.choice(cls.LOGINS)
-        keys, key_id, k = cls._keyring()
+        keys, key_nr, k = cls._keyring()
         cipher = "".join(chr((ord(c) - ord("A") + k) % 26 + ord("A")) for c in cls.WORD)
-        packets = [cls._packet(ord(c), healthy=True) for c in cipher]
-        corrupt = random.randrange(cls.PACKETS)
-        packets.insert(corrupt, cls._packet(random.choice(list(cls.ASCII_TABLE.values())), healthy=False))
         backups, serial = cls._backups()
         return {
             "word": cls.WORD,
             "login": login,
             "keys": keys,
-            "key_id": key_id,
+            "key_nr": key_nr,
             "k": k,
+            "key_set": False,
             "cipher": cipher,
-            "packets": packets,
-            "corrupt": corrupt,
+            "rows": [format(ord(c), "08b") for c in cipher],
             "backups": backups,
             "serial": serial,
             "disks": random.sample([b["serial"] for b in backups], cls.DISKS),
@@ -487,27 +485,20 @@ class DataRescueTask(PlayableObject):
         }
 
     @staticmethod
-    def _packet(code, healthy):
-        """Prüfbit vorne + 7 Bit ASCII; heil = gerade Anzahl Einsen insgesamt."""
-        bits = format(code, "07b")
-        parity = bits.count("1") % 2
-        return f"{parity if healthy else 1 - parity}{bits}"
-
-    @staticmethod
     def _keyring():
-        """Schlüsselbund: der richtige (aktiv), sein REVOKED-Zwilling mit gleicher ID,
-        ein anderer aktiver und ein abgelaufener. Schlüssel 1–9, alle verschieden."""
-        key_id, other_id, old_id = random.sample(range(1, 16), 3)
+        """Schlüsselbund: der richtige (gültig), sein gesperrter Zwilling mit gleicher Nr.,
+        ein anderer gültiger und ein gesperrter. Nr. und k sind normale Zahlen 1–9."""
+        key_nr, other_nr, old_nr = random.sample(range(1, 10), 3)
         k, twin, other, old = random.sample(range(1, 10), 4)
         keys = [
-            {"id": key_id, "key": format(k, "04b"), "status": "aktiv"},
-            {"id": key_id, "key": format(twin, "04b"), "status": "REVOKED"},
-            {"id": other_id, "key": format(other, "04b"), "status": "aktiv"},
-            {"id": old_id, "key": format(old, "04b"), "status": "abgelaufen"},
+            {"nr": key_nr, "k": k, "status": "gültig"},
+            {"nr": key_nr, "k": twin, "status": "gesperrt"},
+            {"nr": other_nr, "k": other, "status": "gültig"},
+            {"nr": old_nr, "k": old, "status": "gesperrt"},
         ]
         random.shuffle(keys)
-        keys.sort(key=lambda s: s["id"])
-        return keys, key_id, k
+        keys.sort(key=lambda s: s["nr"])
+        return keys, key_nr, k
 
     @classmethod
     def _backups(cls):
@@ -531,12 +522,14 @@ class DataRescueTask(PlayableObject):
     @classmethod
     def views(cls, state):
         mounted = state["mounted"]
+        key = state["k"] if state["key_set"] else None   # eingetragen → alle sehen k
         return {
             ROLE_M: {
                 "type": "rescue_log",
                 "login_hex": [f"0x{ord(c):02X}" for c in state["login"]],
                 "backups": state["backups"],
                 "keys": state["keys"],
+                "key": key,
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_M),
             },
             ROLE_P1: {
@@ -545,14 +538,17 @@ class DataRescueTask(PlayableObject):
                 "login_len": len(state["login"]),
                 "logged_in": state["logged_in"],
                 "word_len": len(state["word"]),
+                "key": key,
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_P1),
             },
             ROLE_P2: {
                 "type": "packet_dump",
                 "disks": state["disks"],
                 "mounted": mounted,
-                "key_id": format(state["key_id"], "04b") if mounted else None,
-                "packets": state["packets"] if mounted else None,
+                "key_nr": state["key_nr"] if mounted else None,
+                "rows": state["rows"] if mounted else None,
+                "weights": cls.WEIGHTS,
+                "key": key,
                 "note": notes.piece(notes.RESCUE_NOTE, ROLE_P2),
             },
         }
@@ -563,10 +559,9 @@ class DataRescueTask(PlayableObject):
     @classmethod
     def hints(cls, state):
         login = state["login"]
-        heil = next(i for i in range(len(state["packets"])) if i != state["corrupt"])
-        paket = state["packets"][heil]
-        werte = [w for w, b in zip((64, 32, 16, 8, 4, 2, 1), paket[1:]) if b == "1"]
-        zahl = sum(werte)
+        zeile = state["rows"][0]
+        zahl = int(zeile, 2)
+        werte = [w for w, z in zip(cls.WEIGHTS, zeile) if z == "1"]
         return [
             hint("disk", "Backup-Platte",
                  "Das neueste Backup ist kaputt (FEHLER). Datum: erst Monat, dann Tag vergleichen – "
@@ -576,17 +571,16 @@ class DataRescueTask(PlayableObject):
                  f"Login: 0x{ord(login[0]):02X} = {ord(login[0]) // 16} · 16 + {ord(login[0]) % 16} = "
                  f"{ord(login[0])} = {login[0]}. Der Name hat {len(login)} Buchstaben – die anderen genauso.",
                  state["logged_in"]),
-            hint("parity", "Kaputtes Paket",
-                 f"Paket {state['corrupt'] + 1} ist beschädigt (ungerade Anzahl Einsen) – lasst es komplett weg.",
+            hint("convert", "Datenzeile umrechnen",
+                 f"Erste Zeile {zeile}: über den Einsen stehen {' + '.join(map(str, werte))} = {zahl}.",
                  False),
-            hint("convert", "Binär umrechnen",
-                 f"Paket {heil + 1}: {paket[0]} {paket[1:]} – Prüfbit weglassen, dann "
-                 f"{' + '.join(map(str, werte))} = {zahl}. In der ASCII-Tabelle: {zahl} = {chr(zahl)}.",
+            hint("ascii", "Zahl → Buchstabe",
+                 f"In der ASCII-Tabelle der Vorderseite: {zahl} = {chr(zahl)}. So wird jede Zeile ein Buchstabe.",
                  False),
-            hint("key", "Key-ID / Schlüssel",
-                 f"Key-ID {format(state['key_id'], '04b')} = {state['key_id']}. Der AKTIVE Schlüssel mit "
-                 f"dieser ID ist {format(state['k'], '04b')}, also k = {state['k']}.",
-                 False),
+            hint("key", "Schlüssel k",
+                 f"Auf der Platte steht Schlüssel-Nr. {state['key_nr']}. Der GÜLTIGE Schlüssel mit dieser "
+                 f"Nr. ist k = {state['k']} – der Leitstand trägt ihn ein.",
+                 state["key_set"]),
             hint("decrypt", "Entschlüsseln",
                  f"Jeden Buchstaben um k zurück. Euer erster Buchstabe {state['cipher'][0]} wird so zu "
                  f"{state['word'][0]}. Vor A kommt wieder Z.",
@@ -611,6 +605,14 @@ class DataRescueTask(PlayableObject):
             if value != state["login"]:
                 return StepResult(Outcome.WRONG, state)
             state["logged_in"] = True
+            return StepResult(Outcome.PROGRESS, state)
+
+        if data.target == "set_key" and role == ROLE_M:
+            if state["key_set"] or not value.isdigit():
+                return StepResult(Outcome.IGNORED, state)
+            if int(value) != state["k"]:
+                return StepResult(Outcome.WRONG, state)
+            state["key_set"] = True
             return StepResult(Outcome.PROGRESS, state)
 
         if data.target == "rescue_word" and role == ROLE_P1:

@@ -14,7 +14,7 @@
 
     <p class="hint">
       Das Terminal ist gesperrt. Den Benutzernamen hat der Leitstand – aber in Hex (Regel ②).
-      Welche Pakete heil sind, sagt Regel ③ – die Pakete hat die Rückseite. Die ASCII-Tabelle brauchen alle.
+      Danach sagt dir die Rückseite Zahlen: In der ASCII-Tabelle wird jede ein Buchstabe (④).
     </p>
 
     <div class="body">
@@ -43,6 +43,18 @@
             </button>
           </div>
           <p v-if="serverError" class="msg-err">{{ serverError }}</p>
+        </section>
+
+        <!-- zum Zurückschieben (Regel ⑥ hat der Leitstand): k Schritte nach links, vor A kommt Z -->
+        <section v-if="loggedIn" class="panel alphabet">
+          <span class="panel-label">
+            Alphabet · zum Zurückschieben
+            <template v-if="view?.key"> – {{ view.key }} Schritte nach links</template>
+          </span>
+          <span v-if="view?.key" class="key-badge">k = {{ view.key }}</span>
+          <div class="abc-row">
+            <span v-for="b in ALPHABET" :key="b" class="abc">{{ b }}</span>
+          </div>
         </section>
 
         <section class="panel">
@@ -75,6 +87,8 @@ const props = defineProps({
   noteSeed: { type: String, default: '' },
 })
 const emit = defineEmits(['solved'])
+
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
 const eingabe = ref('')
 const sending = ref(false)
@@ -222,6 +236,32 @@ function absenden() {
 .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .msg-err { margin: 0; font-size: 13px; color: var(--red); }
+
+.alphabet { position: relative; }
+.key-badge {
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--green);
+}
+.abc-row {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 4px;
+}
+.abc {
+  padding: 6px 0;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+}
 
 .terminal.is-locked { border-color: var(--amber-border); }
 .terminal.is-locked .panel-label { color: var(--amber); }

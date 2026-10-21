@@ -54,7 +54,7 @@ def _nach_id(cls, st):
 @pytest.mark.parametrize("cls, ids", [
     (AlarmTask, ["cable", "order", "symbols", "scratch"]),
     (FireProtocolTask, ["probe", "order", "power", "agents", "release"]),
-    (DataRescueTask, ["disk", "login", "parity", "convert", "key", "decrypt"]),
+    (DataRescueTask, ["disk", "login", "convert", "ascii", "key", "decrypt"]),
     (RepairTask, ["give", "maintenance", "disk", "fan", "psu", "keys"]),
 ])
 def test_each_task_has_its_topics(cls, ids):
@@ -139,20 +139,23 @@ def test_fire_power_hint_is_done_once_that_rack_is_extinguished():
 
 
 def test_rescue_hints_fit_the_round_and_know_what_is_done():
+    """feat/leichter-datenrettung: Themen Platte, Login, Umrechnen, Buchstabe, Schlüssel, Entschlüsseln."""
     for _ in range(50):
         st = DataRescueTask.create({})
         h = _nach_id(DataRescueTask, st)
+        assert list(h) == ["disk", "login", "convert", "ascii", "key", "decrypt"]
         assert st["serial"] in h["disk"]["text"]
         assert f"0x{ord(st['login'][0]):02X}" in h["login"]["text"] and f"= {st['login'][0]}" in h["login"]["text"]
-        assert f"Paket {st['corrupt'] + 1}" in h["parity"]["text"]
-        assert "64" in h["convert"]["text"]
-        assert f"k = {st['k']}" in h["key"]["text"]
+        assert "64" in h["convert"]["text"] and str(ord(st["cipher"][0])) in h["convert"]["text"]
+        assert f"{ord(st['cipher'][0])} = {st['cipher'][0]}" in h["ascii"]["text"]
+        assert f"k = {st['k']}" in h["key"]["text"] and f"Nr. {st['key_nr']}" in h["key"]["text"]
         assert st["cipher"][0] in h["decrypt"]["text"] and st["word"][0] in h["decrypt"]["text"]
 
         st["mounted"] = True
         st["logged_in"] = True
+        st["key_set"] = True
         done = {i for i, x in _nach_id(DataRescueTask, st).items() if x["done"]}
-        assert done == {"disk", "login"}
+        assert done == {"disk", "login", "key"}
 
 
 # ------------------------------------------------------------------ Abreißen über das DataCenter
@@ -187,8 +190,8 @@ def test_opened_hint_stays_visible_when_its_step_is_done(dc):
     assert _ids(_hints(dc)["opened"]) == ["cable"]
 
 
-def test_user_scenario_key_id_without_the_earlier_hints(dc):
-    """Aufgabe 3: Platte drin, angemeldet, Team hängt an der Key-ID → direkt diese Hilfe."""
+def test_user_scenario_key_without_the_earlier_hints(dc):
+    """Aufgabe 3: Platte drin, angemeldet, Team hängt am Schlüssel → direkt diese Hilfe."""
     dc.redis.r.hset(dc._key, "dev_mode", "1")
     dc.skip_task()
     dc.skip_task()
@@ -197,7 +200,7 @@ def test_user_scenario_key_id_without_the_earlier_hints(dc):
     _eingabe(dc, R, "mount_disk", st["serial"])
     dc.process_input(V, {"action_type": "text_input", "target": "terminal_login", "value": st["login"]})
 
-    assert _ids(_hints(dc)["available"]) == ["parity", "convert", "key", "decrypt"]
+    assert _ids(_hints(dc)["available"]) == ["convert", "ascii", "key", "decrypt"]
     assert dc.open_hint("key")["result"] == "opened"
     assert f"k = {st['k']}" in _hints(dc)["opened"][0]["text"]
     assert dc.snapshot()["hint_penalty"] == HINT_COST
