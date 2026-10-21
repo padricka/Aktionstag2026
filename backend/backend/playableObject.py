@@ -450,7 +450,7 @@ class DataRescueTask(PlayableObject):
     instruction = "Daten retten!"
 
     # 6-Buchstaben-Wörter der Rentenversicherung – eins wird gerettet, ein anderes ist die Falle
-    WORDS = ["RENTEN", "ANTRAG", "WAISEN", "WITWEN", "ZEITEN"]
+    WORDS = ["RENTEN", "ANTRAG", "WAISEN", "WITWEN"]
     DISKS = 4
     KEY_NAMES = ["ALPHA", "BRAVO", "DELTA", "ECHO", "KILO", "SIERRA"]
 
