@@ -71,24 +71,24 @@ def test_start_resets_game_over_claim(data_center):
 
 def test_register_mistake_reduces_health(data_center):
     data_center.register_mistake()
-    assert data_center.health == 240
+    assert data_center.health == 270
 
 
 def test_multiple_cumulative_mistakes(data_center):
     data_center.register_mistake()
     data_center.register_mistake()
-    assert data_center.health == 180
+    assert data_center.health == 240
 
 
 def test_health_reaches_game_over(data_center):
-    for _ in range(5):
+    for _ in range(10):
         data_center.register_mistake()
     assert data_center.health == 0
     assert data_center.status == "game_over"
 
 
 def test_health_over_zero(data_center):
-    for _ in range(6):
+    for _ in range(11):
         data_center.register_mistake()
     assert data_center.health == 0
     assert data_center.status == "game_over"
@@ -154,7 +154,7 @@ def test_wrong_input_costs_health_and_keeps_task(button_game):
     task = button_game.current_task()
 
     assert _druecke(button_game, "nope", "nope")["result"] == "wrong"
-    assert button_game.health == 240
+    assert button_game.health == 270
     assert button_game.current_task()["task_id"] == task["task_id"]
 
 
@@ -195,7 +195,7 @@ def test_fire_protocol_flow_via_process_input(data_center):
 
     # P1: falsches Rack/Löschmittel kostet HP
     assert _druecke(data_center, "valve_action", "Z-99:LIMONADE", "Anna")["result"] == "wrong"
-    assert data_center.health == 40
+    assert data_center.health == 70
 
     # P1: alle 3 Schritte korrekt
     for step in st["sequence"]:
@@ -206,7 +206,7 @@ def test_fire_protocol_flow_via_process_input(data_center):
     assert _druecke(data_center, "release", "press", "Cara")["result"] == "correct"
     assert _druecke(data_center, "release", "press", "Ben")["result"] == "correct"
     assert data_center.current_task()["task_id"] != task["task_id"]
-    assert data_center.health == 55
+    assert data_center.health == 85
 
 def test_wrong_role_is_ignored(data_center):
     """Falsche Rolle für das Target: ignored, keine Strafe."""
@@ -242,7 +242,7 @@ def test_input_without_active_task_counts_as_mistake(data_center):
     data_center.redis.r.hdel(_state_key(data_center), "task")
 
     assert _druecke(data_center, "reactor_vent", "open")["result"] == "wrong"
-    assert data_center.health == 240
+    assert data_center.health == 270
 
 
 def test_solving_an_already_replaced_task_is_ignored(button_game, monkeypatch):
@@ -276,7 +276,7 @@ def test_dev_mode_mistake_costs_no_health(dev_game):
     res = _druecke(dev_game, "penalty", "wrong")
     assert res["result"] == "wrong"
     assert dev_game.health == dev_game.max_health
-    # Falsche Eingabe ohne aktive Aufgabe zählt sonst als Fehler (−60 HP)
+    # Falsche Eingabe ohne aktive Aufgabe zählt sonst als Fehler (−30 HP)
     dev_game.redis.r.hdel(_state_key(dev_game), "task")
     assert _druecke(dev_game, "reactor_vent", "open")["result"] == "wrong"
     assert dev_game.health == dev_game.max_health
@@ -286,7 +286,7 @@ def test_without_dev_mode_time_runs_and_mistake_hurts(data_center):
     data_center.start()
     data_center.tick()
     _druecke(data_center, "penalty", "wrong")
-    assert data_center.health == data_center.max_health - 60
+    assert data_center.health == data_center.max_health - 30
     assert data_center.time_left == DEFAULT_TIME - 1
 
 

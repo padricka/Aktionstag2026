@@ -19,7 +19,7 @@ PAUSE_NACH = {"alarm": 5, "fire_protocol": 5, "data_rescue": 6}
 
 # Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
 INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}
-MISTAKE_DAMAGE = 60
+MISTAKE_DAMAGE = 30
 # Punkte, die jede geöffnete Hilfe-Notiz kostet (im DEV-Modus gratis)
 HINT_COST = 50
 TOTAL_TASKS = 4

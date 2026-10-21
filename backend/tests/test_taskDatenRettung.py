@@ -209,7 +209,7 @@ def test_right_disk_mounts_and_shows_packets(dc):
 def test_wrong_disk_costs_health(dc):
     falsch = next(s for s in _view(dc, ROLE_P2)["disks"] if s != _platte(_views(dc)))
     assert _press(dc, P2_NAME, "mount_disk", falsch)["result"] == "wrong"
-    assert dc.health == 240
+    assert dc.health == 270
     assert _view(dc, ROLE_P2)["mounted"] is False
 
 
@@ -230,7 +230,7 @@ def test_login_unlocks_the_terminal(dc):
 
 def test_wrong_login_costs_health(dc):
     assert _text(dc, P1_NAME, "terminal_login", "ADMIN")["result"] == "wrong"
-    assert dc.health == 240
+    assert dc.health == 270
 
 
 def test_word_before_login_is_ignored(dc):
@@ -306,7 +306,7 @@ def test_word_is_case_insensitive_and_trimmed(dc):
 def test_wrong_word_costs_health(dc):
     _anmelden(dc)
     assert _text(dc, P1_NAME, "rescue_word", "RENTEN")["result"] == "wrong"
-    assert dc.health == 240
+    assert dc.health == 270
 
 
 def test_empty_inputs_are_ignored(dc):

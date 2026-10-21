@@ -35,7 +35,7 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 ## 4. Die Aufgaben
 
 Ablauf: **Alarm → Löschprotokoll → Datenrettung → Reparatur (Finale)**. Danach ist das Spiel gewonnen (`status: "won"`).
-Es gelten: **9 Minuten** Startzeit (`DEFAULT_TIME` = 540 s, per `owner_settings` 60–1800 s). **Der Server brennt:** alle 3 s kostet das Feuer 1 Leben (`FIRE_EVERY`, in 9 Minuten ≈ 180 von 300), falsche Eingabe −60, gelöste Aufgabe +15 (max. 300). Sind die Leben weg oder läuft die Zeit ab (Leben → 0), ist der Server verloren. **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +60 s (`TIME_BONUS`); DEV-Modus: Zeit und Feuer stehen, Überspringen gibt keinen Bonus.
+Es gelten: **9 Minuten** Startzeit (`DEFAULT_TIME` = 540 s, per `owner_settings` 60–1800 s). **Der Server brennt:** alle 3 s kostet das Feuer 1 Leben (`FIRE_EVERY`, in 9 Minuten ≈ 180 von 300), falsche Eingabe −30 (`MISTAKE_DAMAGE`), gelöste Aufgabe +15 (max. 300). Sind die Leben weg oder läuft die Zeit ab (Leben → 0), ist der Server verloren. **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +60 s (`TIME_BONUS`); DEV-Modus: Zeit und Feuer stehen, Überspringen gibt keinen Bonus.
 
 ### Einsatzbesprechung (Intro am Beamer)
 
@@ -150,7 +150,7 @@ Falsche Platte, falscher Login oder falsches Wort kosten Leben. **Fundort:** Dat
 - **Lüfter:** Die Luft strömt vom Kaltgang zum Warmgang – das Schild sieht nur die Rückseite, einbauen muss die Vorderseite.
 - **Weitergeben:** Wer ein Teil bekommt, das bei ihm nicht passt, gibt es ohne Strafe zurück (kostet nur Zeit).
 - **Drei-Schlüssel-Start:** Wenn alles eingebaut und keine Wartung mehr an ist. Falsche Reihenfolge oder Wartung noch an → Fehler, alle Schlüssel zurück; mehr als 5 s Pause → von vorn.
-- **Fehler** kosten 60 Leben und `input_result.message` sagt, was falsch war (z. B. „Stromschlag! Platz 3 war nicht in Wartung.“).
+- **Fehler** kosten 30 Leben und `input_result.message` sagt, was falsch war (z. B. „Stromschlag! Platz 3 war nicht in Wartung.“).
 - **Sieg:** dritter Schlüssel → `status: "won"`; auf den Handys „Server fährt hoch“, am Beamer geht das Feuer aus.
 
 ### Fundorte und Teilekiste

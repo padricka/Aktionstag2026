@@ -62,7 +62,7 @@ const props = defineProps({
   sieg: { type: Boolean, default: false },
 })
 
-const AUFLODERN_AB = 40   // so viel auf einmal = Fehler (das Feuer allein nimmt 1)
+const AUFLODERN_AB = 20   // so viel auf einmal = Fehler (−30; das Feuer allein nimmt 1)
 
 const anteil = computed(() => Math.max(0, Math.min(1, props.hp / (props.maxHp || 1))))
 const stufe = computed(() => (anteil.value > 0.66 ? 1 : anteil.value > 0.33 ? 2 : 3))
