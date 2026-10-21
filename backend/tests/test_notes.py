@@ -135,3 +135,18 @@ def test_alarm_spricht_von_stellen_nicht_von_plaetzen():
     assert "Platz" not in text and "brennend" not in text.lower()
     assert "Stelle" in text and "ROTEN Stelle" in text
     assert "KAPUTTEN Kabel" in text
+
+
+def test_loeschplan_ohne_rack_und_utc():
+    """feat/leichter-loeschprotokoll: „Rack“ und „UTC“ kennt ein Nicht-ITler nicht.
+    Es heißt Schrank, und Regel ③ sagt nur: RM-Uhren gehen 2 Stunden vor."""
+    text = _ganzer_text(notes.FIRE_NOTE)
+    assert "Rack" not in text and "UTC" not in text and "Ortszeit" not in text
+    assert "Schrank unter Strom" in text
+
+
+def test_loeschplan_wichtigstes_ist_fett():
+    """Die zwei Sätze, an denen es hängt, sind fett markiert (style „bold“)."""
+    fett = [z["text"] for z in notes.piece(notes.FIRE_NOTE, ROLE_P2)["lines"] if z["style"] == "bold"]
+    assert any("2 Stunden abziehen" in t for t in fett)
+    assert any("GLEICHZEITIG" in t for t in fett)

@@ -6,7 +6,7 @@
     </header>
 
     <p class="hint">
-      Lies den anderen das Brandmelde-Log vor. Welches Löschmittel ein Rack braucht, sagt Regel ①
+      Lies den anderen das Brandmelde-Log vor. Welches Löschmittel ein Schrank braucht, sagt Regel ①
       auf deinem Teil des Löschplans – Brandgut und Strom kennen nur die anderen.
     </p>
 
@@ -27,7 +27,7 @@
               <span class="log-source">{{ e.source }}</span>
               <span class="log-text">
                 <span v-if="e.test" class="log-tag">[TEST]</span>
-                Brandalarm · Rack <strong>{{ e.rack }}</strong>
+                Brandalarm · Schrank <strong>{{ e.rack }}</strong>
               </span>
             </li>
           </ol>

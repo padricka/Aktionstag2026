@@ -43,3 +43,11 @@ describe('Task2P2.vue (rack_rear)', () => {
     expect(w.find('.release-status').text()).toContain('Leitstand')
   })
 })
+
+describe('Task2P2.vue — leichter (feat/leichter-loeschprotokoll)', () => {
+  it('spricht von Schränken statt Racks', () => {
+    const w = mount(Task2P2, { props: { view: rearView } })
+    expect(w.text()).not.toMatch(/Rack/)
+    expect(w.find('.title').text()).toBe('Schrank-Rückseite')
+  })
+})

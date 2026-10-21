@@ -396,15 +396,15 @@ class FireProtocolTask(PlayableObject):
         geloescht = state["p1_done"]
         return [
             hint("probe", "Probealarm?",
-                 f"Die Meldung „{probe['time']} {probe['source']} Rack {probe['rack']}“ ist mit [TEST] "
+                 f"Die Meldung „{probe['time']} {probe['source']} Schrank {probe['rack']}“ ist mit [TEST] "
                  "markiert – nur ein Probealarm, ignorieren.",
                  geloescht or state["step"] > 0),
             hint("order", "Reihenfolge",
-                 f"Rauchmelder (RM) zeigen Ortszeit: 2 Stunden abziehen. Gelöscht wird in dieser "
+                 f"Die Rauchmelder (RM) gehen 2 Stunden vor: bei RM-Zeiten 2 Stunden abziehen. Gelöscht wird in dieser "
                  f"Reihenfolge: {reihenfolge}.",
                  geloescht),
             hint("power", "Strom / CO2",
-                 f"Rack {rack} steht unter Strom und hat {cls.MATERIALS[racks[rack]['material']]['label']} – "
+                 f"Schrank {rack} steht unter Strom und hat {cls.MATERIALS[racks[rack]['material']]['label']} – "
                  "dort kein Wasser und kein Schaum, sondern CO2.",
                  state["step"] > strom),
             hint("agents", "Löschmittel",
