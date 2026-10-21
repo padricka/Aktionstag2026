@@ -176,6 +176,15 @@ describe('Zwischenszene.vue', () => {
       expect(alles).not.toMatch(/ASCII|64 \+ 16/)
     })
 
+    it('nennt die Werte mit Plus, nicht mit Malpunkt (fix/task3-plus)', async () => {
+      vi.useFakeTimers()
+      const w = szene({ teil: LUEFTER, naechste: 3 })
+      vi.advanceTimersByTime(DAUER.ende + 10)
+      await w.vm.$nextTick()
+      expect(w.find('.tut-binaer .tut-schritt').text()).toContain('8 + 4 + 2 + 1')
+      expect(w.find('.tut-binaer .tut-schritt').text()).not.toContain('·')
+    })
+
     it('zeigt die Werte 8 4 2 1 über den Ziffern und hebt die Einsen hervor', async () => {
       vi.useFakeTimers()
       const w = szene({ teil: LUEFTER, naechste: 3 })

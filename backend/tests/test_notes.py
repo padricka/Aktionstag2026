@@ -192,3 +192,10 @@ def test_einbauanleitung_luefter_links_oder_rechts_zum_warmgang():
     text = " ".join(z["text"] for z in notes.piece(notes.REPAIR_NOTE, ROLE_P1)["lines"])
     assert "WARMGANG" in text and "links" in text and "rechts" in text
     assert "vorne" not in text.replace("Vorderseite", "") and "hinten" not in text
+
+
+def test_datenrettung_werte_mit_plus_nicht_mit_malpunkt():
+    """fix/task3-plus: „8 · 4 · 2 · 1“ sah nach Malnehmen aus – es wird zusammengezählt."""
+    text = " ".join(z["text"] for z in notes.piece(notes.RESCUE_NOTE, ROLE_M)["lines"])
+    assert "8 + 4 + 2 + 1" in text
+    assert "·" not in text.replace("DRV SCHWABEN · BACKUP-TEAM", "").replace("DATENRETTUNG · TEIL", "")
