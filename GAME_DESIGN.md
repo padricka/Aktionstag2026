@@ -109,7 +109,7 @@ Falscher Schrank / falsches Löschmittel kostet Leben; wer zu spät drückt, war
 
 ### Aufgabe 3 — Datenrettung (`kind: "data_rescue"`)
 
-**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden: die richtige Platte einlegen, die Nr. auf der Platte umrechnen, den gültigen Schlüssel finden – seine Tabelle enthält die Codes des Passworts. Die Codes werden **nicht gerechnet**, nur in der Code-Tabelle nachgeschlagen. Das Passwort ist ein 6-Buchstaben-Wort der Rentenversicherung (`WORDS`: RENTEN, ANTRAG, WAISEN, WITWEN, ZEITEN).
+**Geschichte:** Das Passwort der Backup-Platte muss gerettet werden: die richtige Platte einlegen, die Nr. auf der Platte umrechnen, den gültigen Schlüssel finden – seine Tabelle enthält die Codes des Passworts. Die Codes werden **nicht gerechnet**, nur in der Code-Tabelle nachgeschlagen. Das Passwort ist ein 6-Buchstaben-Wort der Rentenversicherung (`WORDS`: RENTEN, ANTRAG, WAISEN, WITWEN).
 
 **Leichte Fassung** (`feat/leichter-datenrettung`, nach Rückmeldung von Nicht-ITlern): kein Login, kein Prüfbit, kein ASCII, kein Verschieben um k, kein Taschenrechner. Gerechnet wird nur eine 4-stellige Binärzahl (8 4 2 1).
 
