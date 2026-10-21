@@ -219,14 +219,14 @@ class AlarmTask(PlayableObject):
         order = list(reversed(state["color_order"])) if state["led"] == "blinkt" else state["color_order"]
         if state["scratched"]:
             kratzer = (f"Der zerkratzte {state['scratched'].lower()}e Aufkleber zählt als "
-                       f"{cls.SYMBOL_NAMES[state['broken_symbol']]} – das Symbol vom Kabel am brennenden Platz.")
+                       f"{cls.SYMBOL_NAMES[state['broken_symbol']]} – das Symbol vom kaputten Kabel an der roten Stelle.")
         else:
             kratzer = "Diesmal ist kein Aufkleber zerkratzt – Regel ③ braucht ihr in dieser Runde nicht."
         code_offen = not state["cmd_ok"]
         return [
             hint("cable", "Welches Kabel?",
-                 f"Es brennt Platz {brand} ({'gerade' if brand % 2 == 0 else 'ungerade'}). Die Vorderseite "
-                 f"kappt deshalb das Kabel an Platz {kappen} – nie das am brennenden Platz.",
+                 f"Die LED ist rot an Stelle {brand}. Die Vorderseite kappt deshalb das Kabel an "
+                 f"Stelle {kappen} ({'links' if brand % 2 == 0 else 'rechts'} daneben) – nie das kaputte.",
                  state["switch_ok"]),
             hint("order", "LED und Farbfolge",
                  f"Die LED {state['led']} – der Code ist die Farbfolge "

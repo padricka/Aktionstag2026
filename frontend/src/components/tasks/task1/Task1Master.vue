@@ -6,7 +6,7 @@
     </header>
 
     <p class="hint">
-      Sag den anderen, welcher Steckplatz brennt. Wie der Code entsteht, sagt Regel ② auf deinem
+      Sag den anderen, an welcher Stelle die LED rot ist. Wie der Code entsteht, sagt Regel ② auf deinem
       Teil der Wartungsnotiz – die Aufkleber dazu kennt nur die Rückseite. Du tippst den Code.
     </p>
 
@@ -15,13 +15,14 @@
     <div v-else class="body" :class="{ 'with-note': view.note }">
       <section class="panel">
         <span class="panel-label">LED-Leiste</span>
-        <div class="led-row" :aria-label="`${slotCount} Steckplätze`">
-          <div
-            v-for="i in slotCount"
-            :key="i"
-            class="led"
-            :class="{ burning: i === burningSlot, blinking: i === burningSlot && blinkt }"
-          />
+        <div class="led-row" :aria-label="`${slotCount} Stellen`">
+          <div v-for="i in slotCount" :key="i" class="led-cell">
+            <div
+              class="led"
+              :class="{ burning: i === burningSlot, blinking: i === burningSlot && blinkt }"
+            />
+            <span class="led-num">Stelle {{ i }}</span>
+          </div>
         </div>
         <p class="led-mode">{{ blinkt ? 'Die LED blinkt' : 'Die LED leuchtet dauerhaft' }}</p>
       </section>
@@ -245,6 +246,19 @@ function ausfuehren() {
   gap: 16px;
   justify-content: center;
   padding: 12px 0;
+}
+
+.led-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.led-num {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-2);
 }
 
 .led {

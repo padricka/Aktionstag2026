@@ -6,8 +6,8 @@
     </header>
 
     <p class="hint">
-      Welches Kabel du kappst, sagt Regel ① auf deinem Teil der Wartungsnotiz. Welcher
-      Steckplatz brennt, sieht nur der Leitstand – frag nach. Die Rückseite braucht danach dein Symbol.
+      Welches Kabel du kappst, sagt Regel ① auf deinem Teil der Wartungsnotiz. An welcher
+      Stelle die LED rot ist, sieht nur der Leitstand – frag nach. Die Rückseite braucht danach dein Symbol.
     </p>
 
     <div class="body">

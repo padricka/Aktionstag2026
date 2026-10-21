@@ -23,7 +23,7 @@ import fakeredis
 from unittest.mock import patch
 
 from backend.dataCenter import DataCenter
-from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
+from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2, AlarmTask
 
 GAME = "t1_session"
 MASTER_NAME = "Anna"
@@ -299,3 +299,12 @@ def test_keyboard_does_not_reveal_the_code_by_position():
 def test_solution_from_views_still_typeable_on_keyboard(dc):
     _, code = _loesung_aus_ansichten(dc)
     assert set(code.split(",")) <= set(_view(dc, ROLE_M)["keyboard"])
+
+
+def test_hints_sprechen_von_stellen():
+    """feat/leichter-alarm: auch die Hilfe-Zettel sagen „Stelle“ statt „Platz“."""
+    for _ in range(20):
+        state = AlarmTask.create({})
+        text = " ".join(h["text"] for h in AlarmTask.hints(state))
+        assert "Platz" not in text and "brennend" not in text.lower()
+        assert f"Stelle {state['burning_slot']}" in text

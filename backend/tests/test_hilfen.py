@@ -91,7 +91,7 @@ def test_alarm_hints_fit_the_round_and_know_what_is_done():
         st = AlarmTask.create({})
         h = _nach_id(AlarmTask, st)
         cut_slot = AlarmTask._cut_index(st["burning_slot"] - 1) + 1
-        assert f"Platz {cut_slot}" in h["cable"]["text"]
+        assert f"Stelle {cut_slot}" in h["cable"]["text"]
         order = list(reversed(st["color_order"])) if st["led"] == "blinkt" else st["color_order"]
         assert " → ".join(order) in h["order"]["text"]
         assert AlarmTask.SYMBOL_NAMES[st["solution"][0]] in h["symbols"]["text"]

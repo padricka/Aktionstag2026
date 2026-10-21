@@ -8,7 +8,7 @@
     <p class="hint">
       Beschreibe dem Leitstand die farbigen Aufkleber – du tippst nichts ein.
       Ist einer zerkratzt? Dann gilt Regel ③ auf deinem Teil der Wartungsnotiz – dafür
-      brauchst du den brennenden Platz (Leitstand) und das Kabel-Symbol dort (Vorderseite).
+      brauchst du die rote Stelle (Leitstand) und das Symbol vom kaputten Kabel dort (Vorderseite).
     </p>
 
     <div v-if="!stickers.length" class="empty">Warte auf Aufkleber …</div>
