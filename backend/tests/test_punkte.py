@@ -72,7 +72,6 @@ def _loese(dc):
         return _eingabe(dc, R, "release", "press")
     if kind == "data_rescue":
         _eingabe(dc, R, "mount_disk", st["serial"])
-        _eingabe(dc, V, "terminal_login", st["login"])
         return _eingabe(dc, V, "rescue_word", st["word"])
     if kind == "repair":
         # Finale: Teile weitergeben, je Platz Wartung an → einbauen → Wartung aus, drei Schlüssel

@@ -2,8 +2,8 @@
   Task3P2 — Rückseite, Aufgabe 3 „Datenrettung" (view.type "packet_dump").
 
   Erst die richtige Backup-Platte einlegen (Datum und Status stehen im Log des
-  Leitstands), dann erscheinen die Schlüssel-Nr. und 5 Datenzeilen mit den Stellenwerten
-  128 … 1 darüber. Hier wird nichts zusammengezählt oder geprüft.
+  Leitstands), dann erscheinen die Nr. der Platte (4-stellig binär) und zwei Tabellen mit
+  je 6 Codes, überschrieben mit einem Schlüssel-Namen. Hier wird nichts gerechnet oder geprüft.
 -->
 <template>
   <div class="task">
@@ -18,8 +18,8 @@
         Datum und Status der Backups stehen im Log des Leitstands.
       </template>
       <template v-else>
-        Sag dem Leitstand die Schlüssel-Nr. Jede Datenzeile ist eine Zahl (Regel ③) –
-        sag sie der Vorderseite, die hat die ASCII-Tabelle.
+        Sag dem Leitstand die Nr. der Platte. Welche Tabelle gilt, weiß die Vorderseite (③) –
+        lies ihr dann die 6 Codes vor (Regel ④), nicht rechnen.
       </template>
     </p>
 
@@ -45,25 +45,20 @@
         </section>
 
         <section v-else class="panel">
-          <span class="panel-label">Backup-Platte · Datenzeilen</span>
+          <span class="panel-label">Backup-Platte · Datentabellen</span>
           <div class="key-nr">
-            Auf der Platte steht: <strong>Schlüssel-Nr. {{ view.key_nr }}</strong>
-            <span v-if="view.key" class="key-badge">k = {{ view.key }}</span>
+            Auf der Platte steht die Nr. <strong>{{ view.key_id }}</strong>
           </div>
-          <!-- jede Zeile ist eine Zahl: die Werte über den Einsen zusammenzählen (Regel ③) -->
-          <div class="rows">
-            <div class="weights" aria-label="Wert jeder Stelle">
-              <span class="row-nr"></span>
-              <span v-for="w in weights" :key="w" class="weight">{{ w }}</span>
-            </div>
-            <div v-for="(z, i) in rows" :key="i" class="data-row">
-              <span class="row-nr">Zeile {{ i + 1 }}</span>
-              <span
-                v-for="(d, j) in z.split('')"
-                :key="j"
-                class="digit"
-                :class="{ 'is-eins': d === '1' }"
-              >{{ d }}</span>
+          <!-- zwei Tabellen, je mit dem Namen eines Schlüssels – welche gilt, sagt Regel ③ -->
+          <div class="code-tables">
+            <div v-for="t in tables" :key="t.name" class="code-table">
+              <span class="code-table-name">Tabelle {{ t.name }}</span>
+              <ol class="code-rows">
+                <li v-for="(c, i) in t.rows" :key="i" class="code-row">
+                  <span class="row-nr">{{ i + 1 }}</span>
+                  <span class="code">{{ c.slice(0, 4) }} {{ c.slice(4) }}</span>
+                </li>
+              </ol>
             </div>
           </div>
         </section>
@@ -93,10 +88,9 @@ const sending = ref(false)
 
 const disks = computed(() => props.view?.disks || [])
 const mounted = computed(() => !!props.view?.mounted)
-const rows = computed(() => props.view?.rows || [])
-const weights = computed(() => props.view?.weights || [128, 64, 32, 16, 8, 4, 2, 1])
+const tables = computed(() => props.view?.tables || [])
 
-// Antwort vom Server: falsche Platte → wieder frei, richtige → Datenzeilen erscheinen
+// Antwort vom Server: falsche Platte → wieder frei, richtige → Tabellen erscheinen
 watch(() => props.serverError, (e) => { if (e) sending.value = false })
 watch(mounted, () => { sending.value = false })
 
@@ -223,33 +217,27 @@ function einlegen(sn) {
   color: var(--fg-2);
 }
 .key-nr strong { font-size: 24px; color: var(--amber); }
-.key-badge { margin-left: auto; font-size: 20px; font-weight: 700; color: var(--green); }
 
-.rows {
+.code-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.code-table {
   display: flex;
   flex-direction: column;
-  padding: 10px 16px;
+  gap: 6px;
+  padding: 12px 16px;
   background: var(--bg);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
-  overflow-x: auto;
 }
-
-.weights,
-.data-row {
-  display: grid;
-  grid-template-columns: 80px repeat(8, minmax(34px, 1fr));
-  align-items: center;
-  gap: 4px;
-  text-align: center;
-}
-.weights { padding-bottom: 6px; border-bottom: 2px solid var(--border-3); }
-.weight { font-size: 14px; font-weight: 700; color: var(--amber); }
-.data-row { padding: 8px 0; }
-.data-row + .data-row { border-top: 1px dashed var(--border-2); }
-.row-nr { font-size: 13px; color: var(--fg-3); text-align: left; }
-.digit { font-size: 28px; font-weight: 700; color: var(--fg-3); }
-.digit.is-eins { color: var(--green); }
+.code-table-name { font-size: 18px; font-weight: 700; color: var(--amber); letter-spacing: 0.08em; }
+.code-rows { list-style: none; margin: 0; padding: 0; }
+.code-row { display: flex; align-items: baseline; gap: 14px; padding: 6px 0; }
+.code-row + .code-row { border-top: 1px dashed var(--border-2); }
+.row-nr { font-size: 13px; color: var(--fg-3); min-width: 16px; }
+.code { font-size: 26px; font-weight: 700; color: var(--green); letter-spacing: 0.12em; }
 
 .note-col {
   display: flex;
@@ -263,6 +251,6 @@ function einlegen(sn) {
 }
 
 @media (max-width: 600px) {
-  .digit { font-size: 22px; }
+  .code { font-size: 20px; }
 }
 </style>
