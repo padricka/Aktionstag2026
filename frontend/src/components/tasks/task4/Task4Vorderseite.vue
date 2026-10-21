@@ -12,7 +12,7 @@
     </header>
 
     <p class="hint">
-      Der Leitstand gibt dir Teile. Tipp ein Teil an, dann den Platz im Rack. Vorher muss der
+      Der Leitstand gibt dir Teile. Tipp ein Teil an, dann den Platz im Serverschrank. Vorher muss der
       Leitstand den Platz auf Wartung schalten – sonst gibt es einen Stromschlag.
     </p>
 
@@ -43,17 +43,17 @@
 
           <div v-if="gewaehlt === 'fan'" class="richtung">
             <span>Pfeil am Lüfter zeigt nach:</span>
-            <button class="richtung-vorne" :class="{ 'is-an': richtung === 'vorne' }" type="button" @click="richtung = 'vorne'">
-              ↙ vorne (zu dir)
+            <button class="richtung-links" :class="{ 'is-an': richtung === 'links' }" type="button" @click="richtung = 'links'">
+              ← links
             </button>
-            <button class="richtung-hinten" :class="{ 'is-an': richtung === 'hinten' }" type="button" @click="richtung = 'hinten'">
-              ↗ hinten (ins Rack)
+            <button class="richtung-rechts" :class="{ 'is-an': richtung === 'rechts' }" type="button" @click="richtung = 'rechts'">
+              rechts →
             </button>
           </div>
         </section>
 
         <section class="panel rack-vorne">
-          <span class="panel-label">Rack · Vorderseite</span>
+          <span class="panel-label">Serverschrank · Vorderseite</span>
 
           <div class="rack-rahmen">
             <div class="rack-zeile-titel">FESTPLATTEN</div>
@@ -135,7 +135,7 @@ const props = defineProps({
 const emit = defineEmits(['eingabe'])
 
 const gewaehlt = ref(null)      // Teil in der Hand, das gerade eingebaut werden soll
-const richtung = ref('vorne')   // Pfeil am Lüfter
+const richtung = ref('links')   // Pfeil am Lüfter: zum Warmgang (Einbauanleitung ④)
 const hand = computed(() => props.view?.hand || [])
 
 // Teil weg (eingebaut oder zurück): Auswahl aufheben

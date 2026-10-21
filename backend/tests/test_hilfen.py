@@ -75,7 +75,7 @@ def test_finale_hints_fit_the_round_and_know_what_is_done():
     assert "Vorderseite" in h["give"]["text"] and "Rückseite" in h["give"]["text"]
     assert "BAY 2" in h["maintenance"]["text"] and f"FAN {st['fan_slot'] - 1}" in h["maintenance"]["text"]
     assert "Schacht 3" in h["disk"]["text"]
-    assert st["gang"] in h["fan"]["text"] and st["fan_dir"] in h["fan"]["text"]
+    assert st["warmgang"] in h["fan"]["text"] and st["fan_dir"] in h["fan"]["text"]
     assert f"Schacht {st['psu_bay']}" in h["psu"]["text"] and "230 V" in h["psu"]["text"]
     assert "Strom" in h["keys"]["text"]
     assert not any(x["done"] for x in h.values())

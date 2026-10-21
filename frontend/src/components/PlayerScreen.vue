@@ -346,8 +346,8 @@ function roleLabel(r) {
 
 function roleHint(r) {
   if (r === 'MASTER') return 'Kontrollraum · Monitore'
-  if (r === 'FI-SI')  return 'Vor dem Rack'
-  if (r === 'FI-AE')  return 'Hinter dem Rack'
+  if (r === 'FI-SI')  return 'Vor dem Serverschrank'
+  if (r === 'FI-AE')  return 'Hinter dem Serverschrank'
   return ''
 }
 

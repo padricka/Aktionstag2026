@@ -8,13 +8,13 @@ Schlüsseln hoch. Etiketten (Teilekiste) stammen aus parts_spec der Runde.
               dreht zuletzt den Schlüssel „system“.
   Vorderseite sieht 4 Plattenschächte (LED grün = belegt, rot = defekt, aus = leer) und die
               Lüfterwand mit einer Lücke; baut Platte (install_disk "3") und Lüfter
-              (install_fan "2:hinten") ein, Schlüssel „kuehlung“.
-  Rückseite   sieht 2 Netzteilschächte (Sicherung ok/durch) und das Gang-Schild hinten
-              (Warmgang/Kaltgang); baut das Netzteil ein (install_psu "1:230"), Schlüssel „strom“.
+              (install_fan "2:rechts" – Pfeil nach links oder rechts) ein, Schlüssel „kuehlung“.
+  Rückseite   sieht 2 Netzteilschächte (Sicherung ok/durch) und das Schild, auf welcher Seite
+              der Warmgang ist (links/rechts, von vorne gesehen); baut das Netzteil ein (install_psu "1:230"), Schlüssel „strom“.
 
 Regeln (zerrissene Einbauanleitung): Reihenfolge Platte → Lüfter → Netzteil · vor jedem
 Einbau Platz auf Wartung (sonst Stromschlag) · Platte in den Schacht vom Etikett · Lüfterpfeil
-vom Kaltgang zum Warmgang · Netzteil in den Schacht mit heiler Sicherung, Spannung vom Etikett ·
+zeigt zum Warmgang (links/rechts) · Netzteil in den Schacht mit heiler Sicherung, Spannung vom Etikett ·
 vor dem Hochfahren alle Wartungen aus · Schlüssel Strom → Kühlung → System, je ≤ 5 s Abstand.
 Fehler kosten Leben und sagen, was falsch war.
 """
@@ -93,19 +93,19 @@ def test_after_three_tasks_comes_the_repair(dc):
 def test_the_round_fits_the_labels_in_the_parts_box(dc):
     st = _st(dc)
     etiketten = {t["id"]: t["label"] for t in dc.snapshot()["parts"]}
-    assert etiketten["disk"] == f"RAID-Platz {st['disk_bay']}"
+    assert etiketten["disk"] == f"Schacht {st['disk_bay']}"
     assert etiketten["psu"] == f"{st['volt']} V"
 
 
 def test_the_round_is_solvable_and_consistent():
     for _ in range(200):
-        st = RepairTask.create({}, {"disk": {"label": "RAID-Platz 3"}, "psu": {"label": "115 V"}})
+        st = RepairTask.create({}, {"disk": {"label": "Schacht 3"}, "psu": {"label": "115 V"}})
         assert st["disk_bay"] == 3 and st["volt"] == "115"
         leds = st["bays"]
         assert leds[3 - 1] == "aus"                        # Zielschacht ist leer
         assert leds.count("rot") == 1 and leds.count("gruen") == 1 and leds.count("aus") == 2
         assert st["fan_slot"] in (1, 2, 3)
-        assert st["fan_dir"] == ("hinten" if st["gang"] == "Warmgang" else "vorne")
+        assert st["warmgang"] in ("links", "rechts") and st["fan_dir"] == st["warmgang"]   # Pfeil zeigt zum Warmgang
         assert st["fuses"][st["psu_bay"] - 1] == "ok"
         assert st["fuses"].count("durch") == 1
 
@@ -114,11 +114,11 @@ def test_everyone_sees_only_their_part(dc):
     views = _views(dc)
     leit, vorne, hinten = views[ROLE_M], views[ROLE_P1], views[ROLE_P2]
     assert leit["type"] == "repair_console"
-    assert {p["id"]: p["label"] for p in leit["parts"]}["disk"].startswith("RAID-Platz")
+    assert {p["id"]: p["label"] for p in leit["parts"]}["disk"].startswith("Schacht ")
     assert leit["console"] == {"bay": 4, "fan": 3, "psu": 2}
     assert vorne["type"] == "repair_front" and len(vorne["bays"]) == 4 and len(vorne["fan_slots"]) == 3
-    assert "gang" not in vorne and "fuses" not in vorne
-    assert hinten["type"] == "repair_back" and len(hinten["psu_bays"]) == 2 and hinten["gang"] in ("Warmgang", "Kaltgang")
+    assert "warmgang" not in vorne and "fuses" not in vorne
+    assert hinten["type"] == "repair_back" and len(hinten["psu_bays"]) == 2 and hinten["warmgang"] in ("links", "rechts")
     assert "bays" not in hinten
     for v in views.values():
         assert v["note"]["title"] == "Einbauanleitung"
@@ -191,7 +191,7 @@ def test_fan_the_wrong_way_round(dc):
     _in(dc, M, "maintenance", f"bay:{bay - 1}")
     _in(dc, V, "install_disk", str(bay))
     _in(dc, M, "maintenance", f"fan:{slot - 1}")
-    verkehrt = "vorne" if richtung == "hinten" else "hinten"
+    verkehrt = "links" if richtung == "rechts" else "rechts"
     res = _in(dc, V, "install_fan", f"{slot}:{verkehrt}")
     assert res["result"] == "wrong" and "Lüfter" in res["message"]
 
@@ -268,3 +268,13 @@ def test_installed_disk_shows_a_green_led_in_its_bay(dc):
     _in(dc, M, "maintenance", f"bay:{bay - 1}")
     _in(dc, V, "install_disk", str(bay))
     assert _views(dc)[ROLE_P1]["bays"][bay - 1] == {"nr": bay, "led": "gruen"}
+
+
+def test_hints_sprechen_von_schacht_und_links_rechts():
+    """feat/leichter-finale: Hilfe-Zettel ohne RAID/Rack, der Lüfter zeigt links oder rechts."""
+    for _ in range(30):
+        st = RepairTask.create({})
+        texte = {h["id"]: h["text"] for h in RepairTask.hints(st)}
+        alles = " ".join(texte.values())
+        assert "RAID" not in alles and "Rack" not in alles
+        assert st["fan_dir"] in texte["fan"] and f"Warmgang ist {st['warmgang']}" in texte["fan"]
