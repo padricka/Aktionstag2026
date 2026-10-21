@@ -119,3 +119,6 @@ dist-ssr/
 
 # Leaderboard-Daten (Spielernamen) gehören nicht ins öffentliche Repo
 backend/data/
+
+# Roh-Sprache aus VoiceStudio (groß, lässt sich neu erzeugen)
+tools/sound/raw/

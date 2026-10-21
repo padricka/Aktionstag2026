@@ -17,8 +17,10 @@ import {
   getSentEvents,
   setConnected,
 } from './mocks/useGameSocket.js'
+import * as sound from '../src/composables/useSound.js'
 
 vi.mock('../src/composables/useGameSocket.js', () => import('./mocks/useGameSocket.js'))
+vi.mock('../src/composables/useSound.js')
 
 describe('HostScreen.vue (mit Fake-WebSocket)', () => {
   beforeEach(() => {
@@ -191,7 +193,7 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     it('Start nach dem Intro gescheitert (start_failed): Meldung und das Intro ist wieder bedienbar', async () => {
       const wrapper = mount(HostScreen)
       await new Promise((r) => setTimeout(r, 10))
-      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true, all_ready: true } })
       await wrapper.vm.$nextTick()
       await wrapper.find('button.intro-skip').trigger('click')
       vi.useFakeTimers()
@@ -213,7 +215,7 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     it('zeigt bei status briefing das Intro; „Einsatz starten“ schickt start_game nach dem Countdown', async () => {
       const wrapper = mount(HostScreen)
       await new Promise((r) => setTimeout(r, 10))
-      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true } })
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true, all_ready: true } })
       await wrapper.vm.$nextTick()
 
       expect(wrapper.find('.intro').exists()).toBe(true)
@@ -225,6 +227,34 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       vi.advanceTimersByTime(5000)
       vi.useRealTimers()
       expect(getSentEvents().at(-1)).toEqual({ event: 'start_game', payload: {} })
+    })
+
+    it('wartet auf der letzten Folie, bis alle Spieler „Bereit“ gedrückt haben', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      const spieler = (r1, r2, r3) => [
+        { name: 'A', role: 'MASTER', ready: r1 },
+        { name: 'B', role: 'FI-SI', ready: r2 },
+        { name: 'C', role: 'FI-AE', ready: r3 },
+      ]
+      simulateMessage({ event: 'lobby_update', payload: { players: spieler(true, false, false), status: 'briefing', ready_to_start: true, all_ready: false } })
+      await wrapper.vm.$nextTick()
+      await wrapper.find('button.intro-skip').trigger('click')
+      expect(wrapper.find('button.intro-start').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.intro-ready').text()).toContain('1/3')
+
+      simulateMessage({ event: 'lobby_update', payload: { players: spieler(true, true, true), status: 'briefing', ready_to_start: true, all_ready: true } })
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('.intro-outro').exists()).toBe(true)   // Countdown startet von selbst
+    })
+
+    it('im DEV-Modus bleibt der Start-Knopf auch ohne „Bereit“ frei', async () => {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      simulateMessage({ event: 'lobby_update', payload: { players: [], status: 'briefing', ready_to_start: true, all_ready: false, dev_mode: true } })
+      await wrapper.vm.$nextTick()
+      await wrapper.find('button.intro-skip').trigger('click')
+      expect(wrapper.find('button.intro-start').attributes('disabled')).toBeUndefined()
     })
 
     it('nach dem Start (game_tick) ist das Intro weg', async () => {
@@ -452,4 +482,100 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       expect(wrapper.find('.dev-error').text()).toContain('nur vor dem Start')
     })
   })
+
+  describe('Ton am Beamer', () => {
+    async function beamer() {
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      vi.clearAllMocks()
+      return wrapper
+    }
+    const lobby = (status) => simulateMessage({ event: 'lobby_update', payload: { players: [], status, ready_to_start: true } })
+    const tick = (extra = {}) => simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 200, tasks: [], ...extra } })
+
+    it('startet in der Einsatzbesprechung die leise Ambience', async () => {
+      const wrapper = await beamer()
+      lobby('briefing')
+      await wrapper.vm.$nextTick()
+      expect(sound.startBed).toHaveBeenCalledWith(expect.any(Number))
+      expect(sound.startBed.mock.calls[0][0]).toBeLessThan(1)
+    })
+
+    it('hebt beim Spielstart die Ambience an und spielt „System online“', async () => {
+      const wrapper = await beamer()
+      lobby('briefing')
+      await wrapper.vm.$nextTick()
+      lobby('running')
+      await wrapper.vm.$nextTick()
+      expect(sound.startBed).toHaveBeenLastCalledWith(1)
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-online')
+    })
+
+    it('spielt bei verlorenen Leben den Fehler-Buzz', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ health: 300 })
+      await wrapper.vm.$nextTick()
+      vi.clearAllMocks()
+      tick({ health: 240 })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-error')
+    })
+
+    it('spielt kein Fehlergeräusch, wenn die Leben steigen', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ health: 200 })
+      await wrapper.vm.$nextTick()
+      vi.clearAllMocks()
+      tick({ health: 215 })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).not.toHaveBeenCalledWith('sfx-error')
+    })
+
+    it('bestätigt eine neue Ziffer des Neustart-Codes', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ reboot_digits: [null, null, null] })
+      await wrapper.vm.$nextTick()
+      tick({ reboot_digits: [4, null, null] })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-solved')
+    })
+
+    it('meldet eine aufgerissene Hilfe-Notiz', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      tick({ hints: { total: 4, available: [], opened: [], cost: 50 } })
+      await wrapper.vm.$nextTick()
+      tick({ hints: { total: 4, available: [], opened: [{ id: 'cable' }], cost: 50 } })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-hint')
+    })
+
+    it('spielt zum Sieg und zur Niederlage je einen eigenen Ton und beendet die Ambience', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      simulateMessage({ event: 'game_over', payload: { result: 'victory', score: 10, survived_seconds: 5 } })
+      await wrapper.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-win')
+      expect(sound.stopBed).toHaveBeenCalled()
+
+      const zweiter = await beamer()
+      lobby('running')
+      simulateMessage({ event: 'game_over', payload: { result: 'meltdown', score: 0, survived_seconds: 5 } })
+      await zweiter.vm.$nextTick()
+      expect(sound.playSfx).toHaveBeenCalledWith('sfx-gameover')
+    })
+
+    it('ist in der Lobby still', async () => {
+      const wrapper = await beamer()
+      lobby('running')
+      await wrapper.vm.$nextTick()
+      lobby('waiting')
+      await wrapper.vm.$nextTick()
+      expect(sound.stopBed).toHaveBeenCalled()
+    })
+  })
 })
+

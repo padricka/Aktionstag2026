@@ -96,6 +96,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             await self.handle_owner_settings(payload)
         elif event == "player_input":
             await self.handle_player_input(payload)
+        elif event == "player_ready":
+            await self.handle_player_ready(payload)
         elif event == "start_game":
             await self.handle_start_game()
         elif event in ("reset_game", "new_lobby"):
@@ -274,10 +276,31 @@ class GameConsumer(AsyncWebsocketConsumer):
         else:
             await self._broadcast_tick(snap)
 
+    async def handle_player_ready(self, payload):
+        ready = payload.get("ready", True)
+        if self.is_host or not self.player_name or not isinstance(ready, bool):
+            await self.send_error("Bereit nur von Spielern (ready: true/false)", code="ready_denied")
+            return
+        result = await asyncio.to_thread(
+            self.lobby.redis.set_ready, self.game_id, self.player_name, ready
+        )
+        if result["event"] == "error":
+            await self.send_error(result["payload"]["message"], code="ready_denied")
+            return
+        await self.channel_layer.group_send(
+            self.room_group_name, {"type": "lobby_update", "payload": result["payload"]}
+        )
+
     async def handle_start_game(self):
         payload = await self.lobby.lobby_payload()
         if not payload.get("ready_to_start"):
             await self.send_error(f"Es werden {len(ROLES)} Spieler mit Rollen benötigt", code="start_failed")
+            return
+
+        # Der Beamer wartet auf die Spieler: Start erst, wenn alle „Bereit“ sind (DEV: egal)
+        if (self.is_host and payload["status"] == "briefing"
+                and not payload["all_ready"] and not payload["dev_mode"]):
+            await self.send_error("Noch nicht alle Spieler sind bereit", code="not_ready")
             return
 
         # Mit Beamer: erst die Einsatzbesprechung (Intro), der Host startet danach.
