@@ -2,8 +2,8 @@
   Task3P2 — Rückseite, Aufgabe 3 „Datenrettung" (view.type "packet_dump").
 
   Erst die richtige Backup-Platte einlegen (Datum und Status stehen im Log des
-  Leitstands), dann erscheinen die Datenpakete (8 Bit, das erste ist das Prüfbit)
-  und die Key-ID im Paket-Kopf. Hier wird nichts gezählt, umgerechnet oder geprüft.
+  Leitstands), dann erscheinen die Nr. der Platte (4-stellig binär) und zwei Tabellen mit
+  je 6 Codes, überschrieben mit einem Schlüssel-Namen. Hier wird nichts gerechnet oder geprüft.
 -->
 <template>
   <div class="task">
@@ -18,8 +18,8 @@
         Datum und Status der Backups stehen im Log des Leitstands.
       </template>
       <template v-else>
-        Lies den anderen die Pakete und die Key-ID vor. Welcher Schlüssel gilt, sagt Regel ⑤ –
-        den Schlüsselbund hat der Leitstand.
+        Sag dem Leitstand die Nr. der Platte. Welche Tabelle gilt, weiß die Vorderseite (③) –
+        lies ihr dann die 6 Codes vor (Regel ④), nicht rechnen.
       </template>
     </p>
 
@@ -45,19 +45,22 @@
         </section>
 
         <section v-else class="panel">
-          <span class="panel-label">Speicherauszug · P = Prüfbit</span>
-          <div class="key-id">
-            Paket-Kopf · KEY-ID <strong>{{ view.key_id }}</strong>
+          <span class="panel-label">Backup-Platte · Datentabellen</span>
+          <div class="key-nr">
+            Auf der Platte steht die Nr. <strong>{{ view.key_id }}</strong>
           </div>
-          <ol class="packets">
-            <li v-for="(p, i) in packets" :key="i" class="packet">
-              <span class="packet-nr">Paket {{ i + 1 }}</span>
-              <span class="packet-bits">
-                <span class="packet-p" title="Prüfbit">{{ p[0] }}</span>
-                <span class="packet-data">{{ gruppiert(p.slice(1)) }}</span>
-              </span>
-            </li>
-          </ol>
+          <!-- zwei Tabellen, je mit dem Namen eines Schlüssels – welche gilt, sagt Regel ③ -->
+          <div class="code-tables">
+            <div v-for="t in tables" :key="t.name" class="code-table">
+              <span class="code-table-name">Tabelle {{ t.name }}</span>
+              <ol class="code-rows">
+                <li v-for="(c, i) in t.rows" :key="i" class="code-row">
+                  <span class="row-nr">{{ i + 1 }}</span>
+                  <span class="code">{{ c.slice(0, 4) }} {{ c.slice(4) }}</span>
+                </li>
+              </ol>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -85,9 +88,9 @@ const sending = ref(false)
 
 const disks = computed(() => props.view?.disks || [])
 const mounted = computed(() => !!props.view?.mounted)
-const packets = computed(() => props.view?.packets || [])
+const tables = computed(() => props.view?.tables || [])
 
-// Antwort vom Server: falsche Platte → wieder frei, richtige → Pakete erscheinen
+// Antwort vom Server: falsche Platte → wieder frei, richtige → Tabellen erscheinen
 watch(() => props.serverError, (e) => { if (e) sending.value = false })
 watch(mounted, () => { sending.value = false })
 
@@ -95,11 +98,6 @@ function einlegen(sn) {
   if (sending.value || mounted.value) return
   sending.value = true
   emit('solved', { target: 'mount_disk', value: sn })
-}
-
-// 7 Datenbits lesbarer: 3 + 4 (passt zu 64 32 16 | 8 4 2 1)
-function gruppiert(bits) {
-  return `${bits.slice(0, 3)} ${bits.slice(3)}`
 }
 </script>
 
@@ -206,54 +204,40 @@ function gruppiert(bits) {
 
 .msg-err { margin: 0; font-size: 13px; color: var(--red); }
 
-.key-id {
+.key-nr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
   padding: 12px 16px;
   background: var(--bg);
   border: 1px solid var(--amber-border);
   font-family: var(--mono);
   font-size: 15px;
   color: var(--fg-2);
-  letter-spacing: 0.1em;
 }
+.key-nr strong { font-size: 24px; color: var(--amber); }
 
-.key-id strong { font-size: 26px; color: var(--amber); margin-left: 8px; letter-spacing: 0.2em; }
-
-.packets {
-  list-style: none;
-  margin: 0;
-  padding: 10px 0;
+.code-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.code-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
   background: var(--bg);
   border: 1px solid var(--border-2);
   font-family: var(--mono);
 }
-
-.packet {
-  display: flex;
-  align-items: baseline;
-  gap: 24px;
-  padding: 10px 20px;
-}
-
-.packet + .packet { border-top: 1px dashed var(--border-2); }
-
-.packet-nr { font-size: 13px; color: var(--fg-3); min-width: 70px; }
-
-.packet-bits {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-}
-
-.packet-p {
-  color: var(--amber);
-  padding-right: 14px;
-  border-right: 2px solid var(--border-3);
-}
-
-.packet-data { color: var(--green); white-space: pre; }
+.code-table-name { font-size: 18px; font-weight: 700; color: var(--amber); letter-spacing: 0.08em; }
+.code-rows { list-style: none; margin: 0; padding: 0; }
+.code-row { display: flex; align-items: baseline; gap: 14px; padding: 6px 0; }
+.code-row + .code-row { border-top: 1px dashed var(--border-2); }
+.row-nr { font-size: 13px; color: var(--fg-3); min-width: 16px; }
+.code { font-size: 26px; font-weight: 700; color: var(--green); letter-spacing: 0.12em; }
 
 .note-col {
   display: flex;
@@ -267,6 +251,6 @@ function gruppiert(bits) {
 }
 
 @media (max-width: 600px) {
-  .packet-bits { font-size: 22px; }
+  .code { font-size: 20px; }
 }
 </style>

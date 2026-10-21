@@ -1,9 +1,9 @@
 <!--
   Task3P1 — Vorderseite, Aufgabe 3 „Datenrettung" (view.type "rescue_terminal").
 
-  Die Vorderseite hat die ASCII-Tabelle und das Backup-Terminal: erst Login
-  (Name steht in Hex im Log des Leitstands), dann das gerettete Wort. Hier wird
-  nichts gerechnet oder geprüft: jede Eingabe geht als `solved` an PlayerScreen.
+  Die Vorderseite hat die Code-Tabelle (8-stelliger Code → Buchstabe, frei erfunden) und
+  das Backup-Terminal. Die Rückseite liest Codes vor, hier wird nur nachgeschlagen – nichts
+  gerechnet. Kein Login. Das Wort geht als `solved` an PlayerScreen, geprüft wird im Backend.
 -->
 <template>
   <div class="task">
@@ -13,24 +13,21 @@
     </header>
 
     <p class="hint">
-      Das Terminal ist gesperrt. Den Benutzernamen hat der Leitstand – aber in Hex (Regel ②).
-      Welche Pakete heil sind, sagt Regel ③ – die Pakete hat die Rückseite. Die ASCII-Tabelle brauchen alle.
+      Welche Tabelle der Rückseite gilt, sagt Regel ③. Die Rückseite liest dir die Codes vor –
+      such jeden Code in deiner Code-Tabelle und tipp das Wort ein.
     </p>
 
     <div class="body">
       <div class="main-col">
-        <section class="panel terminal" :class="{ 'is-locked': !loggedIn }">
-          <span class="panel-label">
-            {{ loggedIn ? `Angemeldet · Passwort der Backup-Platte (${wordLen} Buchstaben)` : `Gesperrt · BENUTZER (${loginLen} Buchstaben)` }}
-          </span>
+        <section class="panel terminal">
+          <span class="panel-label">Passwort der Backup-Platte ({{ wordLen }} Buchstaben)</span>
           <div class="foot">
             <input
-              :key="loggedIn ? 'wort' : 'login'"
               v-model="eingabe"
               class="input-big"
               :class="{ err: !!serverError }"
-              :placeholder="loggedIn ? 'WORT' : 'BENUTZER'"
-              :maxlength="loggedIn ? wordLen : loginLen"
+              placeholder="WORT"
+              :maxlength="wordLen"
               :disabled="sending"
               @keyup.enter="absenden"
             />
@@ -39,18 +36,18 @@
               :disabled="!eingabe.trim() || sending"
               @click="absenden"
             >
-              {{ sending ? 'Prüfe …' : (loggedIn ? 'Daten retten' : 'Anmelden') }}
+              {{ sending ? 'Prüfe …' : 'Daten retten' }}
             </button>
           </div>
           <p v-if="serverError" class="msg-err">{{ serverError }}</p>
         </section>
 
         <section class="panel">
-          <span class="panel-label">ASCII-Tabelle · Zahl → Buchstabe</span>
-          <div class="ascii-table">
+          <span class="panel-label">Code-Tabelle · Code → Buchstabe</span>
+          <div class="code-table">
             <div v-for="item in tabelle" :key="item.char" class="cell">
-              <span class="cell-val">{{ item.dec }}</span>
               <span class="cell-key">{{ item.char }}</span>
+              <span class="cell-val">{{ item.code.slice(0, 4) }} {{ item.code.slice(4) }}</span>
             </div>
           </div>
         </section>
@@ -79,22 +76,13 @@ const emit = defineEmits(['solved'])
 const eingabe = ref('')
 const sending = ref(false)
 
-const wordLen = computed(() => props.view?.word_len || 5)
-const loginLen = computed(() => props.view?.login_len || 4)
-const loggedIn = computed(() => !!props.view?.logged_in)
+const wordLen = computed(() => props.view?.word_len || 6)
 
-// Login geschafft: Feld für das Wort ist frei
-watch(loggedIn, (ja) => {
-  if (ja) {
-    sending.value = false
-    eingabe.value = ''
-  }
-})
-
+// A–Z, damit man den Buchstaben schnell findet; daneben der Code (4 + 4 Ziffern, besser lesbar)
 const tabelle = computed(() =>
-  Object.entries(props.view?.ascii_table || {})
-    .map(([char, dec]) => ({ char, dec }))
-    .sort((a, b) => a.dec - b.dec),
+  Object.entries(props.view?.code_table || {})
+    .map(([char, code]) => ({ char, code }))
+    .sort((a, b) => a.char.localeCompare(b.char)),
 )
 
 // Falsche Antwort: Backend meldet serverError, Eingabe leeren und wieder frei.
@@ -112,7 +100,7 @@ function absenden() {
   const versuch = eingabe.value.trim()
   if (!versuch || sending.value) return
   sending.value = true
-  emit('solved', { target: loggedIn.value ? 'rescue_word' : 'terminal_login', answer: versuch })
+  emit('solved', { target: 'rescue_word', answer: versuch })
 }
 </script>
 
@@ -223,12 +211,11 @@ function absenden() {
 
 .msg-err { margin: 0; font-size: 13px; color: var(--red); }
 
-.terminal.is-locked { border-color: var(--amber-border); }
-.terminal.is-locked .panel-label { color: var(--amber); }
 
-.ascii-table {
+
+.code-table {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
   gap: 6px;
 }
 
@@ -243,7 +230,7 @@ function absenden() {
   font-family: var(--mono);
 }
 
-.cell-val { font-size: 13px; color: var(--fg-3); }
+.cell-val { font-size: 15px; color: var(--green); letter-spacing: 0.08em; }
 .cell-key { font-size: 20px; font-weight: 700; color: var(--fg); }
 
 .note-col {

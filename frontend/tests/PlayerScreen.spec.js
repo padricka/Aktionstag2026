@@ -45,13 +45,12 @@ const finaleStub = {
   `,
 }
 
-// Aufgabe 3: Platte (Rückseite), Login und Wort (Vorderseite) melden über `solved`.
+// Aufgabe 3: Platte (Rückseite) und Wort (Vorderseite) melden über `solved`.
 const datenrettungStub = {
   name: 'Task3Stub',
   template: `
     <div class="task3-stub">
       <button class="task3-answer" @click="$emit('solved', { target: 'rescue_word', answer: 'FALSCH' })">answer</button>
-      <button class="task3-login" @click="$emit('solved', { target: 'terminal_login', answer: 'REHA' })">login</button>
       <button class="task3-disk" @click="$emit('solved', { target: 'mount_disk', value: 'SN-4471' })">disk</button>
     </div>
   `,
@@ -492,15 +491,6 @@ describe('PlayerScreen.vue', () => {
     expect(getSentEvents().at(-1)).toEqual({
       event: 'player_input',
       payload: { action_type: 'text_input', target: 'rescue_word', value: 'FALSCH' },
-    })
-  })
-
-  it('sendet in Aufgabe 3 den Login der Vorderseite als terminal_login', async () => {
-    const wrapper = await inAufgabe3('FI-SI', 'rescue_terminal')
-    await wrapper.find('.task3-login').trigger('click')
-    expect(getSentEvents().at(-1)).toEqual({
-      event: 'player_input',
-      payload: { action_type: 'text_input', target: 'terminal_login', value: 'REHA' },
     })
   })
 

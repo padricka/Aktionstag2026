@@ -669,13 +669,12 @@ function onTaskSolved(data) {
                       value: `${data?.valve || ''}:${data?.color || ''}` }
     }
   } else if (currentTask.value === 3) {
-    // Datenrettung: Rückseite legt die Platte ein, Vorderseite meldet sich an und
-    // tippt das Wort. Geprüft wird alles im Backend.
+    // Datenrettung: Rückseite legt die Platte ein, Vorderseite tippt das Wort.
+    // Geprüft wird alles im Backend.
     if (data?.target === 'mount_disk' && normalizedRole.value === 'P2') {
       payloadData = { action_type: 'button_press', target: 'mount_disk', value: data?.value || '' }
     } else if (normalizedRole.value === 'P1') {
-      const target = data?.target === 'terminal_login' ? 'terminal_login' : 'rescue_word'
-      payloadData = { action_type: 'text_input', target, value: data?.answer || '' }
+      payloadData = { action_type: 'text_input', target: 'rescue_word', value: data?.answer || '' }
     }
   }
 

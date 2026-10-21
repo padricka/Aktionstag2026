@@ -1,25 +1,23 @@
-"""Task 3 – Datenrettung (kind="data_rescue"), Escape-Room-Variante.
+"""Task 3 – Datenrettung (kind="data_rescue"), Escape-Room-Variante, leichte Fassung.
 
-Spezifikation: GAME_DESIGN.md, Abschnitt 4 „Aufgabe 3".
+Spezifikation: GAME_DESIGN.md, Abschnitt 4 „Aufgabe 3" (feat/leichter-datenrettung,
+nach Rückmeldung von Nicht-ITlern: kein Login, kein Rechnen mit langen Codes, kein Verschieben).
 
-  Gerettet wird immer RENTE – als Kette verschlüsselt:
-  Wort → Caesar um k VOR → ASCII-Code → 7 Bit + Prüfbit vorne, dazu ein
-  beschädigtes Paket (ungerade Anzahl Einsen).
+  Gerettet wird ein 6-Buchstaben-Wort der Rentenversicherung (RENTEN, ANTRAG, …).
 
-  Leitstand   sieht das Log: Login-Name in Hex, Backup-Jobs (Datum, Platte, Status),
-              Schlüsselbund (Key-ID, Schlüssel binär, Status).
-  Vorderseite sieht die ASCII-Tabelle; meldet sich am Terminal an (terminal_login),
-              danach tippt sie das Wort (rescue_word).
-  Rückseite   sieht 4 Backup-Platten; legt die richtige ein (mount_disk), danach
-              die Datenpakete und im Paket-Kopf die Key-ID (binär).
+  Leitstand   sieht Backup-Jobs (Datum, Platte, Status) und den Schlüsselbund
+              (Nr., Name, gültig/gesperrt – zwei gültige).
+  Vorderseite sieht die Code-Tabelle (8-stelliger Code → Buchstabe, frei erfunden)
+              und tippt das Wort ein (rescue_word).
+  Rückseite   sieht 4 Backup-Platten; legt die richtige ein (mount_disk). Danach: die
+              Schlüssel-Nr. der Platte als 4-stellige Binärzahl und ZWEI Tabellen mit je
+              6 Codes, überschrieben mit dem Namen eines gültigen Schlüssels.
 
-  Anleitung, je Rolle ein Teil mit vollständigen Regeln (notes.RESCUE_NOTE):
+  Anleitung, je Rolle ein Teil (notes.RESCUE_NOTE):
     ① (Rückseite)   neuestes Backup mit Status OK – erst Monat, dann Tag vergleichen
-    ② (Vorderseite) Login: Hex → Dezimal → Buchstabe (ASCII-Tabelle)
-    ③ (Vorderseite) Einsen zählen: gerade → heil, ungerade → weglassen
-    ④ (Leitstand)   Binär → Dezimal: erstes Bit = Prüfbit zählt nicht; Key-ID 4 Bit
-    ⑤ (Rückseite)   Schlüssel = AKTIVER Eintrag mit der Key-ID aus dem Paket-Kopf
-    ⑥ (Leitstand)   jeden Buchstaben um k im Alphabet ZURÜCK; Falle: „ROT13“
+    ② (Leitstand)   4-stellige Nr. umrechnen: Werte 8 4 2 1 über jeder 1 zusammenzählen
+    ③ (Vorderseite) gültiger Schlüssel mit dieser Nr. → sein Name steht über der richtigen Tabelle
+    ④ (Rückseite)   die 6 Codes vorlesen, die Vorderseite sucht sie in der Code-Tabelle
 
 Kernidee der Tests: Alles entsteht NUR aus den drei Ansichten und den Regeln.
 """
@@ -84,48 +82,30 @@ def _platte(views):
     return max(ok, key=lambda b: _datum(b["date"]))["serial"]
 
 
-def _login(views):
-    """② Hex → Dezimal → Buchstabe."""
-    tabelle = views[ROLE_P1]["ascii_table"]
-    return "".join(_buchstabe(int(h, 16), tabelle) for h in views[ROLE_M]["login_hex"])
+def _nummer(views):
+    """② 4-stellige Binärzahl: 8 4 2 1 über jeder 1 zusammenzählen."""
+    return sum(w for w, z in zip((8, 4, 2, 1), views[ROLE_P2]["key_id"]) if z == "1")
 
 
-def _heil(paket):
-    """③ gerade Anzahl Einsen → heil."""
-    return paket.count("1") % 2 == 0
-
-
-def _dezimal(paket):
-    """④ erstes Bit ist das Prüfbit, der Rest mit 64 32 16 8 4 2 1."""
-    return int(paket[1:], 2)
-
-
-def _k(views):
-    """⑤ der AKTIVE Schlüssel mit der Key-ID aus dem Paket-Kopf (④: 4 Bit)."""
-    key_id = int(views[ROLE_P2]["key_id"], 2)
-    treffer = [s for s in views[ROLE_M]["keys"] if s["id"] == key_id and s["status"] == "aktiv"]
+def _tabelle(views):
+    """③ gültiger Schlüssel mit dieser Nr. → sein Name steht über der richtigen Tabelle."""
+    treffer = [s for s in views[ROLE_M]["keys"] if s["nr"] == _nummer(views) and s["status"] == "gültig"]
     assert len(treffer) == 1
-    return int(treffer[0]["key"], 2)
+    return next(t for t in views[ROLE_P2]["tables"] if t["name"] == treffer[0]["name"])
 
 
-def _buchstabe(zahl, tabelle):
-    return next(b for b, z in tabelle.items() if z == zahl)
+def _lesen(codes, views):
+    """④ jeden Code in der Code-Tabelle der Vorderseite nachschlagen."""
+    tabelle = {code: buchstabe for buchstabe, code in views[ROLE_P1]["code_table"].items()}
+    return "".join(tabelle[c] for c in codes)
 
 
-def _zurueck(buchstabe, k):
-    """⑥ um k im Alphabet zurück, vor A kommt Z."""
-    return chr((ord(buchstabe) - ord("A") - k) % 26 + ord("A"))
-
-
-def _wort(views, k=None):
-    k = _k(views) if k is None else k
-    tabelle = views[ROLE_P1]["ascii_table"]
-    pakete = [p for p in views[ROLE_P2]["packets"] if _heil(p)]
-    return "".join(_zurueck(_buchstabe(_dezimal(p), tabelle), k) for p in pakete)
+def _wort(views):
+    return _lesen(_tabelle(views)["rows"], views)
 
 
 def _runden(n=300):
-    """Zufallsrunden, schon mit eingelegter Platte (sonst fehlen die Pakete)."""
+    """Zufallsrunden, schon mit eingelegter Platte (sonst fehlen Nr. und Tabellen)."""
     for _ in range(n):
         st = DataRescueTask.create({})
         st["mounted"] = True
@@ -134,10 +114,6 @@ def _runden(n=300):
 
 def _einlegen(dc):
     assert _press(dc, P2_NAME, "mount_disk", _platte(_views(dc)))["result"] == "correct"
-
-
-def _anmelden(dc):
-    assert _text(dc, P1_NAME, "terminal_login", _login(_views(dc)))["result"] == "correct"
 
 
 # ------------------------------------------------------------------ Ansichten
@@ -157,20 +133,28 @@ def test_every_role_has_its_part_of_the_anleitung(dc):
 def test_each_role_sees_only_its_own_facts(dc):
     _einlegen(dc)
     m, p1, p2 = (_view(dc, r) for r in (ROLE_M, ROLE_P1, ROLE_P2))
-    assert {"login_hex", "backups", "keys"} <= set(m) and not {"packets", "ascii_table", "disks"} & set(m)
-    assert "ascii_table" in p1 and not {"login_hex", "keys", "packets", "disks"} & set(p1)
-    assert {"disks", "packets", "key_id"} <= set(p2) and not {"login_hex", "keys", "ascii_table"} & set(p2)
+    assert {"backups", "keys"} <= set(m) and not {"tables", "code_table", "disks", "key_id"} & set(m)
+    assert "code_table" in p1 and not {"keys", "tables", "disks", "key_id", "backups"} & set(p1)
+    assert {"disks", "tables", "key_id"} <= set(p2) and not {"keys", "code_table", "backups"} & set(p2)
     for view in (m, p1, p2):
-        for verboten in ("word", "login", "cipher", "corrupt", "k", "serial", "solution"):
+        for verboten in ("word", "decoy", "serial", "solution", "login_hex", "ascii_table"):
             assert verboten not in view
 
 
-def test_vorderseite_has_the_full_ascii_table_and_lengths(dc):
+def test_no_login_anymore(dc):
+    """Die Zugangsdaten (Hex-Login) sind weg: das Terminal nimmt gleich das Wort."""
+    assert "login_hex" not in _view(dc, ROLE_M)
+    assert "logged_in" not in _view(dc, ROLE_P1)
+    assert _text(dc, P1_NAME, "terminal_login", "REHA")["result"] == "ignored"
+
+
+def test_vorderseite_has_a_code_table_for_every_letter(dc):
     p1 = _view(dc, ROLE_P1)
-    assert p1["ascii_table"] == {chr(c): c for c in range(ord("A"), ord("Z") + 1)}
-    assert p1["word_len"] == 5
-    assert p1["login_len"] == len(_view(dc, ROLE_M)["login_hex"])
-    assert p1["logged_in"] is False
+    tabelle = p1["code_table"]
+    assert sorted(tabelle) == [chr(c) for c in range(ord("A"), ord("Z") + 1)]
+    assert all(len(c) == 8 and set(c) <= {"0", "1"} for c in tabelle.values())
+    assert len(set(tabelle.values())) == 26
+    assert p1["word_len"] == 6
 
 
 def test_public_snapshot_hides_raw_state(dc):
@@ -178,12 +162,12 @@ def test_public_snapshot_hides_raw_state(dc):
 
 
 # ------------------------------------------------------------------ ① Backup-Platte
-def test_rueckseite_sees_four_disks_but_no_packets_before_mounting(dc):
+def test_rueckseite_sees_four_disks_but_nothing_else_before_mounting(dc):
     p2 = _view(dc, ROLE_P2)
     assert len(p2["disks"]) == 4
     assert {b["serial"] for b in _view(dc, ROLE_M)["backups"]} == set(p2["disks"])
     assert p2["mounted"] is False
-    assert p2["packets"] is None and p2["key_id"] is None
+    assert p2["tables"] is None and p2["key_id"] is None
 
 
 def test_newest_backup_is_always_broken_and_plain_text_dates_mislead():
@@ -198,12 +182,15 @@ def test_newest_backup_is_always_broken_and_plain_text_dates_mislead():
         assert als_text != _platte(views)
 
 
-def test_right_disk_mounts_and_shows_packets(dc):
+def test_right_disk_mounts_and_shows_number_and_two_tables(dc):
     _einlegen(dc)
     p2 = _view(dc, ROLE_P2)
     assert p2["mounted"] is True
-    assert len(p2["packets"]) == 6
-    assert len(p2["key_id"]) == 4
+    assert len(p2["key_id"]) == 4 and set(p2["key_id"]) <= {"0", "1"}
+    assert len(p2["tables"]) == 2
+    for t in p2["tables"]:
+        assert t["name"] and len(t["rows"]) == 6
+        assert all(len(c) == 8 and set(c) <= {"0", "1"} for c in t["rows"])
 
 
 def test_wrong_disk_costs_health(dc):
@@ -213,73 +200,51 @@ def test_wrong_disk_costs_health(dc):
     assert _view(dc, ROLE_P2)["mounted"] is False
 
 
-# ------------------------------------------------------------------ ② Login
-def test_login_is_a_drv_word_in_hex():
+# ------------------------------------------------------------------ ②–③ Schlüssel und Tabelle
+def test_keyring_has_two_valid_keys_and_both_tables_belong_to_them():
+    for _, views in _runden():
+        keys = views[ROLE_M]["keys"]
+        gueltig = [s for s in keys if s["status"] == "gültig"]
+        assert len(gueltig) == 2
+        assert {s["status"] for s in keys} == {"gültig", "gesperrt"}
+        assert len({s["nr"] for s in keys}) == len(keys) and len({s["name"] for s in keys}) == len(keys)
+        assert all(1 <= s["nr"] <= 15 for s in keys)
+        assert {t["name"] for t in views[ROLE_P2]["tables"]} == {s["name"] for s in gueltig}
+
+
+def test_disk_number_points_to_one_of_the_valid_keys():
+    for _, views in _runden():
+        assert _nummer(views) in {s["nr"] for s in views[ROLE_M]["keys"] if s["status"] == "gültig"}
+
+
+# ------------------------------------------------------------------ ④ Wort
+def test_rules_always_give_a_six_letter_drv_word():
     gesehen = set()
     for _, views in _runden():
-        hexe = views[ROLE_M]["login_hex"]
-        assert all(h.startswith("0x") and len(h) == 4 for h in hexe)
-        gesehen.add(_login(views))
-    assert gesehen == {"REHA", "BUND", "DRV"}
+        wort = _wort(views)
+        assert wort in DataRescueTask.WORDS and len(wort) == 6
+        gesehen.add(wort)
+    assert gesehen == set(DataRescueTask.WORDS)
 
 
-def test_login_unlocks_the_terminal(dc):
-    _anmelden(dc)
-    assert _view(dc, ROLE_P1)["logged_in"] is True
-
-
-def test_wrong_login_costs_health(dc):
-    assert _text(dc, P1_NAME, "terminal_login", "ADMIN")["result"] == "wrong"
-    assert dc.health == 270
-
-
-def test_word_before_login_is_ignored(dc):
-    assert _text(dc, P1_NAME, "rescue_word", "RENTE")["result"] == "ignored"
-    assert dc.health == 300
-
-
-# ------------------------------------------------------------------ ③–⑥ Pakete, Schlüssel, Wort
-def test_six_packets_of_eight_bits_one_of_them_broken():
+def test_the_other_table_gives_a_different_word():
+    """Falle: die Tabelle des anderen gültigen Schlüssels ergibt ein anderes, echtes Wort."""
     for _, views in _runden():
-        pakete = views[ROLE_P2]["packets"]
-        assert len(pakete) == 6
-        assert all(len(p) == 8 and set(p) <= {"0", "1"} for p in pakete)
-        assert sum(not _heil(p) for p in pakete) == 1
-
-
-def test_keyring_has_a_revoked_twin_and_keys_between_1_and_9():
-    for _, views in _runden():
-        key_id = int(views[ROLE_P2]["key_id"], 2)
-        gleiche_id = [s for s in views[ROLE_M]["keys"] if s["id"] == key_id]
-        assert {s["status"] for s in gleiche_id} == {"aktiv", "REVOKED"}
-        assert all(1 <= int(s["key"], 2) <= 9 for s in views[ROLE_M]["keys"])
-        assert len({s["key"] for s in views[ROLE_M]["keys"]}) == len(views[ROLE_M]["keys"])
-
-
-def test_rules_always_give_rente():
-    for _, views in _runden():
-        assert _wort(views) == "RENTE"
-
-
-def test_traps_always_give_a_wrong_word():
-    """REVOKED-Zwilling, ROT13 und „gar nicht zurückschieben“ führen nie zu RENTE."""
-    for _, views in _runden():
-        key_id = int(views[ROLE_P2]["key_id"], 2)
-        revoked = next(s for s in views[ROLE_M]["keys"] if s["id"] == key_id and s["status"] == "REVOKED")
-        assert _wort(views, k=int(revoked["key"], 2)) != "RENTE"
-        assert _wort(views, k=13) != "RENTE"
-        assert _wort(views, k=0) != "RENTE"
+        richtig = _tabelle(views)
+        andere = next(t for t in views[ROLE_P2]["tables"] if t is not richtig)
+        falsch = _lesen(andere["rows"], views)
+        assert falsch in DataRescueTask.WORDS and falsch != _wort(views)
 
 
 def test_variants_change_between_rounds():
-    platten, kaputt, ids = set(), set(), set()
+    platten, nummern, tabellen = set(), set(), set()
     for st, views in _runden():
         platten.add(_platte(views))
-        kaputt.add(next(i for i, p in enumerate(views[ROLE_P2]["packets"]) if not _heil(p)))
-        ids.add(views[ROLE_P2]["key_id"])
+        nummern.add(_nummer(views))
+        tabellen.add(views[ROLE_P1]["code_table"]["A"])
     assert len(platten) > 50
-    assert kaputt == set(range(6))
-    assert len(ids) > 5
+    assert len(nummern) > 5
+    assert len(tabellen) > 50
 
 
 # ------------------------------------------------------------------ Lösen
@@ -289,7 +254,6 @@ def test_full_chain_from_views_solves_heals_and_scores(dc):
     dc.redis.r.hset(dc.redis._k_state(GAME), "time_left", 100)
 
     _einlegen(dc)
-    _anmelden(dc)
     res = _text(dc, P1_NAME, "rescue_word", _wort(_views(dc)))
 
     assert res["result"] == "correct"
@@ -299,46 +263,39 @@ def test_full_chain_from_views_solves_heals_and_scores(dc):
 
 
 def test_word_is_case_insensitive_and_trimmed(dc):
-    _anmelden(dc)
-    assert _text(dc, P1_NAME, "rescue_word", "  rente ")["result"] == "correct"
+    wort = dc.current_task()["state"]["word"]
+    assert _text(dc, P1_NAME, "rescue_word", f"  {wort.lower()} ")["result"] == "correct"
 
 
 def test_wrong_word_costs_health(dc):
-    _anmelden(dc)
-    assert _text(dc, P1_NAME, "rescue_word", "RENTEN")["result"] == "wrong"
+    assert _text(dc, P1_NAME, "rescue_word", "FALSCH")["result"] == "wrong"
     assert dc.health == 270
 
 
-def test_empty_inputs_are_ignored(dc):
-    assert _text(dc, P1_NAME, "terminal_login", "   ")["result"] == "ignored"
-    _anmelden(dc)
+def test_empty_word_is_ignored(dc):
     assert _text(dc, P1_NAME, "rescue_word", "   ")["result"] == "ignored"
     assert dc.health == 300
 
 
-def test_repeated_login_or_mount_is_ignored(dc):
+def test_repeated_mount_is_ignored(dc):
     _einlegen(dc)
-    _anmelden(dc)
     assert _press(dc, P2_NAME, "mount_disk", "SN-0000")["result"] == "ignored"
-    assert _text(dc, P1_NAME, "terminal_login", "FALSCH")["result"] == "ignored"
     assert dc.health == 300
 
 
 # ------------------------------------------------------------------ Rollen
 def test_each_input_belongs_to_one_role(dc):
     platte = _platte(_views(dc))
-    login = _login(_views(dc))
+    wort = dc.current_task()["state"]["word"]
     assert _press(dc, P1_NAME, "mount_disk", platte)["result"] == "ignored"
     assert _press(dc, MASTER_NAME, "mount_disk", platte)["result"] == "ignored"
-    assert _text(dc, P2_NAME, "terminal_login", login)["result"] == "ignored"
-    assert _text(dc, MASTER_NAME, "terminal_login", login)["result"] == "ignored"
-    _anmelden(dc)
-    assert _text(dc, MASTER_NAME, "rescue_word", "RENTE")["result"] == "ignored"
-    assert _text(dc, P2_NAME, "rescue_word", "RENTE")["result"] == "ignored"
+    assert _text(dc, MASTER_NAME, "rescue_word", wort)["result"] == "ignored"
+    assert _text(dc, P2_NAME, "rescue_word", wort)["result"] == "ignored"
     assert dc.health == 300
 
 
 def test_old_targets_are_gone(dc):
-    for target in ("ascii_answer", "binary_answer", "sync_button"):
-        assert _text(dc, P1_NAME, target, "RENTE")["result"] == "ignored"
+    for target in ("ascii_answer", "binary_answer", "sync_button", "terminal_login", "set_key"):
+        assert _text(dc, MASTER_NAME, target, "3")["result"] == "ignored"
+        assert _text(dc, P1_NAME, target, "RENTEN")["result"] == "ignored"
     assert dc.health == 300

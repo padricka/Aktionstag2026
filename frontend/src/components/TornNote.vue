@@ -166,6 +166,16 @@ const paperStyle = computed(() => `clip-path: ${clipPath.value}; --tn-lines: ${l
 
 .is-text   { font-weight: 500; }
 .is-rule   { font-weight: 700; }
+/* Rechenbeispiel: mittig, größer, eingerahmt – da schaut man zuerst hin */
+.is-beispiel {
+  margin: 0 auto;
+  padding: 2px 12px;
+  font-weight: 800;
+  font-size: 25px;
+  border: 2px solid #2b3a55;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.55);
+}
 /* das Wichtigste auf dem Zettel: fett, mit Textmarker */
 .is-bold   { font-weight: 800; background: linear-gradient(transparent 35%, rgba(255, 226, 0, 0.75) 35%); padding: 0 4px; }
 .is-sign   { font-weight: 700; font-size: 25px; transform: rotate(-3deg); margin-left: auto; }

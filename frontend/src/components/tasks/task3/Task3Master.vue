@@ -1,9 +1,9 @@
 <!--
   Task3Master — Leitstand, Aufgabe 3 „Datenrettung" (view.type "rescue_log").
 
-  Der Leitstand hat das Log: Login-Name in Hex (für die Vorderseite), Backup-Jobs
-  (für die Rückseite) und den Schlüsselbund. Umgerechnet oder ausgewählt wird hier
-  nichts – das ist Teil des Rätsels.
+  Der Leitstand hat das Log: Backup-Jobs (für die Rückseite) und den Schlüsselbund
+  (Nr., Name, gültig/gesperrt). Die Nr. auf der Platte rechnet er nach Regel ② um.
+  Keine Eingabe – hier wird nichts ausgewählt, das ist Teil des Rätsels.
 -->
 <template>
   <div class="task">
@@ -13,22 +13,14 @@
     </header>
 
     <p class="hint">
-      Lies den anderen dein Log vor: Login für die Vorderseite, Backups für die Rückseite.
-      Mit Regel ④ rechnest du die Pakete um, mit Regel ⑥ entschlüsselst du das Wort.
+      Lies der Rückseite die Backups vor. Auf der Platte steht eine 4-stellige Nr. – rechne sie
+      mit Regel ② um. Welcher Schlüssel dazu gültig ist, siehst nur du im Schlüsselbund.
     </p>
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
     <div v-else class="body">
       <div class="main-col">
-        <section class="panel">
-          <span class="panel-label">Zugangsdaten Backup-Terminal</span>
-          <div class="login">
-            <span class="login-label">BENUTZER</span>
-            <span v-for="(h, i) in view.login_hex" :key="i" class="login-hex">{{ h }}</span>
-          </div>
-        </section>
-
         <section class="panel">
           <span class="panel-label">Backup-Jobs</span>
           <table class="log-table">
@@ -51,20 +43,20 @@
         </section>
 
         <section class="panel keyring">
-          <span class="panel-label">Schlüsselbund · Verschlüsselungs-Log</span>
+          <span class="panel-label">Schlüsselbund</span>
           <table class="log-table">
             <thead>
-              <tr><th>Key-ID</th><th>Schlüssel (binär)</th><th>Status</th></tr>
+              <tr><th>Nr.</th><th>Schlüssel</th><th>Status</th></tr>
             </thead>
             <tbody>
               <tr
                 v-for="(s, i) in view.keys"
                 :key="i"
                 class="key-row"
-                :class="{ 'is-bad': s.status !== 'aktiv' }"
+                :class="{ 'is-bad': s.status !== 'gültig' }"
               >
-                <td>{{ s.id }}</td>
-                <td class="bits">{{ s.key }}</td>
+                <td>{{ s.nr }}</td>
+                <td class="bits">{{ s.name }}</td>
                 <td class="status">{{ s.status }}</td>
               </tr>
             </tbody>
@@ -166,19 +158,7 @@ defineProps({
   font-weight: 600;
 }
 
-.login {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 14px;
-  padding: 14px 18px;
-  background: var(--bg);
-  border: 1px solid var(--border-2);
-  font-family: var(--mono);
-}
 
-.login-label { font-size: 13px; color: var(--fg-3); letter-spacing: 0.15em; }
-.login-hex { font-size: 26px; font-weight: 700; color: var(--green); letter-spacing: 0.05em; }
 
 .log-table {
   width: 100%;
@@ -209,6 +189,7 @@ defineProps({
 .log-table .bits { letter-spacing: 0.2em; color: var(--green); font-weight: 700; }
 .log-table .status { font-weight: 700; color: var(--green); }
 .log-table .is-bad .status { color: var(--red); }
+
 
 .note-col {
   display: flex;
