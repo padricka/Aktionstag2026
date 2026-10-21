@@ -15,7 +15,7 @@ TIME_BONUS = 60
 FIRE_EVERY = 3
 # Sekunden Pause nach einer gelösten Aufgabe: so lange läuft die Zwischenszene
 # (Zwischenszene.vue, DAUER/DAUER_TRESOR) – Uhr und Feuer stehen, das ×2-Fenster wartet
-PAUSE_NACH = {"alarm": 5, "fire_protocol": 5, "data_rescue": 6}
+PAUSE_NACH = {"alarm": 5 + 12, "fire_protocol": 5, "data_rescue": 6}   # vor Aufgabe 2: + Tutorial Löschanlage
 
 # Antwort, wenn die Eingabe-Sperre nicht frei wird: lieber "nochmal" als Fortschritt verlieren
 INPUT_BUSY = {"result": "error", "message": "Bitte erneut versuchen"}

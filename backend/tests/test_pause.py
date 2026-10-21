@@ -39,7 +39,9 @@ def _loesen(dc):
 
 
 def test_pause_fits_the_cutscene():
-    assert PAUSE_NACH == {"alarm": 5, "fire_protocol": 5, "data_rescue": 6}
+    """Fundort ~5 s (Datentresor 6 s). Vor Aufgabe 2 kommt das Tutorial zur Löschanlage dazu
+    (feat/tutorial-loeschanlage, 12 s) – Zwischenszene.vue TUTORIAL_MS."""
+    assert PAUSE_NACH == {"alarm": 5 + 12, "fire_protocol": 5, "data_rescue": 6}
 
 
 def test_clock_and_fire_stand_still_during_the_cutscene(dc):

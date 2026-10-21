@@ -161,6 +161,9 @@ const props = defineProps({
     default: 'idle',
     validator: (v) => ['idle', 'checking', 'error', 'done'].includes(v),
   },
+  // nur für Vorführungen (Tutorial): Regler von außen stellen; im Spiel null
+  valveIndex: { type: Number, default: null },
+  colorIndex: { type: Number, default: null },
 })
 const emit = defineEmits(['submit'])
 
@@ -285,6 +288,9 @@ function fire() {
   if (locked.value) return
   emit('submit', `${valve.value}:${color.value}`)
 }
+
+watch(() => props.valveIndex, (i) => { if (i !== null) valveIdx.value = clamp(i, props.valves.length - 1) }, { immediate: true })
+watch(() => props.colorIndex, (i) => { if (i !== null) colorIdx.value = clamp(i, props.colors.length - 1) }, { immediate: true })
 
 // Neue Runde mit kürzerer Liste darf keinen Index außerhalb lassen.
 watch(
