@@ -26,7 +26,7 @@ const valveView = {
 }
 
 const pult = (w) => w.find('.cd')
-const rack = (w) => w.find('[role="slider"][aria-label="Rack"]')
+const rack = (w) => w.find('[role="slider"][aria-label="Schrank"]')
 const mittel = (w) => w.find('[role="slider"][aria-label="Löschmittel"]')
 const manometer = (w) => w.find('[role="progressbar"]')
 const ausloeser = (w) => w.find('button[aria-label="Auslösen"]')
@@ -106,5 +106,13 @@ describe('Task2P1.vue (valve_panel) — Steuerpult', () => {
     expect(pult(w).classes()).toContain('cd--done')
     expect(ausloeser(w).attributes('disabled')).toBeDefined()
     expect(w.find('.result').text()).toMatch(/Freigabe/)
+  })
+})
+
+describe('Task2P1.vue — leichter (feat/leichter-loeschprotokoll)', () => {
+  it('spricht von Schränken statt Racks', () => {
+    const w = mount(Task2P1, { props: { view: valveView } })
+    expect(w.text()).not.toMatch(/Rack/)
+    expect(w.text()).toContain('Strom an den Schränken')
   })
 })

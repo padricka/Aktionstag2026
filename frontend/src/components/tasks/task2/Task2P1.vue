@@ -6,8 +6,8 @@
     </header>
 
     <p class="hint">
-      Du löschst: Rack und Löschmittel wählen, auslösen. In welcher Reihenfolge, sagt Regel ② auf
-      deinem Teil des Löschplans – das Log hat der Leitstand. Ob ein Rack unter Strom steht, siehst nur du.
+      Du löschst: Schrank und Löschmittel wählen, auslösen. In welcher Reihenfolge, sagt Regel ② auf
+      deinem Teil des Löschplans – das Log hat der Leitstand. Ob ein Schrank unter Strom steht, siehst nur du.
     </p>
 
     <div class="body">
@@ -19,14 +19,14 @@
             :step="step"
             :sequence-len="sequenceLen"
             :state="panelState"
-            valve-label="Rack"
+            valve-label="Schrank"
             color-label="Löschmittel"
             @submit="ausloesen"
           />
         </section>
 
         <section class="power">
-          <span class="panel-label">Strom an den Racks</span>
+          <span class="panel-label">Strom an den Schränken</span>
           <ul class="power-list">
             <li v-for="r in racks" :key="r" class="power-item" :class="{ 'is-on': power[r] }">
               <span class="power-led" aria-hidden="true"></span>

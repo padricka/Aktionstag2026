@@ -56,3 +56,11 @@ describe('Task2Master.vue (fire_log)', () => {
     expect(w.find('.role').text()).toBe('Leitstand')
   })
 })
+
+describe('Task2Master.vue — leichter (feat/leichter-loeschprotokoll)', () => {
+  it('spricht im Log von Schränken statt Racks', () => {
+    const w = mount(Task2Master, { props: { view: fireLog } })
+    expect(w.text()).not.toMatch(/Rack/)
+    expect(w.findAll('.log-row')[2].text()).toContain('Schrank')
+  })
+})

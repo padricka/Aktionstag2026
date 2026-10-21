@@ -1,12 +1,12 @@
 <template>
   <div class="task">
     <header class="head">
-      <h2 class="title">Rack-Rückseite</h2>
+      <h2 class="title">Schrank-Rückseite</h2>
       <span class="role">Rückseite</span>
     </header>
 
     <p class="hint">
-      Du siehst, was in jedem Rack steckt – sag es dem Leitstand. Regel ③ auf deinem Teil des
+      Du siehst, was in jedem Schrank steckt – sag es dem Leitstand. Regel ③ auf deinem Teil des
       Löschplans erklärt, wie man die Uhrzeiten im Log liest. Zum Schluss: Freigabe zu zweit (④).
     </p>
 
@@ -15,7 +15,7 @@
     <div v-else class="body">
       <div class="main-col">
         <section class="panel">
-          <span class="panel-label">Brandgut hinter den Racks</span>
+          <span class="panel-label">Brandgut hinter den Schränken</span>
           <ul class="rear">
             <li v-for="r in rear" :key="r.rack" class="rear-item">
               <span class="rear-rack">{{ r.rack }}</span>

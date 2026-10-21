@@ -351,3 +351,10 @@ def test_freigabe_gleichzeitig_gedrueckt_gibt_frei(dc, langsame_pruefung):
 
     assert dc.current_task()["task_id"] != task_id
     assert int(dc.redis.r.hget(dc.redis._k_state(GAME), "solved_count")) == 1
+
+
+def test_hints_sagen_schrank_statt_rack():
+    """feat/leichter-loeschprotokoll: auch die Hilfe-Zettel sagen „Schrank“, kein UTC."""
+    for _ in range(20):
+        text = " ".join(h["text"] for h in FireProtocolTask.hints(FireProtocolTask.create({})))
+        assert "Rack" not in text and "UTC" not in text and "Ortszeit" not in text

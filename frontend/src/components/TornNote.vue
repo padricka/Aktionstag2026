@@ -166,6 +166,8 @@ const paperStyle = computed(() => `clip-path: ${clipPath.value}; --tn-lines: ${l
 
 .is-text   { font-weight: 500; }
 .is-rule   { font-weight: 700; }
+/* das Wichtigste auf dem Zettel: fett, mit Textmarker */
+.is-bold   { font-weight: 800; background: linear-gradient(transparent 35%, rgba(255, 226, 0, 0.75) 35%); padding: 0 4px; }
 .is-sign   { font-weight: 700; font-size: 25px; transform: rotate(-3deg); margin-left: auto; }
 .is-strike {
   font-weight: 500;

@@ -52,6 +52,12 @@ describe('TornNote.vue', () => {
     expect(a.find('.tn').classes()).not.toContain('torn-left')
   })
 
+  it('zeigt fett markierte Zeilen als Textmarker (is-bold, feat/leichter-loeschprotokoll)', () => {
+    const fett = { ...note, lines: [{ row: 5, style: 'bold', text: 'Bei RM-Zeiten immer 2 Stunden abziehen!' }] }
+    const w = mount(TornNote, { props: { note: fett, seed: 'x' } })
+    expect(w.find('.tn-text').classes()).toContain('is-bold')
+  })
+
   it('ist für Screenreader als Notiz beschriftet', () => {
     const w = mount(TornNote, { props: { note, seed: 'x' } })
     expect(w.find('.tn').attributes('role')).toBe('note')
