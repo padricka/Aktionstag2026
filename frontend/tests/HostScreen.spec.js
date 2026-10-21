@@ -77,6 +77,35 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(slots[2].text()).toContain('wartet')
   })
 
+  it('Plätze in fester Rollen-Reihenfolge: Leitstand, Vorderseite, Rückseite (egal wer zuerst kam)', async () => {
+    const wrapper = mount(HostScreen)
+    await new Promise((r) => setTimeout(r, 10))
+
+    simulateMessage({
+      event: 'lobby_update',
+      payload: {
+        players: [
+          { name: 'Bene', role: 'FI-SI' },
+          { name: 'Cem', role: null },
+          { name: 'Anna', role: 'MASTER' },
+        ],
+        roles_taken: ['FI-SI', 'MASTER'],
+        status: 'waiting',
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    const slots = wrapper.findAll('.slot')
+    expect(slots[0].text()).toContain('Leitstand')
+    expect(slots[0].text()).toContain('Anna')
+    expect(slots[1].text()).toContain('Vorderseite')
+    expect(slots[1].text()).toContain('Bene')
+    expect(slots[2].text()).toContain('Rückseite')
+    expect(slots[2].text()).toContain('wartet')
+    expect(wrapper.find('.slot-pending').text()).toContain('Cem')
+    expect(wrapper.find('.lobby-count').text()).toBe('3 / 3')
+  })
+
   it('wechselt bei game_tick in die Lauf-Ansicht mit HP/Zeit', async () => {
     const wrapper = mount(HostScreen)
     await new Promise((r) => setTimeout(r, 10))

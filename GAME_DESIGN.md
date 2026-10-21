@@ -35,14 +35,14 @@ Ein Escape Room funktioniert anders: **Niemand kennt die Lösung, jeder hat ein 
 ## 4. Die Aufgaben
 
 Ablauf: **Alarm → Löschprotokoll → Datenrettung → Neustart**. Danach ist das Spiel gewonnen (`status: "won"`).
-Es gelten: falsche Eingabe −60 HP, gelöste Aufgabe +15 HP (max. 300). **Leben sinken nicht mehr mit der Zeit**, nur durch Fehler; läuft die Zeit ab, fallen die Leben auf 0 (Niederlage). **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +90 s (`TIME_BONUS`); DEV-Überspringen gibt keinen Bonus.
+Es gelten: **9 Minuten** Startzeit (`DEFAULT_TIME` = 540 s, per `owner_settings` 60–1800 s). **Der Server brennt:** alle 3 s kostet das Feuer 1 Leben (`FIRE_EVERY`, in 9 Minuten ≈ 180 von 300), falsche Eingabe −60, gelöste Aufgabe +15 (max. 300). Sind die Leben weg oder läuft die Zeit ab (Leben → 0), ist der Server verloren. **Zeitbonus:** jede echt gelöste Aufgabe außer dem Finale gibt +60 s (`TIME_BONUS`); DEV-Modus: Zeit und Feuer stehen, Überspringen gibt keinen Bonus.
 
 ### Einsatzbesprechung (Intro am Beamer)
 
 Bevor die Zeit läuft, sieht das Team am Beamer eine kurze **Einsatzbesprechung** (`IntroStory.vue`).
 - **Ablauf:** Alle Rollen gewählt → ein Spieler drückt „Runde starten“ → ist ein Beamer verbunden, wechselt die Lobby in `status: "briefing"` (Handys: „Einsatzbesprechung läuft – schaut auf den Beamer“, Rollen sind fest). Ohne Beamer startet das Spiel wie bisher sofort.
 - **Beamer weg?** Der Beamer meldet sich alle 10 s (`host_ping`); ohne Meldung gilt er nach 30 s als weg. Auf den Handys erscheint nach 20 s Besprechung der Notfall-Knopf „Kein Beamer da? Ohne Einsatzbesprechung starten“ – ist der Beamer wirklich weg, startet das Spiel direkt.
-- **Story** (M. Kaiser, IT-Leitung, per Funk; Sprechblasen bauen sich wie getippt auf): ① Startbild, Brand in Raum B-04 · ② Nahaufnahme des Racks, „Systemausfall in 05:00“ · ③ das Rechenzentrum mit LEITSTAND / VORDERSEITE / RÜCKSEITE · ④ die drei echten Notizzettel · ⑤ „Redet miteinander – nicht durcheinander!“
+- **Story** (M. Kaiser, IT-Leitung, per Funk; Sprechblasen bauen sich wie getippt auf): ① Startbild, Brand in Raum B-04 · ② Nahaufnahme des Racks, „Systemausfall in 09:00“ · ③ das Rechenzentrum mit LEITSTAND / VORDERSEITE / RÜCKSEITE · ④ die drei echten Notizzettel · ⑤ „Redet miteinander – nicht durcheinander!“
 - **Tutorial (letzte Seite):** ein echtes Notizblatt mit nummerierten Schritten (die Nummern geben die Reihenfolge vor) und der Taschenrechner, dazu die Regeln (Aufgaben + Finale, Fehler kosten Leben, Notizen, Taschenrechner, Punkte).
 - **Bereit-Knopf:** Während der Einsatzbesprechung hat jedes Handy einen „Bereit“-Knopf (Event `player_ready`, wieder zurücknehmbar). Die letzte Folie wartet am Beamer („Warte auf Spieler … x/3 bereit“); sind alle drei bereit, startet der Countdown von selbst. Der Server lässt den Host-Start vorher nicht zu (`not_ready`), außer im DEV-Modus.
 - **Start:** Erst „Einsatz starten“ am Beamer (oder automatisch, sobald alle bereit sind) → Übergang (Kamerafahrt, „Verbinde mit Rechenzentrum B-04…“, 3 – 2 – 1 – LOS!) → Host sendet `start_game` → das Spiel startet, Beamer und Handys blenden weich ein.

@@ -159,7 +159,7 @@ export const SLIDES = [
     alt: 'Nahaufnahme: das brennende Server-Rack, Alarmlicht',
     crop: { x: '90%', y: '35%', zoom: 1.9 },
     alarm: true,
-    hud: '⚠ SYSTEMAUSFALL IN 05:00',
+    hud: '⚠ SYSTEMAUSFALL IN 09:00',
     speaker: KAISER,
     text: 'Uns bleiben nur ein paar Minuten, bis das System ganz ausfällt. Dann sind die Daten von Millionen Versicherten weg.',
   }),
@@ -195,7 +195,7 @@ export const SLIDES = [
     text: 'Kurz die Regeln – dann rettet den Server!',
     tutorial: [
       { icon: '①', text: 'Drei Aufgaben, dann das Finale. Jede gelöste Aufgabe verrät eine Ziffer des Neustart-Codes.' },
-      { icon: '♥', text: 'Falsche Eingaben kosten Leben. Läuft die Zeit ab, ist der Server verloren.' },
+      { icon: '♥', text: 'Das Feuer frisst laufend Leben, falsche Eingaben noch mehr. Sind die Leben weg oder läuft die Zeit ab, ist der Server verloren.' },
       { icon: '✎', text: 'Eure Notizzettel (wie links) sagen, wie ihr vorgehen müsst: Die Nummern ①②③ geben die Reihenfolge vor, Rechenbeispiele stehen gleich dabei.' },
       { icon: '⌗', text: 'Rechts auf dem Handy liegt ein Taschenrechner – antippen, dann gleitet er herein.' },
       { icon: '★', text: 'Je schneller und je weniger Hilfe, desto mehr Punkte.' },

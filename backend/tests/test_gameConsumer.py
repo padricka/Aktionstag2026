@@ -14,7 +14,7 @@ from channels.testing import WebsocketCommunicator
 from backend.GameConsumer import GameConsumer
 from backend.gameLoop import games, GameLoop
 from backend.playableObject import AlarmTask, ROLE_M, ROLE_P1, ROLE_P2
-from backend.redis_handler import ROLES, RedisHandler
+from backend.redis_handler import DEFAULT_TIME, ROLES, RedisHandler
 
 
 # ---------------------------------------------------------------- Fixtures
@@ -771,7 +771,7 @@ async def test_dev_mode_time_stands_still(env):
     try:
         t1 = await recv_until(a, "game_tick")
         t2 = await recv_until(a, "game_tick", timeout=3)
-        assert t1["payload"]["time_left"] == t2["payload"]["time_left"] == 300
+        assert t1["payload"]["time_left"] == t2["payload"]["time_left"] == DEFAULT_TIME
         assert t2["payload"]["health"] == 300
     finally:
         await beenden(host, a, b, c, game_ids=[gid])

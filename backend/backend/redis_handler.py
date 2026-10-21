@@ -7,7 +7,7 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
 REDIS_DB = int(os.environ.get("REDIS_DB", 1))
 
-DEFAULT_TIME = 300
+DEFAULT_TIME = 540   # 9 Minuten
 # erlaubte Spielzeit über owner_settings (Sekunden)
 MIN_TIME = 60
 MAX_TIME = 1800

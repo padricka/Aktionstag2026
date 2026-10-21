@@ -1,7 +1,7 @@
 """Punktevergabe (GAME_DESIGN.md, Abschnitt „Punkte“).
 
-  Leben sinken NICHT mehr mit der Zeit, nur durch Fehler (−60). Läuft die Zeit ab,
-  fallen die Leben auf 0 (Niederlage).
+  9 Minuten Startzeit. Der Server brennt: alle 3 s kostet das Feuer 1 Leben, Fehler −60
+  (feat/zeit-und-feuer). Läuft die Zeit ab, fallen die Leben auf 0 (Niederlage).
 
   Endpunkte = restliche Leben                         (Basiswert)
             + Aufgabenpunkte je gelöster Aufgabe      (200 / 250 / 300, Finale 0)
@@ -16,7 +16,8 @@ import pytest
 import fakeredis
 from unittest.mock import patch
 
-from backend.dataCenter import DataCenter, TASK_POINTS, FAST_LIMIT, HINT_COST, MISTAKE_DAMAGE, TIME_BONUS
+from backend.dataCenter import DataCenter, TASK_POINTS, FAST_LIMIT, HINT_COST, MISTAKE_DAMAGE, TIME_BONUS, FIRE_EVERY
+from backend.redis_handler import DEFAULT_TIME
 from backend.playableObject import ROLE_M, ROLE_P1, ROLE_P2
 
 GAME = "punkte_session"
@@ -79,11 +80,34 @@ def _loese(dc):
 
 
 # ------------------------------------------------------------------ Leben und Zeit
-def test_time_no_longer_costs_lives(dc):
-    for _ in range(10):
+def test_round_lasts_nine_minutes_and_solving_gives_a_minute():
+    """feat/zeit-und-feuer: 9 Minuten Startzeit, +60 s pro gelöster Aufgabe."""
+    assert DEFAULT_TIME == 540
+    assert TIME_BONUS == 60
+    assert FIRE_EVERY == 3
+
+
+def test_the_fire_costs_one_life_every_three_seconds(dc):
+    for _ in range(9):
         dc.tick()
+    assert dc.time_left == DEFAULT_TIME - 9
+    assert dc.health == dc.max_health - 3
+
+
+def test_the_fire_can_burn_the_server_down(dc):
+    dc.redis.r.hset(dc._key, "health", 1)
+    for _ in range(FIRE_EVERY):
+        dc.tick()
+    assert dc.health == 0
+    assert dc.status == "game_over"
+
+
+def test_fire_count_starts_fresh_each_round(dc):
+    for _ in range(FIRE_EVERY - 1):
+        dc.tick()
+    dc.start()
+    dc.tick()
     assert dc.health == dc.max_health
-    assert dc.time_left == 290
 
 
 def test_time_running_out_sets_lives_to_zero(dc):

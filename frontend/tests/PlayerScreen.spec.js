@@ -599,6 +599,19 @@ describe('PlayerScreen.vue', () => {
     expect(wrapper.find('.end-status').text()).toBe('Mission erfüllt')
   })
 
+  it('Warteliste in fester Rollen-Reihenfolge (Leitstand zuerst)', async () => {
+    const wrapper = mount(PlayerScreen, { props: { playerName: 'Bene' }, global: { stubs } })
+    await joinAs(wrapper)
+    simulateMessage({ event: 'role_assigned', payload: { role: 'FI-SI' } })
+    simulateMessage({ event: 'lobby_update', payload: {
+      players: [{ name: 'Bene', role: 'FI-SI' }, { name: 'Anna', role: 'MASTER' }],
+      roles_taken: ['FI-SI', 'MASTER'], status: 'waiting', ready_to_start: false,
+    } })
+    await wrapper.vm.$nextTick()
+    const namen = wrapper.findAll('.wait-item .wait-name').map((n) => n.text())
+    expect(namen).toEqual(['Anna', 'Bene', 'wartet'])
+  })
+
   describe('Kleinkram (fix/kleinkram)', () => {
     afterEach(() => {
       vi.useRealTimers()
