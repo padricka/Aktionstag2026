@@ -164,7 +164,7 @@ function ausloesen(wert) {
   letter-spacing: 0.15em;
 }
 
-.hint { font-size: 13px; color: var(--fg-3); margin: 0 0 24px 0; }
+.hint { font-size: 17px; line-height: 1.45; color: var(--fg); margin: 0 0 24px 0; }
 
 .body {
   flex: 1;
