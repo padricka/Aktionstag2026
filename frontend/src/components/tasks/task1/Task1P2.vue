@@ -113,8 +113,9 @@ function colorBg(name) {
 }
 
 .hint {
-  font-size: 13px;
-  color: var(--fg-3);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--fg);
   margin: 0 0 24px 0;
 }
 
