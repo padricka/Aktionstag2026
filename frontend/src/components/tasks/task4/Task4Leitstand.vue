@@ -17,7 +17,8 @@
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-    <div v-else class="body">
+    <FitBox v-else :scroll-unter="1100">
+    <div class="body">
       <div class="main-col">
         <!-- was falsch war (vom Server), oben gut sichtbar -->
         <p v-if="serverError" class="msg-err" role="alert">{{ serverError }}</p>
@@ -86,6 +87,7 @@
         <TornNote :note="view.note" :seed="noteSeed" />
       </aside>
     </div>
+    </FitBox>
 
     <div v-if="victory" class="sieg">SERVER FÄHRT HOCH …</div>
   </div>
@@ -93,6 +95,7 @@
 
 <script setup>
 import TornNote from '../../TornNote.vue'
+import FitBox from '../../FitBox.vue'
 import TeilGrafik from '../../TeilGrafik.vue'
 import SchluesselSchalter from './SchluesselSchalter.vue'
 

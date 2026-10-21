@@ -28,14 +28,13 @@
 .empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--fg-3); }
 
 .body {
-  flex: 1;
-  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
   gap: 24px;
-  overflow: auto;
+  /* kein Scrollen: die FitBox drumherum verkleinert notfalls alles (fix/alles-passt) */
 }
-.main-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+/* breit genug: Bereiche nebeneinander, das halbiert die Höhe (fix/alles-passt) */
+.main-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-content: start; gap: 18px; min-width: 0; }
 .note-col { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 
 .panel {
