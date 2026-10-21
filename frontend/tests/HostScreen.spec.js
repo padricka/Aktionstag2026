@@ -293,6 +293,12 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
       expect(wrapper.find('.hint-note').text()).toContain('Die LED blinkt – rückwärts.')
     })
 
+    it('schickt die Aufgabe mit, zu der der Zettel gehört (fix/kleinkram)', async () => {
+      const wrapper = await imSpiel({ ...BLOCK, task_id: 'task-7' })
+      await wrapper.findAll('button.hint-topic')[0].trigger('click')
+      expect(getSentEvents().at(-1)).toEqual({ event: 'open_hint', payload: { id: 'cable', task_id: 'task-7' } })
+    })
+
     it('ohne Hilfen (z. B. Finale) kein Hilfe-Bereich', async () => {
       const wrapper = await imSpiel({ total: 0, available: [], opened: [], cost: 50 })
       expect(wrapper.find('.hint-board').exists()).toBe(false)
@@ -401,7 +407,7 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
         event: 'lobby_update',
         payload: { players: [], status: 'running', ready_to_start: true, dev_mode: devMode },
       })
-      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [] } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [{ task_id: 't1', kind: 'alarm' }] } })
       await wrapper.vm.$nextTick()
       return wrapper
     }
@@ -462,10 +468,14 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
 
       await wrapper.find('.dev-skip').trigger('click')
       expect(getSentEvents().at(-1)).toEqual({ event: 'dev_skip_task', payload: {} })
-      // bis zur nächsten Aufgabe gesperrt (kein Doppelsprung)
+      // bis zur nächsten Aufgabe gesperrt (kein Doppelsprung) – ein normaler Sekunden-Tick
+      // derselben Aufgabe gibt den Knopf noch nicht frei (fix/kleinkram)
+      expect(wrapper.find('.dev-skip').attributes('disabled')).toBeDefined()
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 299, tasks: [{ task_id: 't1', kind: 'alarm' }] } })
+      await wrapper.vm.$nextTick()
       expect(wrapper.find('.dev-skip').attributes('disabled')).toBeDefined()
 
-      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 300, tasks: [] } })
+      simulateMessage({ event: 'game_tick', payload: { health: 300, time_left: 299, tasks: [{ task_id: 't2', kind: 'fire_protocol' }] } })
       await wrapper.vm.$nextTick()
       expect(wrapper.find('.dev-skip').attributes('disabled')).toBeUndefined()
     })

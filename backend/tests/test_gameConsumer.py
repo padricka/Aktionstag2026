@@ -368,7 +368,7 @@ async def test_choose_role_error_from_redis(env):
 # ---------------------------------------------------------------- owner_settings
 @pytest.mark.asyncio
 async def test_owner_settings_valid(env):
-    comm = await verbinden_ohne_initial("cov_os_ok")
+    comm = await host_verbinden("cov_os_ok")          # nur der Host darf (fix/kleinkram)
     await comm.send_json_to({"event": "owner_settings", "payload": {"time": 60}})
     msg = await recv_until(comm, "lobby_update")
     assert msg["payload"]["status"] in ("waiting", "ready")
@@ -377,7 +377,7 @@ async def test_owner_settings_valid(env):
 
 @pytest.mark.asyncio
 async def test_owner_settings_invalid(env):
-    comm = await verbinden_ohne_initial("cov_os_bad")
+    comm = await host_verbinden("cov_os_bad")
     await comm.send_json_to({"event": "owner_settings", "payload": {"time": "abc"}})
     msg = await recv_until(comm, "error")
     assert "Einstellungen" in msg["payload"]["message"]
@@ -1154,3 +1154,90 @@ async def test_late_joiner_after_victory_gets_the_real_result(env):
         await comm.disconnect()
     finally:
         await beenden(a, b, c, game_ids=[gid])
+
+
+# ---------------------------------------------------------------- Rechte und Namen (fix/kleinkram)
+@pytest.mark.asyncio
+async def test_owner_settings_only_from_the_host(env):
+    (a,) = await spieler("cov_os_nohost", ("A", "MASTER"))
+    try:
+        await a.send_json_to({"event": "owner_settings", "payload": {"time": 1}})
+        msg = await recv_until(a, "error")
+        assert msg["payload"]["code"] == "settings_denied"
+        assert int(env.hget(state_key("cov_os_nohost"), "time_left")) != 1
+    finally:
+        await beenden(a, game_ids=["cov_os_nohost"])
+
+
+@pytest.mark.asyncio
+async def test_players_cannot_reset_a_running_game(env):
+    gid = "cov_reset_running"
+    (a, b, c) = await spieler(gid, ("A", "MASTER"), ("B", "FI-SI"), ("C", "FI-AE"))
+    try:
+        await a.send_json_to({"event": "start_game", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
+        await b.send_json_to({"event": "reset_game", "payload": {}})
+        msg = await recv_until(b, "error")
+        assert msg["payload"]["code"] == "reset_denied"
+        assert env.hget(state_key(gid), "status").decode() == "running"
+    finally:
+        await beenden(a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_host_can_reset_a_running_game(env):
+    gid = "cov_reset_host"
+    host, a, b, c = await dev_spiel(env, gid)
+    try:
+        await host.send_json_to({"event": "reset_game", "payload": {}})
+        await recv_until(host, "lobby_update", lambda p: p["status"] == "waiting")
+    finally:
+        await beenden(host, a, b, c, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_same_name_while_the_first_is_still_connected_is_refused(env):
+    """Zwei Geräte (verschiedene client_id), gleicher Name, beide verbunden."""
+    gid = "cov_same_name"
+    erster = await verbinden_ohne_initial(gid)
+    await erster.send_json_to({"event": "player_register", "payload": {"player_name": "Max", "client_id": "tab-1"}})
+    await recv_until(erster, "lobby_update", lambda p: len(p["players"]) == 1)
+    zweiter = await verbinden_ohne_initial(gid)
+    try:
+        await zweiter.send_json_to({"event": "player_register", "payload": {"player_name": "Max", "client_id": "tab-2"}})
+        msg = await recv_until(zweiter, "error")
+        assert msg["payload"]["code"] == "register_denied"
+        assert "vergeben" in msg["payload"]["message"]
+    finally:
+        await beenden(erster, zweiter, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_same_tab_reloading_keeps_its_name(env):
+    """F5: dieselbe client_id meldet sich neu an, bevor die alte Verbindung weg ist."""
+    gid = "cov_same_tab"
+    alt = await verbinden_ohne_initial(gid)
+    await alt.send_json_to({"event": "player_register", "payload": {"player_name": "Max", "client_id": "tab-1"}})
+    await recv_until(alt, "lobby_update", lambda p: len(p["players"]) == 1)
+    neu = await verbinden_ohne_initial(gid)
+    try:
+        await neu.send_json_to({"event": "player_register", "payload": {"player_name": "Max", "client_id": "tab-1"}})
+        await waehle_rolle(neu, "MASTER")
+        msg = await recv_until(neu, "role_assigned")
+        assert msg["payload"]["role"] == "MASTER"
+    finally:
+        await beenden(alt, neu, game_ids=[gid])
+
+
+@pytest.mark.asyncio
+async def test_same_name_after_the_first_left_is_a_reconnect(env):
+    gid = "cov_same_name_reconnect"
+    (a,) = await spieler(gid, ("Max", "MASTER"))
+    await a.disconnect()
+    neu = await verbinden_ohne_initial(gid)
+    try:
+        await registrieren(neu, "Max")
+        msg = await recv_until(neu, "role_assigned")
+        assert msg["payload"]["role"] == "MASTER"
+    finally:
+        await beenden(neu, game_ids=[gid])

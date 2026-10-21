@@ -159,6 +159,9 @@ const devMode = ref(false)
 const allReady = ref(false)   // alle drei Spieler haben in der Einsatzbesprechung „Bereit“ gedrückt
 const devError = ref('')
 const skipping = ref(false)
+let aktuelleAufgabe = null   // task_id der laufenden Aufgabe (game_tick)
+let skipVonAufgabe = null    // … beim Klick auf Überspringen
+let skipTimer = null
 const hints = ref({ total: 0, available: [], opened: [], cost: 50 })   // Hilfe-Notizen der laufenden Aufgabe (game_tick.hints)
 const hintError = ref('')
 const restarting = ref(false)   // Neustart vom Beamer gesendet, wartet auf lobby_update
@@ -298,7 +301,10 @@ function handleMessage(msg) {
   }
 
   if (event === 'game_tick') {
-    skipping.value = false
+    // Überspringen erst wieder frei, wenn wirklich die nächste Aufgabe da ist –
+    // der normale Sekunden-Tick gibt den Knopf nicht frei (sonst Doppelsprung)
+    aktuelleAufgabe = payload.tasks?.[0]?.task_id ?? null
+    if (skipping.value && aktuelleAufgabe !== skipVonAufgabe) skipping.value = false
     if (typeof payload.health === 'number') hp.value = payload.health
     timeLeft.value = payload.time_left ?? timeLeft.value
     if (Array.isArray(payload.reboot_digits)) {
@@ -354,15 +360,19 @@ function introFertig() {
 // Hilfe-Notiz: Host reißt den Zettel zu einem Thema ab, der Server schickt ihn im game_tick an alle
 function oeffneHilfe(id) {
   hintError.value = ''
-  sendEvent('open_hint', { id })
+  // task_id: der Zettel gilt nur für diese Aufgabe (ist sie gerade gelöst, lehnt der Server ab)
+  const taskId = hints.value?.task_id
+  sendEvent('open_hint', taskId ? { id, task_id: taskId } : { id })
 }
 
 function skipTask() {
   if (skipping.value) return
   skipping.value = true
+  skipVonAufgabe = aktuelleAufgabe
   sendEvent('dev_skip_task', {})
-  // Falls kein Tick kommt (z. B. Verbindung weg): nicht dauerhaft gesperrt
-  setTimeout(() => { skipping.value = false }, 3000)
+  // Falls keine neue Aufgabe kommt (z. B. Verbindung weg): nicht dauerhaft gesperrt
+  clearTimeout(skipTimer)
+  skipTimer = setTimeout(() => { skipping.value = false }, 3000)
 }
 
 async function resolveGameId() {
@@ -401,6 +411,7 @@ let entfernt = false
 onUnmounted(() => {
   entfernt = true
   if (pingTimer) clearInterval(pingTimer)
+  clearTimeout(skipTimer)
 })
 
 onMounted(async () => {

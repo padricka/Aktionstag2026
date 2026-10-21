@@ -51,7 +51,7 @@ async def leaderboard_page(request):
 
 
 async def force_start_game(request):
-    game_id = request.GET.get("game_id")
+    game_id = (request.GET.get("game_id") or "").strip().lower()   # Beamer zeigt die ID groß
     if not game_id:
         return _json({"status": "error", "message": "game_id required (?game_id=...)"}, 400)
     try:

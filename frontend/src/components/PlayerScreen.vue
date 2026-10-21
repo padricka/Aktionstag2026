@@ -87,7 +87,7 @@
       </div>
 
       <!-- Phase 3: Warten bis Spiel startet -->
-      <div v-else-if="status !== 'running'" class="phase-wait">
+      <div v-else-if="status !== 'running' && !siegPause" class="phase-wait">
         <header class="lobby-bar">
           <span class="bar-brand">DRV-BOX</span>
           <span class="bar-session">{{ gameId.toUpperCase() }}</span>
@@ -269,8 +269,13 @@ const currentTaskComponent = computed(() => {
 const task1Switches   = computed(() => task.value?.view?.switches || ['raute', 'dreieck', 'quadrat', 'kreis'])
 const task1CodeLength = computed(() => task.value?.view?.code_length || 4)
 
+// Sieg im Finale: erst sieht man den Tresor aufgehen, dann kommt das Ergebnis
+const SIEG_PAUSE_MS = 1800
+const siegPause = ref(false)
+let siegTimer = null
+
 const istSpielVorbei = computed(
-  () => isGameOver.value || status.value === 'game_over' || status.value === 'won'
+  () => !siegPause.value && (isGameOver.value || status.value === 'game_over' || status.value === 'won')
 )
 
 // Sieg: der Tresor im Finale öffnet sich (Task4Reboot wertet das aus).
@@ -280,6 +285,28 @@ const zeit = computed(() => {
   const t = Math.max(0, timeLeft.value)
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
 })
+
+// Kennung dieses Browser-Tabs: übersteht F5 (sessionStorage), ein zweites Gerät hat eine
+// andere. Damit lehnt der Server in der Lobby einen zweiten Spieler mit gleichem Namen ab.
+function tabKennung() {
+  const neu = () => globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+  try {
+    let id = sessionStorage.getItem('drv_client_id')
+    if (!id) {
+      id = neu()
+      sessionStorage.setItem('drv_client_id', id)
+    }
+    return id
+  } catch {
+    return neu()
+  }
+}
+const clientId = tabKennung()
+
+function anmelden() {
+  sendEvent('player_register', { player_name: props.playerName || 'Agent', client_id: clientId })
+}
 
 function roleLabel(r) {
   if (r === 'MASTER') return 'Leitstand'
@@ -370,7 +397,7 @@ const handleServerMessage = (msg) => {
       registered.value = false
       resetRound()
       if (!restarting.value) {
-        sendEvent('player_register', { player_name: props.playerName || 'Agent' })
+        anmelden()
       }
     }
 
@@ -430,6 +457,11 @@ const handleServerMessage = (msg) => {
   }
 
   if (event === 'game_over') {
+    const imFinale = !isGameOver.value && currentTask.value === 4 && !!task.value
+    if (payload.result === 'victory' && imFinale) {
+      siegPause.value = true
+      siegTimer = setTimeout(() => { siegPause.value = false; siegTimer = null }, SIEG_PAUSE_MS)
+    }
     isGameOver.value = true
     gameOverResult.value = payload.result || 'meltdown'
     gameOverScore.value = payload.score || 0
@@ -482,6 +514,7 @@ onUnmounted(() => {
   if (restartTimer) clearTimeout(restartTimer)
   if (joinTimer) clearTimeout(joinTimer)
   if (notstartTimer) clearTimeout(notstartTimer)
+  if (siegTimer) clearTimeout(siegTimer)
 })
 
 function handleJoin() {
@@ -495,7 +528,7 @@ function handleJoin() {
   connect(`${WS_BASE}${id}/`, handleServerMessage, () => {
     connected.value = true
     joining.value = false
-    sendEvent('player_register', { player_name: props.playerName || 'Agent' })
+    anmelden()
   })
 
   joinTimer = setTimeout(() => {
@@ -537,7 +570,7 @@ function handleRestart() {
 
     connect(`${WS_BASE}${joinedId.value}/`, handleServerMessage, () => {
       connected.value = true
-      sendEvent('player_register', { player_name: props.playerName || 'Agent' })
+      anmelden()
       restarting.value = false
     })
   }, 300)
@@ -545,6 +578,8 @@ function handleRestart() {
 
 /** Alles, was zu einer Runde gehört, auf Anfang (Rolle wird neu gewählt). */
 function resetRound() {
+  if (siegTimer) { clearTimeout(siegTimer); siegTimer = null }
+  siegPause.value = false
   isGameOver.value = false
   gameOverResult.value = 'meltdown'
   gameOverScore.value = 0

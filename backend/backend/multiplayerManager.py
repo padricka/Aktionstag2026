@@ -18,8 +18,8 @@ class MultiplayerManager:
     async def exists(self) -> bool:
         return await asyncio.to_thread(self.redis.game_exists, self.game_id)
 
-    async def register_player(self, name: str, conn: str | None = None) -> dict:
-        return await asyncio.to_thread(self.redis.register_player, self.game_id, name, conn)
+    async def register_player(self, name: str, conn: str | None = None, client: str | None = None) -> dict:
+        return await asyncio.to_thread(self.redis.register_player, self.game_id, name, conn, client)
 
     async def release_player(self, name: str, conn: str | None = None) -> bool:
         return await asyncio.to_thread(self.redis.release_player, self.game_id, name, conn)

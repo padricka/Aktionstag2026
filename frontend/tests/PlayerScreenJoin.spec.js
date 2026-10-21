@@ -63,7 +63,7 @@ describe('PlayerScreen.vue — unbekannte Sitzungs-ID', () => {
     expect(getConnectCalls().at(-1).url).toContain('/ws/game/abcd/')
     expect(getSentEvents().at(-1)).toEqual({
       event: 'player_register',
-      payload: { player_name: 'Patrick' },
+      payload: { player_name: 'Patrick', client_id: expect.any(String) },
     })
   })
 

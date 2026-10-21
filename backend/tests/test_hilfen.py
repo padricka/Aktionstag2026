@@ -252,3 +252,25 @@ def test_tick_payload_carries_the_hints(dc):
     assert payload["hints"]["total"] == 4
     assert _ids(payload["hints"]["opened"]) == ["order"]
     assert len(payload["hints"]["available"]) == 3
+
+
+# ------------------------------------------------------------------ nur für die gemeinte Aufgabe (fix/kleinkram)
+def test_hints_carry_the_task_id(dc):
+    assert _hints(dc)["task_id"] == dc.current_task()["task_id"]
+
+
+def test_hint_for_an_old_task_is_refused(dc):
+    """Host klickt bei Aufgabe 1, genau als das Team sie löst: der Zettel darf nicht
+    bei Aufgabe 2 abgerissen werden (dort gibt es auch ein Thema „order“)."""
+    alt = dc.current_task()["task_id"]
+    dc.redis.r.hset(dc._key, "dev_mode", "1")
+    dc.skip_task()
+    dc.redis.r.hset(dc._key, "dev_mode", "0")
+    res = dc.open_hint("order", task_id=alt)
+    assert res["result"] == "error"
+    assert _hints(dc)["opened"] == []
+    assert dc.snapshot()["hint_penalty"] == 0
+
+
+def test_hint_with_the_current_task_id_works(dc):
+    assert dc.open_hint("order", task_id=dc.current_task()["task_id"])["result"] == "opened"
