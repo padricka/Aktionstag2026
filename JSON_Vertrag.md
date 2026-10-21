@@ -55,9 +55,22 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 //   startet das Spiel sofort. Während "briefing" lehnt der Server weitere Starts von Spielern
 //   ab, solange der Beamer da ist (error mit Hinweis); ist er weg (siehe host_ping), startet es.
 // Vom Host: startet das Spiel (nach dem Intro am Beamer: „Einsatz starten“ + Countdown).
+//   Im "briefing" nur, wenn alle drei Spieler „Bereit“ gemeldet haben (lobby_update.all_ready);
+//   sonst error mit code "not_ready". Im DEV-Modus entfällt diese Prüfung.
 {
   "event": "start_game",
   "payload": {}
+}
+
+// 4a. „Bereit“ während der Einsatzbesprechung (nur Spieler mit Rolle, nur im Status "briefing")
+// Jeder Spieler drückt den Knopf auf seinem Handy, wenn er das Intro verstanden hat.
+// `ready` ist optional (Standard true); false nimmt die Meldung zurück.
+// Der Server antwortet mit einem lobby_update an alle (players[].ready, all_ready).
+// Fehler (event "error"): code "ready_denied" – nicht im briefing, ohne Rolle, vom Host
+// oder ready kein Boolean.
+{
+  "event": "player_ready",
+  "payload": { "ready": true }
 }
 
 // 5. Verbindungstest
@@ -113,8 +126,12 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
   "event": "lobby_update",
   "payload": {
     "status": "waiting",
-    "players": ["Patrick", "Bene"],
+    "players": [
+      { "name": "Patrick", "role": "MASTER", "ready": true },
+      { "name": "Bene", "role": "FI-SI", "ready": false }
+    ],
     "ready_to_start": true,
+    "all_ready": false,   // true, sobald alle drei Rollen besetzt und alle Spieler „Bereit“ sind
     "dev_mode": false
   }
 }
