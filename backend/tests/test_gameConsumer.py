@@ -304,7 +304,7 @@ async def test_disconnect_with_role_keeps_slot(env):
     await a.disconnect()
     await b.send_json_to({"event": "host_register", "payload": {}})
     msg = await recv_until(b, "lobby_update")
-    assert {"name": "A", "role": "MASTER"} in msg["payload"]["players"]
+    assert {"name": "A", "role": "MASTER", "ready": False} in msg["payload"]["players"]
     await b.disconnect()
 
 
@@ -658,6 +658,10 @@ async def dev_spiel(env, gid, dev=True):
         await recv_until(a, "lobby_update", lambda p: p["dev_mode"] is True)
     await a.send_json_to({"event": "start_game", "payload": {}})
     await recv_until(a, "lobby_update", lambda p: p["status"] == "briefing")
+    if not dev:   # ohne DEV-Modus wartet der Beamer, bis alle „Bereit“ gedrückt haben
+        for comm in (a, b, c):
+            await comm.send_json_to({"event": "player_ready", "payload": {}})
+        await recv_until(a, "lobby_update", lambda p: p["all_ready"])
     await host.send_json_to({"event": "start_game", "payload": {}})   # Intro am Beamer fertig
     await recv_until(a, "lobby_update", lambda p: p["status"] == "running")
     return host, a, b, c
@@ -936,6 +940,9 @@ async def test_host_starts_the_game_after_the_intro(env):
     try:
         await a.send_json_to({"event": "start_game", "payload": {}})
         await recv_until(host, "lobby_update", lambda p: p["status"] == "briefing")
+        for comm in (a, b, c):
+            await comm.send_json_to({"event": "player_ready", "payload": {}})
+        await recv_until(host, "lobby_update", lambda p: p["all_ready"])
         await host.send_json_to({"event": "start_game", "payload": {}})
         await recv_until(b, "lobby_update", lambda p: p["status"] == "running")
         await recv_until(b, "game_tick")
