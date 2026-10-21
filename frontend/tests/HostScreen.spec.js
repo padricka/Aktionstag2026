@@ -142,6 +142,25 @@ describe('HostScreen.vue (mit Fake-WebSocket)', () => {
     expect(wrapper.find('.finale-win').exists()).toBe(true)
   })
 
+  describe('Beamer-Anwesenheit (fix/beamer-anwesenheit)', () => {
+    afterEach(() => vi.useRealTimers())
+
+    it('meldet sich alle 10 s mit host_ping, damit der Server weiß, dass der Beamer da ist', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      const wrapper = mount(HostScreen)
+      await new Promise((r) => setTimeout(r, 10))
+      const pings = () => getSentEvents().filter((e) => e.event === 'host_ping').length
+      const vorher = pings()
+      vi.advanceTimersByTime(10000)
+      expect(pings()).toBe(vorher + 1)
+      vi.advanceTimersByTime(20000)
+      expect(pings()).toBe(vorher + 3)
+      wrapper.unmount()
+      vi.advanceTimersByTime(30000)
+      expect(pings()).toBe(vorher + 3)                  // nach Verlassen keine Pings mehr
+    })
+  })
+
   describe('Verbindung und Neuladen (fix/verbindung)', () => {
     it('schreibt die Sitzung in die Adresse, damit Neuladen in derselben Sitzung bleibt', async () => {
       const spion = vi.spyOn(window.history, 'replaceState')

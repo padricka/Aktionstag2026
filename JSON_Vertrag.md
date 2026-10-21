@@ -52,7 +52,8 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 // 4. Spiel starten (wenn alle drei Rollen besetzt sind)
 // Vom Spieler: Ist ein Beamer (Host) verbunden, startet zuerst die Einsatzbesprechung –
 //   status "briefing" (lobby_update an alle), das Spiel läuft noch NICHT. Ohne Beamer
-//   startet das Spiel sofort. Während "briefing" ignoriert der Server weitere Starts von Spielern.
+//   startet das Spiel sofort. Während "briefing" lehnt der Server weitere Starts von Spielern
+//   ab, solange der Beamer da ist (error mit Hinweis); ist er weg (siehe host_ping), startet es.
 // Vom Host: startet das Spiel (nach dem Intro am Beamer: „Einsatz starten“ + Countdown).
 //   Im "briefing" nur, wenn alle drei Spieler „Bereit“ gemeldet haben (lobby_update.all_ready);
 //   sonst error mit code "not_ready". Im DEV-Modus entfällt diese Prüfung.
@@ -103,6 +104,15 @@ WebSocket-URL: `ws://<host>:8000/ws/game/<game_id>/`
 {
   "event": "open_hint",
   "payload": { "id": "key" }
+}
+
+// 9. Beamer meldet sich (nur Host, alle ~10 s)
+// Der Server merkt sich je Beamer-Verbindung einen Schlüssel mit 30 s Lebensdauer.
+// Ohne Meldung (z. B. nach einem Server-Absturz) gilt der Beamer als weg: dann startet
+// start_game vom Spieler direkt, ohne Einsatzbesprechung.
+{
+  "event": "host_ping",
+  "payload": {}
 }
 
 ---
