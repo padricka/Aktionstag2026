@@ -115,8 +115,10 @@ const skala = ref(1)
 const naturBreite = ref(0)
 const naturHoehe = ref(0)
 
+// Absolut: die feste Breite darf die Spalte nicht verbreitern, sonst wird sie breiter,
+// der Zettel passt wieder, die Spalte schrumpft … und das Bild flackert (fix/notiz-flackern)
 const zettelStil = computed(() => (skala.value < 1
-  ? { width: `${naturBreite.value}px`, maxWidth: 'none', transform: `scale(${skala.value})`, transformOrigin: 'top left' }
+  ? { position: 'absolute', top: 0, left: 0, width: `${naturBreite.value}px`, maxWidth: 'none', transform: `scale(${skala.value})`, transformOrigin: 'top left' }
   : {}))
 const huellenStil = computed(() => (skala.value < 1 ? { height: `${naturHoehe.value * skala.value}px` } : {}))
 
@@ -159,7 +161,7 @@ onUnmounted(() => { ro?.disconnect(); cancelAnimationFrame(frame) })
 </script>
 
 <style scoped>
-.tn-fit { width: 100%; max-width: 520px; }
+.tn-fit { position: relative; width: 100%; max-width: 520px; }
 .tn-fit.is-skaliert { overflow: visible; }
 
 .tn {

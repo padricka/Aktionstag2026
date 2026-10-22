@@ -28,13 +28,17 @@
 .empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--fg-3); }
 
 .body {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
+  grid-template-rows: minmax(0, 1fr);
   gap: 24px;
-  /* kein Scrollen: die FitBox drumherum verkleinert notfalls alles (fix/alles-passt) */
+  /* kein Scrollen: je eine FitBox verkleinert notfalls Schrank und Zettel – getrennt,
+     damit der Zettel nicht mit dem ganzen Schrank winzig wird (fix/notiz-flackern) */
 }
 .main-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.note-col { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.note-col { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 
 .panel {
   display: flex;
@@ -120,6 +124,7 @@
 @keyframes sieg-rein { from { opacity: 0; letter-spacing: 0.6em; } }
 
 @media (max-width: 1100px) {
-  .body { grid-template-columns: minmax(0, 1fr); }
+  /* untereinander und scrollen: Bereiche behalten ihre volle Höhe */
+  .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: max-content; overflow-y: auto; }
   .task { padding: 18px; }
 }
