@@ -671,8 +671,9 @@ describe('PlayerScreen.vue', () => {
       expect(wrapper.find('.zwischenszene').exists()).toBe(false)
     })
 
-    it('nur der Leitstand hat die Teilekiste', async () => {
-      expect((await imSpiel('MASTER', [NETZTEIL])).find('.kiste').exists()).toBe(true)
+    // fix/teilekiste-weg: die Kiste am Rand störte nur, das Finale zeigt die Teile selbst
+    it('keine Rolle hat die Teilekiste am Rand', async () => {
+      expect((await imSpiel('MASTER', [NETZTEIL])).find('.kiste').exists()).toBe(false)
       resetGameSocketMock()
       expect((await imSpiel('FI-AE', [NETZTEIL])).find('.kiste').exists()).toBe(false)
     })
