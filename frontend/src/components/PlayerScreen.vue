@@ -150,7 +150,7 @@
           <span class="bar-stats">{{ hp }} HP · {{ zeit }}</span>
         </header>
 
-        <main class="task-main" :class="{ 'with-kiste': kisteOffen }">
+        <main class="task-main">
           <!-- von Aufgabe zu Aufgabe: alte gleitet weg, neue kommt herein (style.css: .task-*) -->
           <Transition name="task" mode="out-in">
             <component
@@ -174,9 +174,6 @@
           </Transition>
         </main>
 
-        <!-- Teilekiste nur beim Leitstand, links am Rand -->
-        <Teilekiste v-if="myRole === 'MASTER'" v-model:open="kisteOffen" :teile="teile" />
-
         <!-- nach jeder Aufgabe: Fundort öffnet sich, Teil kommt in die Kiste -->
         <Transition name="phase">
           <Zwischenszene
@@ -197,7 +194,6 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useGameSocket } from '../composables/useGameSocket.js'
 import GameOver from './GameOver.vue'
-import Teilekiste from './Teilekiste.vue'
 import Zwischenszene from './Zwischenszene.vue'
 
 import Task1P1 from './tasks/task1/Task1P1.vue'
@@ -256,7 +252,6 @@ const starting = ref(false)
 const startError = ref('')
 
 const restarting = ref(false)
-const kisteOffen = ref(false)       // Teilekiste (Leitstand) offen → Aufgabe rückt zur Seite
 const teile = ref([])               // gefundene Teile (game_tick.parts)
 const zwischenszene = ref(null)     // { teil, naechste, key } solange die Szene läuft
 let teileBekannt = false            // erst ab dem zweiten Tick: Wiedereinstieg zeigt keine alte Szene
@@ -616,7 +611,6 @@ function resetRound() {
   teile.value = []
   teileBekannt = false
   zwischenszene.value = null
-  kisteOffen.value = false
   if (siegTimer) { clearTimeout(siegTimer); siegTimer = null }
   siegPause.value = false
   isGameOver.value = false
@@ -1100,15 +1094,6 @@ function onTaskSolved(data) {
   flex-direction: column;
   padding: 16px;
   overflow: hidden;
-}
-
-/* Platz für die offene Teilekiste (links, auf dem Handy unten), damit
-   die Zahlen der Aufgabe sichtbar bleiben */
-.task-main { transition: padding 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
-.task-main.with-kiste { padding-left: 300px; }
-
-@media (max-width: 700px) {
-  .task-main.with-kiste { padding-left: 16px; padding-bottom: 420px; overflow-y: auto; }
 }
 
 @media (max-width: 900px) {
