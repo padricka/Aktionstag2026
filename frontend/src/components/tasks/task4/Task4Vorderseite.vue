@@ -18,8 +18,8 @@
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-    <FitBox v-else :scroll-unter="1100">
-    <div class="body">
+    <div v-else class="body">
+    <FitBox :scroll-unter="1100">
       <div class="main-col">
         <!-- was falsch war (vom Server), oben gut sichtbar -->
         <p v-if="serverError" class="msg-err" role="alert">{{ serverError }}</p>
@@ -110,13 +110,13 @@
         </section>
 
       </div>
+    </FitBox>
 
       <aside v-if="view.note" class="note-col">
         <span class="panel-label">Dein Teil der Einbauanleitung</span>
-        <TornNote :note="view.note" :seed="noteSeed" />
+        <FitBox :scroll-unter="1100"><TornNote :note="view.note" :seed="noteSeed" /></FitBox>
       </aside>
     </div>
-    </FitBox>
 
     <div v-if="victory" class="sieg">SERVER FÄHRT HOCH …</div>
   </div>
@@ -219,13 +219,14 @@ function luefterGewaehlt(l) {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 1.3;
+  /* feste Höhe statt Seitenverhältnis: sonst wächst die Wand mit der Breite und die FitBox verkleinert alles bis zur Unlesbarkeit */
+  height: 130px;
   padding: 6px;
   background: #0b0d10;
   border: 1px solid #2b3038;
   cursor: default;
 }
-.luefter-platz :deep(.teil) { width: 90%; }
+.luefter-platz :deep(.teil) { width: auto; height: 104px; max-width: 90%; }
 .luefter-platz.is-luecke { cursor: pointer; border-style: dashed; }
 .luefter-platz.is-ziel { border-color: var(--green); box-shadow: 0 0 14px rgba(0, 255, 102, 0.2); }
 .luecke { font-family: var(--mono); font-size: 12px; color: var(--fg-3); }

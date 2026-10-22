@@ -18,8 +18,8 @@
 
     <div v-if="!view" class="empty">Warte auf Task-Daten …</div>
 
-    <FitBox v-else :scroll-unter="1100">
-    <div class="body">
+    <div v-else class="body">
+    <FitBox :scroll-unter="1100">
       <div class="main-col">
         <!-- was falsch war (vom Server), oben gut sichtbar -->
         <p v-if="serverError" class="msg-err" role="alert">{{ serverError }}</p>
@@ -97,13 +97,13 @@
         </section>
 
       </div>
+    </FitBox>
 
       <aside v-if="view.note" class="note-col">
         <span class="panel-label">Dein Teil der Einbauanleitung</span>
-        <TornNote :note="view.note" :seed="noteSeed" />
+        <FitBox :scroll-unter="1100"><TornNote :note="view.note" :seed="noteSeed" /></FitBox>
       </aside>
     </div>
-    </FitBox>
 
     <div v-if="victory" class="sieg">SERVER FÄHRT HOCH …</div>
   </div>
