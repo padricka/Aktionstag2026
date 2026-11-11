@@ -113,6 +113,25 @@ Im Hauptverzeichnis des Projekts folgenden Befehl ausführen:
 ```bash
 docker compose up --build -d
 ```
+
+### Ohne Docker starten (Entwicklung an einem Rechner)
+
+Für Rechner ohne Docker (z. B. ältere Windows-Versionen). Voraussetzungen: **Python 3.13** (bei der Installation „Add to PATH" anhaken) und **Node 22 LTS** (mindestens 20.19).
+
+Im Hauptverzeichnis des Projekts:
+
+```bash
+npm run game
+```
+
+Das Skript (`tools/start-game.mjs`) erledigt alles:
+- legt beim ersten Mal `backend/.venv` an und installiert `requirements.txt` (später nur, wenn sich die Datei ändert),
+- installiert die Frontend-Pakete (`npm ci`), wenn nötig,
+- startet einen Redis-Ersatz in Python (`backend/dev_redis.py`, fakeredis; läuft auf Port 6379 schon ein echtes Redis, wird das benutzt),
+- startet Backend (Port 8000) und Frontend (Port 5173) und öffnet den Browser.
+
+Beenden mit **Strg+C**. Laufende Spiele liegen nur im Arbeitsspeicher und sind danach weg, das Leaderboard bleibt (`backend/data/`). Ohne Browserfenster: `npm run game -- --no-open`. Das Backend hört nur auf `127.0.0.1`, also gedacht für einen Rechner (Handys im WLAN gehen damit nicht).
+
 ### Testing 
 
 ### Backend

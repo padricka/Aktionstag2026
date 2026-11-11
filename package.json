@@ -1,0 +1,8 @@
+{
+  "name": "drv-box",
+  "private": true,
+  "description": "Startskripte für die lokale Entwicklung ohne Docker",
+  "scripts": {
+    "game": "node tools/start-game.mjs"
+  }
+}
