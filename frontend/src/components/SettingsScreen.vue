@@ -17,6 +17,7 @@
             type="button"
             class="btn"
             :class="{ active: settings.theme === 'dark' }"
+            :aria-pressed="settings.theme === 'dark'"
             @click="setTheme('dark')"
           >
             Dark
@@ -25,6 +26,7 @@
             type="button"
             class="btn"
             :class="{ active: settings.theme === 'light' }"
+            :aria-pressed="settings.theme === 'light'"
             @click="setTheme('light')"
           >
             Light
@@ -33,6 +35,7 @@
             type="button"
             class="btn"
             :class="{ active: settings.theme === 'girl' }"
+            :aria-pressed="settings.theme === 'girl'"
             @click="setTheme('girl')"
           >
             Girl
@@ -62,6 +65,7 @@
           type="button"
           class="btn"
           :class="{ active: settings.scanlinesEnabled }"
+          :aria-pressed="settings.scanlinesEnabled ? 'true' : 'false'"
           @click="toggleScanlines"
         >
           {{ settings.scanlinesEnabled ? 'Deaktivieren' : 'Aktivieren' }}
@@ -94,6 +98,7 @@
           type="button"
           class="btn"
           :class="{ active: settings.musicEnabled }"
+          :aria-pressed="settings.musicEnabled ? 'true' : 'false'"
           @click="settings.musicEnabled = !settings.musicEnabled"
         >
           {{ settings.musicEnabled ? 'Deaktivieren' : 'Aktivieren' }}
@@ -121,6 +126,7 @@
           type="button"
           class="btn"
           :class="{ active: settings.sfxEnabled }"
+          :aria-pressed="settings.sfxEnabled ? 'true' : 'false'"
           @click="settings.sfxEnabled = !settings.sfxEnabled"
         >
           {{ settings.sfxEnabled ? 'Deaktivieren' : 'Aktivieren' }}
@@ -136,6 +142,7 @@
           type="button"
           class="btn"
           :class="{ active: settings.voiceEnabled }"
+          :aria-pressed="settings.voiceEnabled ? 'true' : 'false'"
           @click="settings.voiceEnabled = !settings.voiceEnabled"
         >
           {{ settings.voiceEnabled ? 'Deaktivieren' : 'Aktivieren' }}
